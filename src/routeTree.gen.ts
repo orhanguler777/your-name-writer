@@ -9,38 +9,239 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
+import { Route as AuthenticatedSikayetlerRouteImport } from './routes/_authenticated/sikayetler'
+import { Route as AuthenticatedSikayetOlusturRouteImport } from './routes/_authenticated/sikayet-olustur'
+import { Route as AuthenticatedPersonelAnaliziRouteImport } from './routes/_authenticated/personel-analizi'
+import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
+import { Route as AuthenticatedMudurlukRouteImport } from './routes/_authenticated/mudurluk'
+import { Route as AuthenticatedGunlukMesajlarRouteImport } from './routes/_authenticated/gunluk-mesajlar'
+import { Route as AuthenticatedCozumMasasiRouteImport } from './routes/_authenticated/cozum-masasi'
+import { Route as AuthenticatedBaskanAiBotRouteImport } from './routes/_authenticated/baskan-ai-bot'
+import { Route as AuthenticatedBaskanRouteImport } from './routes/_authenticated/baskan'
+import { Route as AuthenticatedAyarlarRouteImport } from './routes/_authenticated/ayarlar'
+import { Route as AuthenticatedAracBakimRouteImport } from './routes/_authenticated/arac-bakim'
+import { Route as AuthenticatedSikayetlerIdRouteImport } from './routes/_authenticated/sikayetler.$id'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSikayetlerRoute = AuthenticatedSikayetlerRouteImport.update({
+  id: '/sikayetler',
+  path: '/sikayetler',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSikayetOlusturRoute =
+  AuthenticatedSikayetOlusturRouteImport.update({
+    id: '/sikayet-olustur',
+    path: '/sikayet-olustur',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPersonelAnaliziRoute =
+  AuthenticatedPersonelAnaliziRouteImport.update({
+    id: '/personel-analizi',
+    path: '/personel-analizi',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPanelRoute = AuthenticatedPanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMudurlukRoute = AuthenticatedMudurlukRouteImport.update({
+  id: '/mudurluk',
+  path: '/mudurluk',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGunlukMesajlarRoute =
+  AuthenticatedGunlukMesajlarRouteImport.update({
+    id: '/gunluk-mesajlar',
+    path: '/gunluk-mesajlar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCozumMasasiRoute =
+  AuthenticatedCozumMasasiRouteImport.update({
+    id: '/cozum-masasi',
+    path: '/cozum-masasi',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedBaskanAiBotRoute =
+  AuthenticatedBaskanAiBotRouteImport.update({
+    id: '/baskan-ai-bot',
+    path: '/baskan-ai-bot',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedBaskanRoute = AuthenticatedBaskanRouteImport.update({
+  id: '/baskan',
+  path: '/baskan',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAyarlarRoute = AuthenticatedAyarlarRouteImport.update({
+  id: '/ayarlar',
+  path: '/ayarlar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAracBakimRoute = AuthenticatedAracBakimRouteImport.update({
+  id: '/arac-bakim',
+  path: '/arac-bakim',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSikayetlerIdRoute =
+  AuthenticatedSikayetlerIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedSikayetlerRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/arac-bakim': typeof AuthenticatedAracBakimRoute
+  '/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/baskan': typeof AuthenticatedBaskanRoute
+  '/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
+  '/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
+  '/mudurluk': typeof AuthenticatedMudurlukRoute
+  '/panel': typeof AuthenticatedPanelRoute
+  '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
+  '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/sikayetler': typeof AuthenticatedSikayetlerRouteWithChildren
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/arac-bakim': typeof AuthenticatedAracBakimRoute
+  '/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/baskan': typeof AuthenticatedBaskanRoute
+  '/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
+  '/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
+  '/mudurluk': typeof AuthenticatedMudurlukRoute
+  '/panel': typeof AuthenticatedPanelRoute
+  '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
+  '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/sikayetler': typeof AuthenticatedSikayetlerRouteWithChildren
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/arac-bakim': typeof AuthenticatedAracBakimRoute
+  '/_authenticated/ayarlar': typeof AuthenticatedAyarlarRoute
+  '/_authenticated/baskan': typeof AuthenticatedBaskanRoute
+  '/_authenticated/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
+  '/_authenticated/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/_authenticated/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
+  '/_authenticated/mudurluk': typeof AuthenticatedMudurlukRoute
+  '/_authenticated/panel': typeof AuthenticatedPanelRoute
+  '/_authenticated/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
+  '/_authenticated/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/_authenticated/sikayetler': typeof AuthenticatedSikayetlerRouteWithChildren
+  '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/_authenticated/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/arac-bakim'
+    | '/ayarlar'
+    | '/baskan'
+    | '/baskan-ai-bot'
+    | '/cozum-masasi'
+    | '/gunluk-mesajlar'
+    | '/mudurluk'
+    | '/panel'
+    | '/personel-analizi'
+    | '/sikayet-olustur'
+    | '/sikayetler'
+    | '/whatsapp'
+    | '/sikayetler/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/arac-bakim'
+    | '/ayarlar'
+    | '/baskan'
+    | '/baskan-ai-bot'
+    | '/cozum-masasi'
+    | '/gunluk-mesajlar'
+    | '/mudurluk'
+    | '/panel'
+    | '/personel-analizi'
+    | '/sikayet-olustur'
+    | '/sikayetler'
+    | '/whatsapp'
+    | '/sikayetler/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/arac-bakim'
+    | '/_authenticated/ayarlar'
+    | '/_authenticated/baskan'
+    | '/_authenticated/baskan-ai-bot'
+    | '/_authenticated/cozum-masasi'
+    | '/_authenticated/gunluk-mesajlar'
+    | '/_authenticated/mudurluk'
+    | '/_authenticated/panel'
+    | '/_authenticated/personel-analizi'
+    | '/_authenticated/sikayet-olustur'
+    | '/_authenticated/sikayetler'
+    | '/_authenticated/whatsapp'
+    | '/_authenticated/sikayetler/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +249,152 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/whatsapp': {
+      id: '/_authenticated/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sikayetler': {
+      id: '/_authenticated/sikayetler'
+      path: '/sikayetler'
+      fullPath: '/sikayetler'
+      preLoaderRoute: typeof AuthenticatedSikayetlerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sikayet-olustur': {
+      id: '/_authenticated/sikayet-olustur'
+      path: '/sikayet-olustur'
+      fullPath: '/sikayet-olustur'
+      preLoaderRoute: typeof AuthenticatedSikayetOlusturRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/personel-analizi': {
+      id: '/_authenticated/personel-analizi'
+      path: '/personel-analizi'
+      fullPath: '/personel-analizi'
+      preLoaderRoute: typeof AuthenticatedPersonelAnaliziRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/panel': {
+      id: '/_authenticated/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof AuthenticatedPanelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mudurluk': {
+      id: '/_authenticated/mudurluk'
+      path: '/mudurluk'
+      fullPath: '/mudurluk'
+      preLoaderRoute: typeof AuthenticatedMudurlukRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gunluk-mesajlar': {
+      id: '/_authenticated/gunluk-mesajlar'
+      path: '/gunluk-mesajlar'
+      fullPath: '/gunluk-mesajlar'
+      preLoaderRoute: typeof AuthenticatedGunlukMesajlarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cozum-masasi': {
+      id: '/_authenticated/cozum-masasi'
+      path: '/cozum-masasi'
+      fullPath: '/cozum-masasi'
+      preLoaderRoute: typeof AuthenticatedCozumMasasiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/baskan-ai-bot': {
+      id: '/_authenticated/baskan-ai-bot'
+      path: '/baskan-ai-bot'
+      fullPath: '/baskan-ai-bot'
+      preLoaderRoute: typeof AuthenticatedBaskanAiBotRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/baskan': {
+      id: '/_authenticated/baskan'
+      path: '/baskan'
+      fullPath: '/baskan'
+      preLoaderRoute: typeof AuthenticatedBaskanRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ayarlar': {
+      id: '/_authenticated/ayarlar'
+      path: '/ayarlar'
+      fullPath: '/ayarlar'
+      preLoaderRoute: typeof AuthenticatedAyarlarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/arac-bakim': {
+      id: '/_authenticated/arac-bakim'
+      path: '/arac-bakim'
+      fullPath: '/arac-bakim'
+      preLoaderRoute: typeof AuthenticatedAracBakimRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sikayetler/$id': {
+      id: '/_authenticated/sikayetler/$id'
+      path: '/$id'
+      fullPath: '/sikayetler/$id'
+      preLoaderRoute: typeof AuthenticatedSikayetlerIdRouteImport
+      parentRoute: typeof AuthenticatedSikayetlerRoute
+    }
   }
 }
 
+interface AuthenticatedSikayetlerRouteChildren {
+  AuthenticatedSikayetlerIdRoute: typeof AuthenticatedSikayetlerIdRoute
+}
+
+const AuthenticatedSikayetlerRouteChildren: AuthenticatedSikayetlerRouteChildren =
+  {
+    AuthenticatedSikayetlerIdRoute: AuthenticatedSikayetlerIdRoute,
+  }
+
+const AuthenticatedSikayetlerRouteWithChildren =
+  AuthenticatedSikayetlerRoute._addFileChildren(
+    AuthenticatedSikayetlerRouteChildren,
+  )
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAracBakimRoute: typeof AuthenticatedAracBakimRoute
+  AuthenticatedAyarlarRoute: typeof AuthenticatedAyarlarRoute
+  AuthenticatedBaskanRoute: typeof AuthenticatedBaskanRoute
+  AuthenticatedBaskanAiBotRoute: typeof AuthenticatedBaskanAiBotRoute
+  AuthenticatedCozumMasasiRoute: typeof AuthenticatedCozumMasasiRoute
+  AuthenticatedGunlukMesajlarRoute: typeof AuthenticatedGunlukMesajlarRoute
+  AuthenticatedMudurlukRoute: typeof AuthenticatedMudurlukRoute
+  AuthenticatedPanelRoute: typeof AuthenticatedPanelRoute
+  AuthenticatedPersonelAnaliziRoute: typeof AuthenticatedPersonelAnaliziRoute
+  AuthenticatedSikayetOlusturRoute: typeof AuthenticatedSikayetOlusturRoute
+  AuthenticatedSikayetlerRoute: typeof AuthenticatedSikayetlerRouteWithChildren
+  AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAracBakimRoute: AuthenticatedAracBakimRoute,
+  AuthenticatedAyarlarRoute: AuthenticatedAyarlarRoute,
+  AuthenticatedBaskanRoute: AuthenticatedBaskanRoute,
+  AuthenticatedBaskanAiBotRoute: AuthenticatedBaskanAiBotRoute,
+  AuthenticatedCozumMasasiRoute: AuthenticatedCozumMasasiRoute,
+  AuthenticatedGunlukMesajlarRoute: AuthenticatedGunlukMesajlarRoute,
+  AuthenticatedMudurlukRoute: AuthenticatedMudurlukRoute,
+  AuthenticatedPanelRoute: AuthenticatedPanelRoute,
+  AuthenticatedPersonelAnaliziRoute: AuthenticatedPersonelAnaliziRoute,
+  AuthenticatedSikayetOlusturRoute: AuthenticatedSikayetOlusturRoute,
+  AuthenticatedSikayetlerRoute: AuthenticatedSikayetlerRouteWithChildren,
+  AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
