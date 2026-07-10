@@ -1,9 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { z } from "zod";
-import { createLovableGateway } from "@/lib/ai-gateway.server";
+import { openai } from "@ai-sdk/openai";
 
-const Input = z.object({ question: z.string().min(3) });
+const Input = z.object({
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string(),
+  })),
+});
 
 export const askMayorBot = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => Input.parse(i))
@@ -12,12 +17,17 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Pull compact snapshots for grounding
-    const [{ data: complaints }, { data: depts }, { data: nbrs }, { data: vehicles }, { data: attendance }] = await Promise.all([
+    const [{ data: complaints }, { data: depts }, { data: nbrs }, { data: vehicles }, { data: attendance }, { data: openComplaints }] = await Promise.all([
       supabaseAdmin.from("complaints").select("category, status, priority, satisfaction_score, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)").limit(500),
       supabaseAdmin.from("departments").select("id, name, deputy_mayors(full_name)"),
       supabaseAdmin.from("neighborhoods").select("id, name"),
       supabaseAdmin.from("vehicles").select("plate_number, status, maintenance_start_date, maintenance_reason, departments(name)"),
       supabaseAdmin.from("personnel_attendance").select("date, is_late, has_overtime, missing_checkout, personnel(department_id, departments(name))").limit(300),
+      supabaseAdmin.from("complaints")
+        .select("id, complaint_text, category, neighborhoods(name), created_at")
+        .in("status", ["yeni", "incelemede", "personele_atandi", "devam_ediyor", "vatandas_yaniti_bekleniyor"])
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
 
     // Build compact aggregates for the prompt
@@ -40,6 +50,10 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const inMaintenance = (vehicles ?? []).filter((v: any) => v.status === "bakimda").map((v: any) => `${v.plate_number} (${v.departments?.name ?? "—"}, sebep: ${v.maintenance_reason})`);
     const lateByDept = tally((attendance ?? []).filter((a: any) => a.is_late), (a: any) => a.personnel?.departments?.name);
 
+    const openIssues = (openComplaints ?? []).map((c: any) =>
+      `[ID: ${c.id}] Mahalle: ${c.neighborhoods?.name ?? "Bilinmiyor"} | Kategori: ${c.category} | Metin: ${c.complaint_text}`
+    ).join("\n");
+
     const context = `
 BELEDİYE VERİ ÖZETİ:
 - Toplam şikayet: ${total}
@@ -49,40 +63,36 @@ BELEDİYE VERİ ÖZETİ:
 - Müdürlük ortalama çözüm süresi (saat): ${JSON.stringify(deptAvg)}
 - Bakımdaki araçlar: ${inMaintenance.join(", ") || "yok"}
 - Geç giriş dağılımı (son 10 gün): ${JSON.stringify(lateByDept)}
+
+SON AÇIK (ÇÖZÜLMEMİŞ) ŞİKAYETLER (Detay istendiğinde bu veriyi kullan):
+${openIssues}
 `;
 
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env.OPENAI_API_KEY;
     if (!key) {
-      return { answer: buildLocalAnswer(data.question, { total, byNbr, byDept, deptAvg, inMaintenance }) };
+      return { answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, { total, byNbr, byDept, deptAvg, inMaintenance }) };
     }
 
     try {
-      const gateway = createLovableGateway();
-      const prompt = `Sen Türk bir belediye başkanının kişisel AI asistanısın. Aşağıdaki gerçek belediye verileriyle başkanın sorusunu Türkçe olarak cevapla.
+      const systemPrompt = `Sen Türk bir belediye başkanının kişisel AI asistanısın. Aşağıdaki gerçek belediye verilerini kullanarak başkanın sorularına Türkçe cevap ver.
+Eğer belirli bir şikayetin detayından bahsediyorsan, MUTLAKA tıklanabilir Markdown linki formatında /sikayetler/ID şeklinde link ver (Örn: [İncele](/sikayetler/1234-5678)).
 
-${context}
-
-Cevap formatı:
-**Özet:** 1-2 cümle
-**Öne Çıkan Bulgular:** madde madde 3 bulgu
-**Önerilen Aksiyon:** kısa öneri
-**İlgili Kayıtlar:** rakamlar / mahalle / müdürlük referansları
-
-Başkanın sorusu: "${data.question}"`;
+${context}`;
 
       const r = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        prompt,
+        model: openai("gpt-4o-mini"),
+        system: systemPrompt,
+        messages: data.messages,
       });
 
       // log
       await supabaseAdmin.from("ai_bot_logs").insert({
-        user_id: null, question: data.question, answer: r.text,
+        user_id: null, question: data.messages[data.messages.length - 1].content, answer: r.text,
       }).then(() => {}, () => {});
 
       return { answer: r.text };
     } catch (e: any) {
-      return { answer: buildLocalAnswer(data.question, { total, byNbr, byDept, deptAvg, inMaintenance }) };
+      return { answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, { total, byNbr, byDept, deptAvg, inMaintenance }) };
     }
   });
 

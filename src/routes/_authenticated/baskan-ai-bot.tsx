@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useRef, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/panel-primitives";
 import { Card } from "@/components/ui/card";
@@ -15,35 +15,70 @@ export const Route = createFileRoute("/_authenticated/baskan-ai-bot")({
 });
 
 const SUGGESTIONS = [
-  "Konaklı'nın son dönemdeki şikayet ve işlerini bana anlat.",
+  "Fığla mahallesine gideceğim, genel durum ve şikayetleri nelerdir?",
+  "Neydi bu şikayetlerin detayları?",
   "En çok hangi mahalleden şikayet geliyor?",
   "Hangi müdürlük şikayetlere en hızlı dönüş yapıyor?",
-  "Memnuniyet oranı en düşük mahalle hangisi?",
   "Son 30 günde Fen İşleri Müdürlüğü performansı nasıl?",
   "Hangi araçlar uzun süredir tamirde?",
-  "Başkan yardımcılarına göre şikayet dağılımı nasıl?",
 ];
+
+// Basit bir parser: Metin içindeki [İncele](/sikayetler/123) yapısını bulur ve <Link> render eder.
+function MarkdownText({ text }: { text: string }) {
+  const parts = text.split(/(\[.*?\]\(.*?\))/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const match = part.match(/\[(.*?)\]\((.*?)\)/);
+        if (match) {
+          return (
+            <Link key={i} to={match[2]} className="text-blue-300 font-semibold underline hover:text-blue-200 ml-1 mr-1">
+              {match[1]}
+            </Link>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
 
 function Page() {
   const ask = useServerFn(askMayorBot);
-  const [messages, setMessages] = useState<Array<{ role: "user" | "bot"; text: string }>>([
-    { role: "bot", text: "Merhaba başkanım. Belediye verileriniz hakkında sorularınızı sorabilirsiniz." },
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
+    { role: "assistant", content: "Merhaba başkanım. Belediye verileriniz hakkında sorularınızı sorabilirsiniz." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, loading]);
 
   const send = async (text?: string) => {
     const q = (text ?? input).trim();
     if (!q) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    
+    // Yalnızca user mesajı eklendi
+    const userMsg = { role: "user" as const, content: q };
+    const newHistory = [...messages, userMsg];
+    
+    setMessages(newHistory);
     setInput("");
     setLoading(true);
+    
     try {
-      const r = await ask({ data: { question: q } });
-      setMessages((m) => [...m, { role: "bot", text: r.answer }]);
+      // Promptu tam history olarak atıyoruz (ilk karşılama mesajını hariç tutabiliriz veya gönderebiliriz)
+      const r = await ask({ data: { messages: newHistory.filter(m => m.role === "user" || m.content !== "Merhaba başkanım. Belediye verileriniz hakkında sorularınızı sorabilirsiniz.") } });
+      setMessages((m) => [...m, { role: "assistant", content: r.answer }]);
     } catch (e: any) {
-      setMessages((m) => [...m, { role: "bot", text: "Üzgünüm, cevap üretilemedi: " + e.message }]);
-    } finally { setLoading(false); }
+      setMessages((m) => [...m, { role: "assistant", content: "Üzgünüm, cevap üretilemedi: " + e.message }]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -57,12 +92,13 @@ function Page() {
                 <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>
                   {m.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
-                <div className={`max-w-[80%] rounded-lg p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                  {m.text}
+                <div className={`max-w-[80%] rounded-lg p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-slate-800 text-slate-100"}`}>
+                  <MarkdownText text={m.content} />
                 </div>
               </div>
             ))}
             {loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cevap üretiliyor...</div>}
+            <div ref={scrollRef} />
           </div>
           <div className="border-t pt-3 mt-3">
             <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
@@ -86,3 +122,4 @@ function Page() {
     </div>
   );
 }
+
