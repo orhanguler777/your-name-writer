@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { STATUS_LABELS, CATEGORIES } from "@/lib/turkish";
 import { MessageSquare, Plus, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
-export const Route = createFileRoute("/_authenticated/sikayetler")({
+export const Route = createFileRoute("/_authenticated/sikayetler/")({
   ssr: false,
   component: List,
   head: () => ({ meta: [{ title: "Şikayetler — Belediye AI" }] }),
@@ -22,10 +22,14 @@ function List() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [category, setCategory] = useState<string>("all");
-  const { hasAnyRole } = useAuth();
+  const { hasAnyRole, primaryRole, profile } = useAuth();
+  const navigate = useNavigate();
+  
+  const isMudurluk = primaryRole === "mudurluk";
+  const deptId = profile?.department_id;
 
   const { data: complaints, isLoading } = useQuery({
-    queryKey: ["complaints", { search, status, category }],
+    queryKey: ["complaints", { search, status, category, isMudurluk, deptId }],
     queryFn: async () => {
       let q = supabase
         .from("complaints")
@@ -35,6 +39,7 @@ function List() {
       if (status !== "all") q = q.eq("status", status);
       if (category !== "all") q = q.eq("category", category);
       if (search) q = q.ilike("complaint_text", `%${search}%`);
+      if (isMudurluk && deptId) q = q.eq("assigned_department_id", deptId);
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
@@ -94,13 +99,24 @@ function List() {
                 <TableHead>Öncelik</TableHead>
                 <TableHead>Durum</TableHead>
                 <TableHead>Tarih</TableHead>
+                <TableHead className="text-right">İşlem</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {complaints.map((c: any) => (
-                <TableRow key={c.id} className="cursor-pointer">
+                <TableRow 
+                  key={c.id} 
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={(e) => {
+                    // Ignore if clicked on a button or link inside the row
+                    if ((e.target as HTMLElement).closest('a, button')) return;
+                    navigate({ to: "/sikayetler/$id", params: { id: String(c.id) } });
+                  }}
+                >
                   <TableCell className="font-medium">
-                    <Link to="/sikayetler/$id" params={{ id: c.id }} className="hover:underline">{c.citizen_name}</Link>
+                    <Link to="/sikayetler/$id" params={{ id: String(c.id) }} className="hover:underline text-primary font-semibold">
+                      {c.citizen_name}
+                    </Link>
                     <div className="text-xs text-muted-foreground">{c.neighborhoods?.name}</div>
                   </TableCell>
                   <TableCell className="max-w-xs">
@@ -111,7 +127,13 @@ function List() {
                   <TableCell><PriorityBadge priority={c.priority} /></TableCell>
                   <TableCell><StatusBadge status={c.status} /></TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(c.created_at).toLocaleDateString("tr-TR")}
+                    <div>{new Date(c.created_at).toLocaleDateString("tr-TR")}</div>
+                    <div className="font-semibold text-foreground/80">{new Date(c.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild size="sm" variant="secondary">
+                      <Link to="/sikayetler/$id" params={{ id: String(c.id) }}>İncele</Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

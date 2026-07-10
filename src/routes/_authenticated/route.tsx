@@ -6,9 +6,11 @@ import type { AppRole } from "@/hooks/useAuth";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
+  HelpCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { MayorBotWidget } from "@/components/MayorBotWidget";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -24,12 +26,9 @@ interface MenuItem { to: string; label: string; icon: React.ComponentType<{ clas
 const MENU: MenuItem[] = [
   { to: "/panel", label: "Ana Panel", icon: LayoutDashboard },
   { to: "/sikayetler", label: "Şikayetler", icon: MessageSquare },
-  { to: "/sikayet-olustur", label: "Şikayet Oluştur", icon: MessageSquare, roles: ["vatandas", "cozum_masasi", "admin"] },
+  { to: "/bilgi-talepleri", label: "Bilgi Talepleri", icon: HelpCircle },
   { to: "/cozum-masasi", label: "Çözüm Masası", icon: HeadphonesIcon, roles: ["cozum_masasi", "admin", "baskan"] },
-  { to: "/mudurluk", label: "Müdürlük Paneli", icon: Building2, roles: ["mudurluk", "admin", "baskan"] },
-  { to: "/baskan", label: "Başkan Paneli", icon: Crown, roles: ["baskan", "admin"] },
   { to: "/baskan-ai-bot", label: "Başkan AI Bot", icon: Bot, roles: ["baskan", "admin"] },
-  { to: "/whatsapp", label: "WhatsApp Belge Hattı", icon: MessageCircle },
   { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },
   { to: "/arac-bakim", label: "Araç Bakım", icon: Truck, roles: ["baskan", "admin", "mudurluk"] },
   { to: "/personel-analizi", label: "Personel Analizi", icon: UserCheck, roles: ["baskan", "admin", "mudurluk"] },
@@ -122,10 +121,13 @@ function AuthedLayout() {
             </Button>
           </div>
         </header>
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6">
+        <main className="flex-1 overflow-x-hidden p-4 md:p-6 relative">
           <Outlet />
         </main>
       </div>
+      
+      {/* Global Floating Bot for Mayor/Admin */}
+      {(primaryRole === "baskan" || primaryRole === "admin") && <MayorBotWidget />}
     </div>
   );
 }

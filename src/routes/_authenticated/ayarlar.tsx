@@ -10,6 +10,9 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { ROLE_LABELS } from "@/lib/turkish";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Switch } from "@/components/ui/switch";
+import { getBotSettings, updateBotSettings } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/ayarlar")({
   ssr: false,
@@ -23,6 +26,21 @@ function Page() {
   const [phone, setPhone] = useState("");
   const [dept, setDept] = useState<string>("");
 
+  const getSettings = useServerFn(getBotSettings);
+  const updateSettings = useServerFn(updateBotSettings);
+  const [selfChatOnly, setSelfChatOnly] = useState(true);
+
+  const { data: botSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ["bot-settings"],
+    queryFn: () => getSettings(),
+  });
+
+  useEffect(() => {
+    if (botSettings) {
+      setSelfChatOnly(botSettings.selfChatOnly ?? true);
+    }
+  }, [botSettings]);
+
   useEffect(() => { if (profile) { setFullName(profile.full_name ?? ""); setPhone(profile.phone ?? ""); setDept(profile.department_id ?? ""); } }, [profile]);
 
   const { data: departments } = useQuery({
@@ -34,6 +52,23 @@ function Page() {
     const { error } = await supabase.from("profiles").update({ full_name, phone, department_id: dept || null }).eq("id", user!.id);
     if (error) return toast.error(error.message);
     toast.success("Profil güncellendi");
+  };
+
+  const handleBotSettingsChange = async (checked: boolean) => {
+    setSelfChatOnly(checked);
+    try {
+      const res = await updateSettings({ data: { selfChatOnly: checked } });
+      if (res.success) {
+        toast.success(checked ? "Test Modu Aktif: Bot sadece sizin mesajlarınıza cevap verecek." : "Canlı Mod Aktif: Bot tüm vatandaşların mesajlarına cevap verecek.");
+        refetchSettings();
+      } else {
+        toast.error("Ayarlar kaydedilemedi: " + res.error);
+        setSelfChatOnly(!checked);
+      }
+    } catch (e: any) {
+      toast.error("Bir hata oluştu: " + e.message);
+      setSelfChatOnly(!checked);
+    }
   };
 
   return (
@@ -55,16 +90,31 @@ function Page() {
           <Button onClick={save}>Kaydet</Button>
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-display font-semibold mb-2">Rol Bilgisi</h3>
-          <div className="space-y-2 text-sm">
-            <div><span className="text-muted-foreground">Ana Rol:</span> <strong>{ROLE_LABELS[primaryRole]}</strong></div>
-            <div><span className="text-muted-foreground">Tüm Roller:</span> {roles.map((r) => ROLE_LABELS[r]).join(", ")}</div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Rol yükseltmesi için sistem yöneticinize başvurun. Roller <code>user_roles</code> tablosunda yönetilir.
-            </p>
-          </div>
-        </Card>
+        <div className="space-y-4">
+          <Card className="p-5">
+            <h3 className="font-display font-semibold mb-2">Rol Bilgisi</h3>
+            <div className="space-y-2 text-sm">
+              <div><span className="text-muted-foreground">Ana Rol:</span> <strong>{ROLE_LABELS[primaryRole]}</strong></div>
+              <div><span className="text-muted-foreground">Tüm Roller:</span> {roles.map((r) => ROLE_LABELS[r]).join(", ")}</div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Rol yükseltmesi için sistem yöneticinize başvurun. Roller <code>user_roles</code> tablosunda yönetilir.
+              </p>
+            </div>
+          </Card>
+
+          <Card className="p-5 space-y-3">
+            <h3 className="font-display font-semibold mb-2 text-red-500">WhatsApp Bot Ayarları</h3>
+            <div className="flex items-center justify-between rounded-md border p-3 bg-muted/20">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold">Yalnızca Kendime Cevap Ver (Test Modu)</Label>
+                <p className="text-xs text-muted-foreground max-w-[280px]">
+                  Aktif olduğunda bot sadece sizin numaranızdan gönderilen mesajları işleme alır. Arkadaşlarınızın veya diğer vatandaşların mesajlarına yanıt vermez.
+                </p>
+              </div>
+              <Switch checked={selfChatOnly} onCheckedChange={handleBotSettingsChange} />
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
