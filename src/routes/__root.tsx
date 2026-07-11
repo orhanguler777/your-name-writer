@@ -79,9 +79,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="tr">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+    <html lang="tr" suppressHydrationWarning>
+      <head suppressHydrationWarning>
+        <HeadContent />
+      </head>
+      <body suppressHydrationWarning>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }

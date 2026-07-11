@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, StatusBadge, PriorityBadge, EmptyState } from "@/components/panel-primitives";
 import { Card } from "@/components/ui/card";
@@ -22,24 +22,96 @@ function List() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [category, setCategory] = useState<string>("all");
+  const [neighborhood, setNeighborhood] = useState<string>("all");
   const { hasAnyRole, primaryRole, profile } = useAuth();
   const navigate = useNavigate();
   
   const isMudurluk = primaryRole === "mudurluk";
   const deptId = profile?.department_id;
 
+  // Mahalle listesini getir
+  const { data: neighborhoods } = useQuery({
+    queryKey: ["neighborhoods"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("neighborhoods")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const searchString = typeof window !== "undefined" ? window.location.search : "";
+
+  // URL Arama parametrelerini yükle
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get("search") || "";
+    const qStatus = params.get("status") || "all";
+    const qNeighborhood = params.get("neighborhood") || "all";
+    const qCategory = params.get("category") || "all";
+    
+    setSearch(qSearch);
+    setStatus(qStatus);
+    setCategory(qCategory);
+
+    if (qNeighborhood && qNeighborhood !== "all") {
+      if (neighborhoods && neighborhoods.length > 0) {
+        const cleanStr = (s: string) => (s || '').toLowerCase()
+          .replace(/ı/g, 'i')
+          .replace(/ğ/g, 'g')
+          .replace(/ü/g, 'u')
+          .replace(/ş/g, 's')
+          .replace(/ö/g, 'o')
+          .replace(/ç/g, 'c')
+          .trim();
+        
+        const found = neighborhoods.find(
+          (n: any) =>
+            n.id === qNeighborhood ||
+            cleanStr(n.name) === cleanStr(qNeighborhood) ||
+            cleanStr(n.id) === cleanStr(qNeighborhood)
+        );
+        if (found) {
+          setNeighborhood(found.id);
+        } else {
+          setNeighborhood(qNeighborhood);
+        }
+      } else {
+        // Dropdown henüz yüklenmediyse geçici olarak doğrudan set et
+        setNeighborhood(qNeighborhood);
+      }
+    } else {
+      setNeighborhood("all");
+    }
+  }, [neighborhoods, searchString]);
+
   const { data: complaints, isLoading } = useQuery({
-    queryKey: ["complaints", { search, status, category, isMudurluk, deptId }],
+    queryKey: ["complaints", { search, status, category, neighborhood, isMudurluk, deptId }],
     queryFn: async () => {
       let q = supabase
         .from("complaints")
         .select("id, complaint_text, citizen_name, category, priority, status, created_at, assigned_department_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (status !== "all") q = q.eq("status", status);
+
+      if (status === "active") {
+        q = q.neq("status", "cozuldu").neq("status", "iptal");
+      } else if (status !== "all") {
+        q = q.eq("status", status);
+      }
+
       if (category !== "all") q = q.eq("category", category);
+      
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(neighborhood);
+      if (neighborhood !== "all" && isUuid) {
+        q = q.eq("neighborhood_id", neighborhood);
+      }
+      
       if (search) q = q.ilike("complaint_text", `%${search}%`);
       if (isMudurluk && deptId) q = q.eq("assigned_department_id", deptId);
+      
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
@@ -61,7 +133,7 @@ function List() {
       />
 
       <Card className="mb-4 p-4">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Metin ara..." className="pl-9" />
@@ -70,6 +142,7 @@ function List() {
             <SelectTrigger><SelectValue placeholder="Durum" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
+              <SelectItem value="active">Aktif Şikayetler</SelectItem>
               {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -78,6 +151,13 @@ function List() {
             <SelectContent>
               <SelectItem value="all">Tüm Kategoriler</SelectItem>
               {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={neighborhood} onValueChange={setNeighborhood}>
+            <SelectTrigger><SelectValue placeholder="Mahalle Seçin" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Mahalleler</SelectItem>
+              {neighborhoods?.map((n) => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

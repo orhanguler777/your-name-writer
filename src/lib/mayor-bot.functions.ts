@@ -20,7 +20,7 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const [{ data: complaints }, { data: depts }, { data: nbrs }, { data: vehicles }, { data: attendance }, { data: openComplaints }] = await Promise.all([
       supabaseAdmin.from("complaints").select("category, status, priority, satisfaction_score, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)").limit(500),
       supabaseAdmin.from("departments").select("id, name, deputy_mayors(full_name)"),
-      supabaseAdmin.from("neighborhoods").select("id, name"),
+      supabaseAdmin.from("neighborhoods").select("id, name, mukhtar_name, mukhtar_phone"),
       supabaseAdmin.from("vehicles").select("plate_number, status, maintenance_start_date, maintenance_reason, departments(name)"),
       supabaseAdmin.from("personnel_attendance").select("date, is_late, has_overtime, missing_checkout, personnel(department_id, departments(name))").limit(300),
       supabaseAdmin.from("complaints")
@@ -54,6 +54,11 @@ export const askMayorBot = createServerFn({ method: "POST" })
       `[ID: ${c.id}] Mahalle: ${c.neighborhoods?.name ?? "Bilinmiyor"} | Kategori: ${c.category} | Metin: ${c.complaint_text}`
     ).join("\n");
 
+    const mukhtarsList = (nbrs ?? [])
+      .filter((n: any) => n.mukhtar_name)
+      .map((n: any) => `${n.name}: ${n.mukhtar_name} (${n.mukhtar_phone || '—'})`)
+      .join(", ");
+
     const context = `
 BELEDİYE VERİ ÖZETİ:
 - Toplam şikayet: ${total}
@@ -63,6 +68,7 @@ BELEDİYE VERİ ÖZETİ:
 - Müdürlük ortalama çözüm süresi (saat): ${JSON.stringify(deptAvg)}
 - Bakımdaki araçlar: ${inMaintenance.join(", ") || "yok"}
 - Geç giriş dağılımı (son 10 gün): ${JSON.stringify(lateByDept)}
+- ALANYA MAHALLE MUHTARLARI: ${mukhtarsList}
 
 SON AÇIK (ÇÖZÜLMEMİŞ) ŞİKAYETLER (Detay istendiğinde bu veriyi kullan):
 ${openIssues}

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ROLE_LABELS, STATUS_LABELS } from "@/lib/turkish";
 import { generateDashboardInsight } from "@/lib/ai.functions";
+import { AlanyaMap } from "@/components/AlanyaMap";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid, Legend, AreaChart, Area
@@ -105,310 +106,268 @@ function Panel() {
   });
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title={`Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`}
         description={`Rolünüz: ${ROLE_LABELS[primaryRole]} — ${isMudurluk && deptName ? deptName + " — " : ""}Belediye AI Modülü`}
       />
 
-      <Tabs defaultValue="genel" className="w-full">
+      {/* KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"} value={total} icon={MessageSquare} accent="primary" />
+        <KpiCard label={isMudurluk ? "Birim Açık" : "Açık Şikayet"} value={open} icon={Clock} accent="warn" />
+        <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
+        <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
+      </div>
+
+      <Tabs defaultValue="ozet" className="w-full">
         <TabsList className="mb-6">
-          <TabsTrigger value="genel">Genel Özet</TabsTrigger>
-          {(isBaskanOrAdmin || isMudurluk) && (
-            <TabsTrigger value="analiz">
-              {isBaskanOrAdmin ? "Başkanlık Analizi" : "Müdürlük Analizi"}
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="ozet">Genel Özet</TabsTrigger>
+          <TabsTrigger value="harita">Harita Görünümü</TabsTrigger>
         </TabsList>
 
-        {/* ── SEKME 1: GENEL ÖZET ── */}
-        <TabsContent value="genel" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"} value={total} icon={MessageSquare} accent="primary" />
-            <KpiCard label={isMudurluk ? "Birim Açık" : "Açık Şikayet"} value={open} icon={Clock} accent="warn" />
-            <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
-            <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="p-5 lg:col-span-2">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">{isMudurluk ? "Birime Ait Son Şikayetler" : "Son Şikayetler"}</h2>
-                <Link to="/sikayetler" className="text-sm text-accent hover:underline">Tümünü Gör →</Link>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Vatandaş</TableHead>
-                      <TableHead>Kategori</TableHead>
-                      <TableHead>Durum</TableHead>
-                      <TableHead>Öncelik</TableHead>
-                      <TableHead className="text-right">İşlem</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recent.map((r: any) => (
-                      <TableRow key={r.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">
-                          <div>{r.citizen_name}</div>
-                          <div className="text-xs text-muted-foreground">{r.neighborhoods?.name}</div>
-                        </TableCell>
-                        <TableCell className="text-sm">{r.category}</TableCell>
-                        <TableCell><StatusBadge status={r.status} /></TableCell>
-                        <TableCell><PriorityBadge priority={r.priority} /></TableCell>
-                        <TableCell className="text-right">
-                          <Button asChild size="sm" variant="secondary">
-                            <Link to="/sikayetler/$id" params={{ id: String(r.id) }}>İncele</Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {recent.length === 0 && (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Henüz kayıt yok.</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-
-            <Card className="p-5 h-fit">
-              <h2 className="mb-3 font-display text-lg font-semibold">Hızlı Erişim</h2>
-              <div className="grid gap-2">
-                {[
-                  { to: "/sikayetler", label: "Tüm Şikayetler", icon: TrendingUp },
-                  { to: "/bilgi-talepleri", label: "Bilgi Talepleri", icon: Building2 },
-                ].map((q) => (
-                  <Link key={q.to} to={q.to} className="flex items-center gap-3 rounded-md border p-3 text-sm hover:bg-muted transition-colors">
-                    <q.icon className="h-4 w-4 text-accent" />
-                    {q.label}
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* ── SEKME 2: BAŞKANLIK / MÜDÜRLÜK ANALİZİ ── */}
-        {(isBaskanOrAdmin || isMudurluk) && (
-          <TabsContent value="analiz" className="space-y-6">
-            
-            {/* AI Insight Card */}
-            {total > 0 && (
-              <Card className="p-5 border-0 bg-slate-900 text-slate-50 shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-12 bg-slate-800/40 rounded-bl-full -mr-6 -mt-6" />
-                <div className="relative">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-full bg-primary/20 p-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-display font-semibold text-lg">Yapay Zeka Yönetim Özeti</h3>
-                        <p className="text-xs text-slate-400">Verilere dayalı anlık analiz</p>
-                      </div>
+        {/* ── TAB 1: GENEL ÖZET ── */}
+        <TabsContent value="ozet" className="space-y-6">
+          {/* ── ANALİZ VE GRAFİKLER BÖLÜMÜ ── */}
+          {(isBaskanOrAdmin || isMudurluk) && (
+            <div className="space-y-6">
+              {/* AI Insight Card */}
+              {total > 0 && (
+                <Card className="p-5 border-0 bg-slate-900 text-slate-50 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-12 bg-slate-800/40 rounded-bl-full -mr-6 -mt-6" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-full bg-primary/20 p-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
                     </div>
-                    <Button size="sm" variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 shrink-0" onClick={() => setAiRefreshKey((k) => k + 1)} disabled={aiLoading}>
-                      <RefreshCw className={`h-4 w-4 mr-1 ${aiLoading ? "animate-spin" : ""}`} /> Yenile
-                    </Button>
+                    <div>
+                      <h3 className="font-display font-semibold text-lg">Yapay Zeka Yönetim Özeti</h3>
+                      <p className="text-xs text-slate-400">Verilere dayalı anlık analiz</p>
+                    </div>
                   </div>
-                  <div className="bg-white/10 rounded-lg p-4">
-                    {aiLoading ? (
-                      <div className="flex items-center gap-2 text-slate-300 animate-pulse"><Bot className="h-5 w-5" /> Analiz ediliyor…</div>
-                    ) : (
-                      <p className="text-sm leading-relaxed text-slate-100">{aiData?.insight ?? "Henüz yeterli veri yok."}</p>
-                    )}
-                  </div>
+                  <Button size="sm" variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 shrink-0" onClick={() => setAiRefreshKey((k) => k + 1)} disabled={aiLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-1 ${aiLoading ? "animate-spin" : ""}`} /> Yenile
+                  </Button>
                 </div>
-              </Card>
-            )}
-
-            {/* Extended KPIs for Admin/Baskan */}
-            {isBaskanOrAdmin && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KpiCard label="Memnuniyet" value={`%${(avgSat * 20).toFixed(0)}`} icon={Smile} accent="accent" />
-                <KpiCard label="En Yoğun Mahalle" value={<span className="text-lg">{topNbr}</span>} icon={MapPin} />
-                <KpiCard label="En Yoğun Müdürlük" value={<span className="text-lg">{topDept}</span>} icon={Building2} />
-                <KpiCard label="En Hızlı Dönüş" value="Temizlik" icon={Zap} hint="Ortalama 3 saat" accent="accent" />
+                <div className="bg-white/10 rounded-lg p-4">
+                  {aiLoading ? (
+                    <div className="flex items-center gap-2 text-slate-300 animate-pulse"><Bot className="h-5 w-5" /> Analiz ediliyor…</div>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-slate-100">{aiData?.insight ?? "Henüz yeterli veri yok."}</p>
+                  )}
+                </div>
               </div>
-            )}
+            </Card>
+          )}
 
-            {/* Charts Row 1 */}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title={isMudurluk ? "Son 7 Gün Şikayet Trendi" : "Genel Şikayet Trendi (Son 7 Gün)"}>
+          {/* Extended KPIs for Admin/Baskan */}
+          {isBaskanOrAdmin && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <KpiCard label="Memnuniyet" value={`%${(avgSat * 20).toFixed(0)}`} icon={Smile} accent="accent" />
+              <KpiCard label="En Yoğun Mahalle" value={<span className="text-lg">{topNbr}</span>} icon={MapPin} />
+              <KpiCard label="En Yoğun Müdürlük" value={<span className="text-lg">{topDept}</span>} icon={Building2} />
+              <KpiCard label="En Hızlı Dönüş" value="Temizlik" icon={Zap} hint="Ortalama 3 saat" accent="accent" />
+            </div>
+          )}
+
+          {/* Charts Row 1 */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title={isMudurluk ? "Son 7 Gün Şikayet Trendi" : "Genel Şikayet Trendi (Son 7 Gün)"}>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={last7}>
+                  <defs>
+                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1e2f5a" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#1e2f5a" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="count" stroke="#1e2f5a" fill="url(#trendGrad)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {isBaskanOrAdmin ? (
+              <BarChartCard title="Müdürlüğe Göre Şikayetler" data={toComplexChartData(c, (x) => x.departments?.name ?? "—")} colors={CHART_COLORS} />
+            ) : (
+              <ChartCard title="Duruma Göre Dağılım">
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={last7}>
-                    <defs>
-                      <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1e2f5a" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#1e2f5a" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="count" stroke="#1e2f5a" fill="url(#trendGrad)" strokeWidth={2} />
-                  </AreaChart>
+                  <PieChart>
+                    <Pie data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
+                      {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} /><Legend />
+                  </PieChart>
                 </ResponsiveContainer>
               </ChartCard>
+            )}
+          </div>
 
-              {isBaskanOrAdmin ? (
-                <ChartCard title="Müdürlüğe Göre Şikayetler">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={toChartData(byDept)}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              ) : (
-                <ChartCard title="Duruma Göre Dağılım">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie data={toChartData(byStatus)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
-                        {toChartData(byStatus).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip /><Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              )}
-            </div>
-
-            {/* Charts Row 2 */}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title="Mahalleye Göre Şikayetler (İlk 10)">
+          {/* Charts Row 2 */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Mahalleye Göre Şikayetler (İlk 10)">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={toComplexChartData(c, (x) => x.neighborhoods?.name ?? "—").slice(0, 10)}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
+                  <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                  <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            
+            {isBaskanOrAdmin ? (
+              <ChartCard title="Duruma Göre Şikayetler">
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={toChartData(byNbr).slice(0, 10)}>
+                  <PieChart>
+                    <Pie data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
+                      {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} /><Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            ) : (
+              <ChartCard title="Kategoriye Göre Dağılım">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" height={70} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
+                    <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                    <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
-              
-              {isBaskanOrAdmin ? (
-                <ChartCard title="Duruma Göre Şikayetler">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie data={toChartData(byStatus)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
-                        {toChartData(byStatus).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip /><Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              ) : (
-                <ChartCard title="Kategoriye Göre Dağılım">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={toChartData(byCategory)}>
+            )}
+          </div>
+
+          {/* Baskan Only: Extra Charts & Dept Table */}
+          {isBaskanOrAdmin && (
+            <>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <ChartCard title="Kategoriye Göre">
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" height={70} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
                       <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend formatter={(value) => value === 'resolved' ? 'Çözülen' : 'Açık'} />
+                      <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                      <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartCard>
-              )}
-            </div>
+                <ChartCard title="Başkan Yrd. Göre">
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={toComplexChartData(c, (x) => x.departments?.deputy_mayors?.full_name ?? "—")} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend formatter={(value) => value === 'resolved' ? 'Çözülen' : 'Açık'} />
+                      <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                      <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+                <ChartCard title="Şikayet Dili">
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie data={toComplexChartData(c, (x) => x.language ?? "tr")} dataKey="value" nameKey="name" outerRadius={80} label>
+                        {toComplexChartData(c, (x) => x.language ?? "tr").map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} /><Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
 
-            {/* Baskan Only: Extra Charts & Dept Table */}
-            {isBaskanOrAdmin && (
-              <>
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <ChartCard title="Kategoriye Göre">
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={toChartData(byCategory)}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                  <ChartCard title="Başkan Yrd. Göre">
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={toChartData(byDM)} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis type="number" tick={{ fontSize: 11 }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill={CHART_COLORS[3]} radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                  <ChartCard title="Şikayet Dili">
-                    <ResponsiveContainer width="100%" height={240}>
-                      <PieChart>
-                        <Pie data={toChartData(byLang)} dataKey="value" nameKey="name" outerRadius={80} label>
-                          {toChartData(byLang).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip /><Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                </div>
-
-                {/* Müdürlük Bazlı Performans Tablosu */}
-                <Card className="p-5">
-                  <h3 className="mb-4 font-display font-semibold text-lg flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" /> Müdürlük Bazlı Performans Özeti
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                          <th className="py-3 pr-4">Müdürlük</th>
-                          <th className="py-3 px-3 text-center">Toplam</th>
-                          <th className="py-3 px-3 text-center">Açık</th>
-                          <th className="py-3 px-3 text-center">Çözülen</th>
-                          <th className="py-3 px-3 text-center">İlerleme %</th>
-                          <th className="py-3 px-3 text-center">Ort. Çözüm</th>
-                          <th className="py-3 pl-3">En Yoğun Kategori</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getDeptPerformance(c, data?.depts ?? []).map((d) => (
-                          <tr key={d.name} className="border-b last:border-0 hover:bg-muted/50">
-                            <td className="py-3 pr-4 font-medium">{d.name}</td>
-                            <td className="py-3 px-3 text-center">{d.total}</td>
-                            <td className="py-3 px-3 text-center">
-                              <span className={d.open > 0 ? "text-priority-medium font-semibold" : ""}>{d.open}</span>
-                            </td>
-                            <td className="py-3 px-3 text-center text-accent font-medium">{d.resolved}</td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                  <div className="h-full bg-accent rounded-full" style={{ width: `${d.resolvedPct}%` }} />
-                                </div>
-                                <span className="text-xs">%{d.resolvedPct}</span>
+              {/* Müdürlük Bazlı Performans Tablosu */}
+              <Card className="p-5">
+                <h3 className="mb-4 font-display font-semibold text-lg flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" /> Müdürlük Bazlı Performans Özeti
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="py-3 pr-4">Müdürlük</th>
+                        <th className="py-3 px-3 text-center">Toplam</th>
+                        <th className="py-3 px-3 text-center">Açık</th>
+                        <th className="py-3 px-3 text-center">Çözülen</th>
+                        <th className="py-3 px-3 text-center">İlerleme %</th>
+                        <th className="py-3 px-3 text-center">Ort. Çözüm</th>
+                        <th className="py-3 pl-3">En Yoğun Kategori</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getDeptPerformance(c, data?.depts ?? []).map((d) => (
+                        <tr key={d.name} className="border-b last:border-0 hover:bg-muted/50">
+                          <td className="py-3 pr-4 font-medium">{d.name}</td>
+                          <td className="py-3 px-3 text-center">{d.total}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={d.open > 0 ? "text-priority-medium font-semibold" : ""}>{d.open}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center text-accent font-medium">{d.resolved}</td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-accent rounded-full" style={{ width: `${d.resolvedPct}%` }} />
                               </div>
-                            </td>
-                            <td className="py-3 px-3 text-center">{d.avgHours}s</td>
-                            <td className="py-3 pl-3 text-xs">{d.topCategory}</td>
-                          </tr>
-                        ))}
-                        {(data?.depts ?? []).length === 0 && (
-                          <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Henüz veri yok.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </>
-            )}
-          </TabsContent>
-        )}
+                              <span className="text-xs">%{d.resolvedPct}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center">{d.avgHours}s</td>
+                          <td className="py-3 pl-3 text-xs">{d.topCategory}</td>
+                        </tr>
+                      ))}
+                      {(data?.depts ?? []).length === 0 && (
+                        <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Henüz veri yok.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+        </TabsContent>
+        <TabsContent value="harita" className="space-y-6">
+          <AlanyaMap complaints={c} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Müdürlüğe Göre Şikayetler için yardımcı bileşen
+function BarChartCard({ title, data, colors }: { title: string; data: any[]; colors: string[] }) {
+  return (
+    <ChartCard title={title}>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
+          <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+          <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
 
@@ -433,15 +392,69 @@ function toChartData(obj: Record<string, number>) {
   return Object.entries(obj).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 }
 
+// Toplam ve Çözülen sayılarını birlikte tutan grafik veri üreticisi
+function toComplexChartData(complaints: any[], keySelector: (x: any) => string) {
+  const map: Record<string, { name: string; value: number; resolved: number; open: number }> = {};
+  
+  complaints.forEach((c) => {
+    const k = keySelector(c);
+    if (!map[k]) {
+      map[k] = { name: k, value: 0, resolved: 0, open: 0 };
+    }
+    map[k].value += 1;
+    if (c.status === "cozuldu") {
+      map[k].resolved += 1;
+    }
+  });
+
+  // open değerini hesapla
+  Object.values(map).forEach((item) => {
+    item.open = item.value - item.resolved;
+  });
+
+  return Object.values(map).sort((a, b) => b.value - a.value);
+}
+
+// Özel Tooltip Bileşeni
+function CustomTooltip({ active, payload }: any) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    // Eğer kompleks veri değilse (örneğin trend analizi) düzgünce fallback et
+    const total = data.value !== undefined ? data.value : (data.count !== undefined ? data.count : 0);
+    const resolved = data.resolved !== undefined ? data.resolved : 0;
+    
+    return (
+      <div className="rounded-lg border bg-background p-3 shadow-md">
+        <p className="font-display font-medium text-sm border-b pb-1.5 mb-1.5">{data.name || data.day}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Şikayet Sayısı:</span>
+            <span className="font-semibold text-foreground">{total}</span>
+          </div>
+          {data.resolved !== undefined && (
+            <div className="flex items-center justify-between gap-4 text-accent">
+              <span>Çözülen Şikayet:</span>
+              <span className="font-semibold">{resolved}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 function getLast7DaysTrend(complaints: any[]) {
-  const days: { day: string; count: number }[] = [];
+  const days: { day: string; count: number; resolved: number }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
-    const count = complaints.filter((c: any) => c.created_at?.slice(0, 10) === dateStr).length;
-    days.push({ day: label, count });
+    const dailyComplaints = complaints.filter((c: any) => c.created_at?.slice(0, 10) === dateStr);
+    const count = dailyComplaints.length;
+    const resolved = dailyComplaints.filter((c: any) => c.status === "cozuldu").length;
+    days.push({ day: label, count, resolved });
   }
   return days;
 }

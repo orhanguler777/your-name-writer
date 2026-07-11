@@ -57,6 +57,18 @@ function Detail() {
     const { error } = await supabase.from("complaints").update({ status, resolved_at: status === "cozuldu" ? new Date().toISOString() : null }).eq("id", id);
     if (error) return toast.error("Güncellenemedi", { description: error.message });
     toast.success("Durum güncellendi");
+    
+    // Şikayet çözüldü yapıldıysa, botun express sunucusuna webhook fırlat
+    if (status === "cozuldu") {
+      fetch("http://localhost:3001/webhook/resolved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ complaintId: id })
+      }).catch(err => {
+        console.warn("Otomatik WhatsApp bildirim webhook hatası (bot açık olmayabilir):", err);
+      });
+    }
+
     qc.invalidateQueries({ queryKey: ["complaint", id] });
   };
 
