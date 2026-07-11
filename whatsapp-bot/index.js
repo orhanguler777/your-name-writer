@@ -206,10 +206,10 @@ async function startBot() {
             try {
               const newResponse = payload.new;
               
-              // Sadece personelin yazdığı manuel cevapları ve durum bildirimlerini ilet
-              if (newResponse.response_type !== 'manuel' && newResponse.response_type !== 'durum_bildirimi') return;
+              // Personelin yazdığı cevap/soru ve durum bildirimlerini ilet
+              if (!['manuel', 'soru', 'durum_bildirimi'].includes(newResponse.response_type)) return;
 
-              console.log(`\n   📨 Yeni ${newResponse.response_type === 'durum_bildirimi' ? 'durum bildirimi' : 'belediye cevabı'} tespit edildi (Şikayet ID: ${newResponse.complaint_id})`);
+              console.log(`\n   📨 Yeni ${newResponse.response_type === 'durum_bildirimi' ? 'durum bildirimi' : newResponse.response_type === 'soru' ? 'belediye sorusu' : 'belediye cevabı'} tespit edildi (Şikayet ID: ${newResponse.complaint_id})`);
 
               // Şikayeti ve vatandaşın telefonunu çek
               const { data: complaint, error: compError } = await supabase
@@ -254,8 +254,16 @@ async function startBot() {
                   `🔄 Durum: *ÇÖZÜLDÜ*\n` +
                   `${newResponse.response_text}\n\n` +
                   `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+              } else if (newResponse.response_type === 'soru') {
+                const trackingNo = newResponse.complaint_id.substring(0, 8).toUpperCase();
+                responseText =
+                  `❓ *Alanya Belediyesi — Ek Bilgi Talebi*\n\n` +
+                  `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+                  `📋 Takip No: *${trackingNo}*\n\n` +
+                  `*Belediye Birim Sorusu:*\n"${newResponse.response_text}"\n\n` +
+                  `Lütfen bu mesaja yanıt vererek bilgi paylaşın. Yanıtınız aynı şikayet kaydına eklenecektir.\n\n` +
+                  `Yeni bir şikayet bildirmek isterseniz "yeni şikayet" yazabilirsiniz.`;
               } else {
-                // 📢 Manuel belediye cevabı
                 const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
                 const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
 
@@ -406,6 +414,94 @@ async function startBot() {
         }
       });
 
+      
+      // 📢 MANUEL CEVAP WEBHOOK'U (Realtime'a güvenmemek için)
+      app.post('/webhook/response', async (req, res) => {
+        try {
+          const { complaintId, responseText: manualText, isQuestion } = req.body;
+          if (!complaintId || !manualText) {
+            return res.status(400).json({ status: 'error', reason: 'Missing payload' });
+          }
+
+          console.log(`\n   🔌 Webhook (Manuel Cevap) tetiklendi! Şikayet ID: ${complaintId}`);
+
+          const { data: complaint, error: compError } = await supabase
+            .from('complaints')
+            .select('citizen_phone, citizen_name, status, source')
+            .eq('id', complaintId)
+            .single();
+
+          if (compError || !complaint) {
+            return res.status(404).json({ status: 'error', reason: 'Complaint not found' });
+          }
+
+          if (complaint.source !== 'whatsapp_qr') {
+            return res.json({ status: 'ignored', reason: 'Not whatsapp_qr' });
+          }
+
+          const activeSock = global.currentSock;
+          if (!activeSock) {
+            return res.status(500).json({ status: 'error', reason: 'Bot not connected' });
+          }
+
+          let jid = complaint.citizen_phone.includes('@')
+            ? complaint.citizen_phone
+            : `${complaint.citizen_phone}@s.whatsapp.net`;
+
+          const myJid = activeSock.user?.id;
+          if (myJid) {
+            const myBareId = myJid.split(':')[0].split('@')[0];
+            if (complaint.citizen_phone === myBareId) jid = myJid;
+          }
+
+          const exactJid = global.activeJids.get(complaint.citizen_phone);
+          if (exactJid) {
+            jid = exactJid;
+          }
+
+          const trackingNo = complaintId.substring(0, 8).toUpperCase();
+          let msgText;
+
+          if (isQuestion || complaint.status === 'vatandas_yaniti_bekleniyor') {
+            msgText =
+              `❓ *Alanya Belediyesi — Ek Bilgi Talebi*\n\n` +
+              `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+              `📋 Takip No: *${trackingNo}*\n\n` +
+              `*Belediye Birim Sorusu:*\n"${manualText}"\n\n` +
+              `Lütfen bu mesaja yanıt vererek bilgi paylaşın. Yanıtınız aynı şikayet kaydına eklenecektir.\n\n` +
+              `Yeni bir şikayet bildirmek isterseniz "yeni şikayet" yazabilirsiniz.`;
+          } else {
+            const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
+            const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
+
+            msgText =
+              `${statusEmoji} *Alanya Belediyesi Bilgilendirme*\n\n` +
+              `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n` +
+              `Şikayetinizin durumu *${statusText}* olarak güncellenmiştir.\n\n` +
+              `*Belediye Birim Açıklaması:*\n"${manualText}"\n\n` +
+              `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+          }
+
+          console.log(`   📤 Sohbet aktifleştiriliyor ve sendMessage çağrılıyor...`);
+          try {
+            await activeSock.presenceSubscribe(jid);
+            await new Promise(r => setTimeout(r, 500));
+            await activeSock.sendPresenceUpdate('composing', jid);
+            await new Promise(r => setTimeout(r, 1000));
+            await activeSock.sendPresenceUpdate('paused', jid);
+          } catch (e) {}
+
+          const sent = await activeSock.sendMessage(jid, { text: msgText });
+          console.log(`   📬 sendMessage sonucu:`, JSON.stringify(sent?.key || 'BOŞ'));
+          console.log(`   💬 Manuel Cevap Webhook aracılığıyla iletildi (${complaint.citizen_phone})`);
+          
+          res.json({ status: 'success', messageId: sent?.key?.id || 'unknown' });
+        } catch (error) {
+          console.error('⚠️ Webhook hatası:', error.message);
+          res.status(500).json({ status: 'error', reason: error.message });
+        }
+      });
+
       // Zaten dinlemede olan bir express sunucusu varsa tekrar başlatmamak için global nesnede tutalım
       if (!global.webhookServer) {
         global.webhookServer = app.listen(3001, () => {
@@ -455,17 +551,6 @@ async function startBot() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const lowerText = text.toLowerCase();
 
-        // Kendimize attığımız mesajlarda veya botun gönderdiklerinde sonsuz döngü engeli
-        if (
-          lowerText.includes('vatandaş') ||
-          lowerText.includes('belediye') ||
-          lowerText.includes('takip numara') ||
-          text.startsWith('✅') ||
-          text.startsWith('⚠️')
-        ) {
-          continue;
-        }
-
         // Grup mesajlarını yoksay
         if (msg.key.remoteJid.endsWith('@g.us')) continue;
 
@@ -494,11 +579,35 @@ async function startBot() {
         }
 
         const phone = remoteBareId || msg.key.remoteJid.split('@')[0];
-        
-        // Ham JID'yi belleğe kaydet (Webhook cevap atarken bu gerçek JID'yi kullanacak)
         global.activeJids.set(phone, msg.key.remoteJid);
-
         const name = msg.pushName || 'Vatandaş';
+        const lowerTextTrim = text ? text.toLowerCase().trim() : '';
+        const wantsNewComplaint = lowerTextTrim === 'yeni şikayet' || lowerTextTrim === 'yeni sikayet';
+
+        if (!wantsNewComplaint) {
+          const handledReply = await handleCitizenReplyToAwaitingComplaint({
+            sock,
+            msg,
+            phone,
+            name,
+            text,
+            addBotMessageId,
+            downloadMediaMessage,
+            uploadMediaToSupabase,
+          });
+          if (handledReply) continue;
+        }
+
+        // Bot mesajlarına veya alıntılanmış belediye metinlerine döngü engeli (vatandaş yanıtı yukarıda işlendi)
+        if (
+          lowerText.includes('vatandaş') ||
+          lowerText.includes('belediye') ||
+          lowerText.includes('takip numara') ||
+          text.startsWith('✅') ||
+          text.startsWith('⚠️')
+        ) {
+          continue;
+        }
 
         // Konum verilerini çıkar (locationMessage veya liveLocationMessage)
         const isLocation = !!msg.message.locationMessage || !!msg.message.liveLocationMessage;
@@ -515,7 +624,6 @@ async function startBot() {
         console.log(`\n📩 Yeni Mesaj [${phone}]: ${isLocation ? '(Konum Paylaşımı)' : (text ? text.substring(0, 50) + '...' : '(Medya)')}`);
 
         // Bekleyen şikayet kontrolü / iptal işlemi
-        const lowerTextTrim = text ? text.toLowerCase().trim() : '';
         const pending = pendingComplaints.get(phone);
         if (pending && (lowerTextTrim === 'iptal' || lowerTextTrim.includes('vazgeç') || lowerTextTrim.includes('vazgectim'))) {
           pendingComplaints.delete(phone);
@@ -1011,6 +1119,84 @@ function classifyByKeyword(text) {
     }
   }
   return { category: 'Diğer', department: '', send_pdfs: [] };
+}
+
+// ─── Vatandaş Yanıtı (Bekleyen Şikayete Ekleme) ─────────────────
+async function handleCitizenReplyToAwaitingComplaint({
+  sock,
+  msg,
+  phone,
+  name,
+  text,
+  addBotMessageId,
+  downloadMediaMessage,
+  uploadMediaToSupabase,
+}) {
+  const { data: awaiting, error } = await supabase
+    .from('complaints')
+    .select('id, complaint_text, citizen_name')
+    .eq('citizen_phone', phone)
+    .eq('status', 'vatandas_yaniti_bekleniyor')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('⚠️ Bekleyen şikayet sorgusu hatası:', error.message);
+    return false;
+  }
+
+  if (!awaiting) return false;
+
+  console.log(`   💬 Vatandaş yanıtı mevcut şikayete ekleniyor (${awaiting.id.substring(0, 8)})`);
+
+  const replyText = text?.trim() || '(Medya yanıtı)';
+
+  const { error: responseError } = await supabase.from('complaint_responses').insert({
+    complaint_id: awaiting.id,
+    response_text: replyText,
+    response_type: 'vatandas',
+  });
+
+  if (responseError) {
+    console.error('⚠️ Vatandaş yanıtı kaydedilemedi:', responseError.message);
+    return false;
+  }
+
+  const messageType = Object.keys(msg.message)[0];
+  if (messageType === 'imageMessage' || messageType === 'documentMessage') {
+    console.log('   📷 Vatandaş yanıtına medya ekleniyor...');
+    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+    const contentType = msg.message[messageType].mimetype;
+    const fileUrl = await uploadMediaToSupabase(buffer, phone, contentType);
+
+    if (fileUrl) {
+      await supabase.from('complaint_attachments').insert([
+        {
+          complaint_id: awaiting.id,
+          file_url: fileUrl,
+          file_type: contentType.startsWith('image') ? 'image' : 'document',
+        },
+      ]);
+    }
+  }
+
+  await supabase
+    .from('complaints')
+    .update({ status: 'incelemede' })
+    .eq('id', awaiting.id);
+
+  const trackingNo = awaiting.id.substring(0, 8).toUpperCase();
+  const ackReply =
+    `✅ Sayın ${name}, yanıtınız *${trackingNo}* takip numaralı şikayetinize kaydedilmiştir.\n\n` +
+    `Müdürlüğümüz en kısa sürede değerlendirecektir. Teşekkür ederiz. 🙏`;
+
+  const sent = await sock.sendMessage(msg.key.remoteJid, { text: ackReply });
+  if (sent?.key?.id) {
+    addBotMessageId(sent.key.id);
+  }
+
+  return true;
 }
 
 // ─── Medya Yükleme ───────────────────────────────────────────────
