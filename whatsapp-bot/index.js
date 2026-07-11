@@ -111,6 +111,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
 const pendingComplaints = new Map();
+const pendingSurveys = new Map(); // key: phone, value: complaintId
 let departmentsCache = [];
 let neighborhoodsCache = [];
 let eventsCache = [];
@@ -281,6 +282,33 @@ async function startBot() {
               }
               console.log(`   💬 ${newResponse.response_type === 'durum_bildirimi' ? 'Durum bildirimi' : 'Cevap'} WhatsApp üzerinden vatandaşa iletildi (${complaint.citizen_phone})`);
 
+              // Eğer bu bir durum bildirimi ise ve şikayet çözüldüyse anket gönder
+              if (newResponse.response_type === 'durum_bildirimi') {
+                const phoneClean = complaint.citizen_phone;
+                pendingSurveys.set(phoneClean, newResponse.complaint_id);
+                const surveyText = 
+                  `📊 *Alanya Belediyesi Memnuniyet Anketi*\n\n` +
+                  `Şikayetinizin çözülme sürecini değerlendirmeniz bizim için çok önemlidir! Lütfen hizmet kalitemize *1 ile 5 arasında* bir puan verin:\n\n` +
+                  `1️⃣ Çok Kötü\n` +
+                  `2️⃣ Kötü\n` +
+                  `3️⃣ Orta\n` +
+                  `4️⃣ İyi\n` +
+                  `5️⃣ Çok İyi\n\n` +
+                  `*Puanınızı sadece rakam olarak yazıp gönderebilirsiniz (örn: 4)*`;
+                
+                setTimeout(async () => {
+                  try {
+                    const sentSurvey = await sock.sendMessage(jid, { text: surveyText });
+                    if (sentSurvey?.key?.id) {
+                      addBotMessageId(sentSurvey.key.id);
+                    }
+                    console.log(`   📊 Memnuniyet anketi vatandaşa gönderildi (${phoneClean})`);
+                  } catch (e) {
+                    console.error('⚠️ Anket gönderilirken hata oluştu:', e.message);
+                  }
+                }, 1500);
+              }
+
             } catch (err) {
               console.error('⚠️ Realtime bildirim gönderme hatası:', err.message);
             }
@@ -407,6 +435,32 @@ async function startBot() {
           }
 
           console.log(`   💬 Çözüldü bildirimi Webhook aracılığıyla vatandaşa iletildi (${complaint.citizen_phone})`);
+
+          // Anket Gönderimi
+          const phoneClean = complaint.citizen_phone;
+          pendingSurveys.set(phoneClean, complaintId);
+          const surveyText = 
+            `📊 *Alanya Belediyesi Memnuniyet Anketi*\n\n` +
+            `Şikayetinizin çözülme sürecini değerlendirmeniz bizim için çok önemlidir! Lütfen hizmet kalitemize *1 ile 5 arasında* bir puan verin:\n\n` +
+            `1️⃣ Çok Kötü\n` +
+            `2️⃣ Kötü\n` +
+            `3️⃣ Orta\n` +
+            `4️⃣ İyi\n` +
+            `5️⃣ Çok İyi\n\n` +
+            `*Puanınızı sadece rakam olarak yazıp gönderebilirsiniz (örn: 4)*`;
+          
+          setTimeout(async () => {
+            try {
+              const sentSurvey = await activeSock.sendMessage(jid, { text: surveyText });
+              if (sentSurvey?.key?.id) {
+                addBotMessageId(sentSurvey.key.id);
+              }
+              console.log(`   📊 Memnuniyet anketi vatandaşa gönderildi (${phoneClean})`);
+            } catch (e) {
+              console.error('⚠️ Anket gönderilirken hata oluştu:', e.message);
+            }
+          }, 1500);
+
           return res.json({ status: 'success', messageId: sent?.key?.id || null });
         } catch (err) {
           console.error('⚠️ Webhook hatası:', err.message);
@@ -582,6 +636,60 @@ async function startBot() {
         global.activeJids.set(phone, msg.key.remoteJid);
         const name = msg.pushName || 'Vatandaş';
         const lowerTextTrim = text ? text.toLowerCase().trim() : '';
+
+        // ── Memnuniyet Anketi Kontrolü ──
+        if (pendingSurveys.has(phone)) {
+          const complaintId = pendingSurveys.get(phone);
+          const score = parseInt(lowerTextTrim);
+          if (!isNaN(score) && score >= 1 && score <= 5) {
+            console.log(`   📊 Anket yanıtı alındı [${phone}]: ${score} (Şikayet ID: ${complaintId})`);
+            const { error: surveyError } = await supabase
+              .from('complaints')
+              .update({ satisfaction_score: score })
+              .eq('id', complaintId);
+            
+            if (surveyError) {
+              console.error('⚠️ Anket puanı kaydedilemedi:', surveyError.message);
+            }
+            pendingSurveys.delete(phone);
+
+            const thanksMsg = `Değerlendirmeniz için çok teşekkür ederiz! Alanya Belediyesi olarak görüşleriniz bizim için çok değerlidir. İyi günler dileriz. 🙏🌸`;
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: thanksMsg });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+            continue;
+          } else {
+            const warnMsg = `Lütfen hizmetimizi değerlendirmek için sadece 1 ile 5 arasında bir rakam yazıp gönderin (Örn: 4).`;
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: warnMsg });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+            continue;
+          }
+        }
+
+        // ── Temsilci Talebi Kontrolü ──
+        if (lowerTextTrim === 'temsilci' || lowerTextTrim === 'temsilci ile görüş' || lowerTextTrim === 'temsilci ile gorus') {
+          console.log(`   📞 Temsilci talebi algılandı [${phone}]`);
+          // Vatandaşın en son aktif şikayetini bulup temsilci talebini işaretleyelim
+          const { data: lastComplaint } = await supabase
+            .from('complaints')
+            .select('id')
+            .eq('citizen_phone', phone)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (lastComplaint) {
+            await supabase
+              .from('complaints')
+              .update({ wants_human_representative: true })
+              .eq('id', lastComplaint.id);
+          }
+
+          const repMsg = `Talebiniz alınmıştır. Gerçek temsilcimiz en kısa sürede sizinle iletişime geçecektir. Teşekkür ederiz.`;
+          const sent = await sock.sendMessage(msg.key.remoteJid, { text: repMsg });
+          if (sent?.key?.id) addBotMessageId(sent.key.id);
+          continue;
+        }
+
         const wantsNewComplaint = lowerTextTrim === 'yeni şikayet' || lowerTextTrim === 'yeni sikayet';
 
         if (wantsNewComplaint) {
@@ -723,7 +831,9 @@ async function startBot() {
             const reply = `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${locationNbr ? locationNbr.name + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.\n\n` +
               `📋 Kategori: ${analysis.category}\n` +
               `🏢 Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
-              `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}`;
+              `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}\n\n` +
+              `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\n` +
+              `https://wa.me/905362206204?text=temsilci`;
               
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
             if (sent?.key?.id) {
@@ -939,12 +1049,14 @@ async function startBot() {
 
           // Kullanıcıya Cevap Gönder
           const reply =
-            analysis.auto_response ||
+            (analysis.auto_response ? analysis.auto_response + '\n\n' : '') +
             `✅ Sayın ${name}, şikayetiniz başarıyla alınmıştır.\n\n` +
               `📋 Kategori: ${analysis.category}\n` +
-              `🏢 Yönlendirilen Birim: ${analysis.department || 'İlgili Müdürlük'}\n\n` +
+              `🏢 Yönlendirilen Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
               `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}\n` +
-              `Alanya Belediyesi olarak en kısa sürede dönüş yapacağız.`;
+              `Alanya Belediyesi olarak en kısa sürede dönüş yapacağız.\n\n` +
+              `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\n` +
+              `https://wa.me/905362206204?text=temsilci`;
 
           const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
           if (sent?.key?.id) {
