@@ -584,19 +584,36 @@ async function startBot() {
         const lowerTextTrim = text ? text.toLowerCase().trim() : '';
         const wantsNewComplaint = lowerTextTrim === 'yeni şikayet' || lowerTextTrim === 'yeni sikayet';
 
-        if (!wantsNewComplaint) {
-          const handledReply = await handleCitizenReplyToAwaitingComplaint({
-            sock,
-            msg,
-            phone,
-            name,
-            text,
-            addBotMessageId,
-            downloadMediaMessage,
-            uploadMediaToSupabase,
-          });
-          if (handledReply) continue;
+        if (wantsNewComplaint) {
+          console.log(`   🔄 Kullanıcı yeni şikayet talep etti. '${phone}' için bekleyen eski şikayetlerin durumu 'incelemede' olarak güncelleniyor...`);
+          const { error: updateError } = await supabase
+            .from('complaints')
+            .update({ status: 'incelemede' })
+            .eq('citizen_phone', phone)
+            .eq('status', 'vatandas_yaniti_bekleniyor');
+          if (updateError) {
+            console.error('⚠️ Eski bekleyen şikayetler güncellenirken hata oluştu:', updateError.message);
+          }
+          pendingComplaints.delete(phone); // Varsa eski hafızayı temizle
+          const promptMsg = `Yeni şikayet talebiniz başlatılmıştır. Lütfen şikayetinizi/talebinizi detaylarıyla yazınız. Şikayetin gerçekleştiği mahalle adını belirtmeyi veya konumunuzu (📍) paylaşmayı unutmayın.`;
+          const sent = await sock.sendMessage(msg.key.remoteJid, { text: promptMsg });
+          if (sent?.key?.id) {
+            addBotMessageId(sent.key.id);
+          }
+          continue;
         }
+
+        const handledReply = await handleCitizenReplyToAwaitingComplaint({
+          sock,
+          msg,
+          phone,
+          name,
+          text,
+          addBotMessageId,
+          downloadMediaMessage,
+          uploadMediaToSupabase,
+        });
+        if (handledReply) continue;
 
         // Bot mesajlarına veya alıntılanmış belediye metinlerine döngü engeli (vatandaş yanıtı yukarıda işlendi)
         if (
@@ -1122,6 +1139,48 @@ function classifyByKeyword(text) {
 }
 
 // ─── Vatandaş Yanıtı (Bekleyen Şikayete Ekleme) ─────────────────
+async function checkIfMessageIsReplyToPending(complaintText, adminQuestion, userMessage) {
+  if (!openai) {
+    const lower = userMessage.toLowerCase().trim();
+    if (lower === 'yeni şikayet' || lower === 'yeni sikayet' || lower === 'yeni') return false;
+    return true;
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `Sen bir belediye WhatsApp botu asistanısın.
+Kullanıcının bekleyen aktif bir şikayeti var. Bu şikayet ve belediyenin sorduğu soru aşağıdadır:
+
+Şikayet Konusu: "${complaintText}"
+Belediyenin Sorusu: "${adminQuestion || ''}"
+
+Kullanıcı şimdi yeni bir mesaj gönderdi:
+"${userMessage}"
+
+Görevin: Kullanıcının bu son mesajının, belediyenin sorduğu soruya bir CEVAP/YANIT mı (yani aynı şikayetle mi ilgili), yoksa tamamen YENİ/FARKLI/BAĞIMSIZ bir şikayet veya talep mi olduğunu belirle.
+
+Sadece aşağıdaki JSON formatında çıktı ver:
+{
+  "is_reply": true (eğer mesaj önceki şikayete/soruya verilen bir cevapsa veya onunla ilgiliyse) veya false (eğer tamamen yeni/farklı bir şikayet/konu ise veya kullanıcı yeni bir şikayet açmak istediğini belirtiyorsa)
+}`
+        }
+      ],
+      temperature: 0.1
+    });
+
+    const parsed = JSON.parse(response.choices[0].message.content);
+    return !!parsed.is_reply;
+  } catch (err) {
+    console.error('⚠️ is_reply sınıflandırma hatası:', err);
+    return true; // Hata durumunda güvenli liman olarak yanıt kabul et
+  }
+}
+
 async function handleCitizenReplyToAwaitingComplaint({
   sock,
   msg,
@@ -1147,6 +1206,36 @@ async function handleCitizenReplyToAwaitingComplaint({
   }
 
   if (!awaiting) return false;
+
+  // AI ile bu yeni mesajın eski şikayete bir cevap mı yoksa yeni bir şikayet mi olduğunu sorgula
+  let isReply = true;
+  if (text && text.trim().length > 0) {
+    // Son belediye sorusunu çek
+    const { data: lastQuestion } = await supabase
+      .from('complaint_responses')
+      .select('response_text')
+      .eq('complaint_id', awaiting.id)
+      .eq('response_type', 'soru')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const adminQuestion = lastQuestion ? lastQuestion.response_text : '';
+    
+    // AI sınıflandırması yap
+    isReply = await checkIfMessageIsReplyToPending(awaiting.complaint_text, adminQuestion, text);
+    console.log(`   🤖 Mesaj sınıflandırması: Eski şikayete cevap mı? = ${isReply ? 'EVET' : 'HAYIR'}`);
+  }
+
+  if (!isReply) {
+    // Eğer yeni bir şikayet ise, eski şikayeti 'incelemede' durumuna çekip yeni şikayet akışına bırakıyoruz
+    console.log(`   🔄 Vatandaş yeni bir şikayet yazmış. Eski şikayet (${awaiting.id.substring(0, 8)}) durumu 'incelemede' olarak güncelleniyor...`);
+    await supabase
+      .from('complaints')
+      .update({ status: 'incelemede' })
+      .eq('id', awaiting.id);
+    return false;
+  }
 
   console.log(`   💬 Vatandaş yanıtı mevcut şikayete ekleniyor (${awaiting.id.substring(0, 8)})`);
 
