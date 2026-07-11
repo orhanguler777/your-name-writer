@@ -109,13 +109,28 @@ function Detail() {
 
   const sendResponse = async () => {
     if (!response.trim()) return;
+
+    const { error: statusError } = await supabase
+      .from("complaints")
+      .update({ status: "vatandas_yaniti_bekleniyor" })
+      .eq("id", id);
+    if (statusError) return toast.error(statusError.message);
+
     const { error } = await supabase.from("complaint_responses").insert({
-      complaint_id: id, response_text: response, responder_id: user?.id, response_type: "manuel",
+      complaint_id: id, response_text: response, responder_id: user?.id, response_type: "soru",
     });
     if (error) return toast.error(error.message);
-    toast.success("Cevap gönderildi");
+    toast.success("Soru gönderildi, vatandaş yanıtı bekleniyor");
+
+    fetch("http://localhost:3001/webhook/response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ complaintId: id, responseText: response, isQuestion: true }),
+    }).catch(err => console.error("Webhook hatası:", err));
+
     setResponse("");
     qc.invalidateQueries({ queryKey: ["responses", id] });
+    qc.invalidateQueries({ queryKey: ["complaint", id] });
   };
 
   if (isLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Yükleniyor...</div>;
@@ -209,7 +224,7 @@ function Detail() {
               {responses?.map((r) => (
                 <div key={r.id} className="rounded-md border bg-muted/30 p-3">
                   <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{r.response_type === "otomatik" ? "AI Otomatik Cevap" : "Belediye"}</span>
+                    <span>{responseTypeLabel(r.response_type)}</span>
                     <span>{new Date(r.created_at).toLocaleString("tr-TR")}</span>
                   </div>
                   <p className="text-sm whitespace-pre-wrap">{r.response_text}</p>
@@ -219,8 +234,8 @@ function Detail() {
             </div>
             {canManage && (
               <div className="mt-4 space-y-2">
-                <Textarea value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Vatandaşa cevap yazın..." />
-                <Button size="sm" onClick={sendResponse}><Send className="h-4 w-4 mr-1" /> Cevap Gönder</Button>
+                <Textarea value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Vatandaşa soru veya bilgi yazın..." />
+                <Button size="sm" onClick={sendResponse}><Send className="h-4 w-4 mr-1" /> Vatandaşa Gönder</Button>
               </div>
             )}
           </Card>
@@ -276,6 +291,16 @@ function Detail() {
   );
 }
 
+function responseTypeLabel(type: string): string {
+  switch (type) {
+    case "otomatik": return "AI Otomatik Cevap";
+    case "soru": return "Belediye Sorusu";
+    case "vatandas": return "Vatandaş Yanıtı";
+    case "durum_bildirimi": return "Durum Bildirimi";
+    default: return "Belediye";
+  }
+}
+
 function TimelineBar({ complaint, responses }: { complaint: any; responses: any[] }) {
   const created = new Date(complaint.created_at);
   const isResolved = complaint.status === "cozuldu";
@@ -288,7 +313,7 @@ function TimelineBar({ complaint, responses }: { complaint: any; responses: any[
 
   responses.forEach((r) => {
     events.push({
-      label: r.response_type === "otomatik" ? "AI Otomatik Cevap" : "Belediye Yanıtı",
+      label: responseTypeLabel(r.response_type),
       date: new Date(r.created_at),
       type: "response",
     });

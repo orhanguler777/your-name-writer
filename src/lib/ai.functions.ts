@@ -132,43 +132,117 @@ export const fetchBilgiTalepleri = createServerFn({ method: "GET" })
     return logs ?? [];
   });
 
+const RankedItem = z.object({
+  name: z.string(),
+  count: z.number(),
+  pct: z.number(),
+});
+
 const DashboardInsightInput = z.object({
   stats: z.object({
     total: z.number(),
     open: z.number(),
     resolved: z.number(),
+    resolvedPct: z.number(),
     avgResolutionHours: z.number(),
     topCategory: z.string(),
     topNeighborhood: z.string(),
+    topDepartment: z.string().optional(),
     departmentName: z.string().nullable().optional(),
     satisfaction: z.number().optional(),
+    awaitingCitizen: z.number().optional(),
+    highPriorityOpen: z.number().optional(),
+    inReview: z.number().optional(),
+    trendLabel: z.string().optional(),
+    trendPct: z.number().optional(),
+    topNeighborhoods: z.array(RankedItem).optional(),
+    topCategories: z.array(RankedItem).optional(),
+    topDepartments: z.array(RankedItem).optional(),
+    last7Total: z.number().optional(),
+    last7Resolved: z.number().optional(),
   }),
   role: z.enum(["baskan", "mudurluk", "admin", "cozum_masasi"]),
 });
+
+function formatRankedList(items: { name: string; count: number; pct: number }[] | undefined) {
+  if (!items?.length) return "Veri yok";
+  return items.map((i) => `${i.name} (${i.count} adet, %${i.pct.toFixed(1)})`).join(", ");
+}
+
+function buildFallbackInsight(
+  role: z.infer<typeof DashboardInsightInput>["role"],
+  s: z.infer<typeof DashboardInsightInput>["stats"],
+) {
+  const nbrList = formatRankedList(s.topNeighborhoods);
+  const catList = formatRankedList(s.topCategories);
+  const deptList = formatRankedList(s.topDepartments);
+
+  if (role === "baskan" || role === "admin") {
+    return [
+      `Genel Durum: Sistemde toplam ${s.total} şikayet kayıtlıdır. ${s.open} şikayet halen açık, ${s.resolved} şikayet çözülmüştür (çözüm oranı %${s.resolvedPct}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.${s.trendLabel ? ` Son 7 günde ${s.trendLabel}.` : ""}`,
+      `Mahalle Analizi: En yoğun mahalle ${s.topNeighborhood} olup ilk beş mahalle sıralaması şöyledir: ${nbrList}. Bu dağılım, saha ekiplerinin öncelikli yönlendirilmesi için dikkate alınmalıdır.`,
+      `Kategori ve Müdürlük Yoğunluğu: En sık bildirilen kategori ${s.topCategory}. Kategori dağılımı: ${catList}. Müdürlük bazında yoğunluk: ${deptList}.${s.highPriorityOpen ? ` ${s.highPriorityOpen} yüksek öncelikli açık şikayet acil takip gerektirmektedir.` : ""}${s.awaitingCitizen ? ` ${s.awaitingCitizen} şikayette vatandaş yanıtı beklenmektedir.` : ""}`,
+      `Yönetim Önerisi: Yoğun mahallelerde proaktif denetim artırılmalı, açık şikayetlerde özellikle yüksek öncelikli dosyalar günlük olarak izlenmeli ve çözüm oranının sürdürülebilirliği için müdürlükler arası koordinasyon güçlendirilmelidir.`,
+    ].join("\n\n");
+  }
+
+  return [
+    `Birim Performansı: ${s.departmentName ?? "Birim"} kapsamında toplam ${s.total} şikayet bulunmaktadır. Açık ${s.open}, çözülen ${s.resolved} (çözüm oranı %${s.resolvedPct}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.`,
+    `Mahalle ve Kategori Dağılımı: En yoğun mahalle ${s.topNeighborhood}. Mahalle sıralaması: ${nbrList}. En sık kategori ${s.topCategory}; kategori dağılımı: ${catList}.${s.awaitingCitizen ? ` ${s.awaitingCitizen} şikayette vatandaş yanıtı beklenmektedir.` : ""}`,
+    `Operasyonel Tavsiye: Açık dosyalar öncelik sırasına göre günlük takip edilmeli, yoğun mahallelerde saha kapasitesi artırılmalı ve vatandaş yanıtı bekleyen kayıtlar gecikmeden sonuçlandırılmalıdır.`,
+  ].join("\n\n");
+}
 
 export const generateDashboardInsight = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => DashboardInsightInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     const s = data.stats;
-    const resolvedPct = s.total > 0 ? ((s.resolved / s.total) * 100).toFixed(0) : "0";
-
-    // Fallback if no AI key
-    const fallback = data.role === "baskan"
-      ? `Toplam ${s.total} şikayet alınmış, bunların %${resolvedPct}'ü çözülmüştür. En yoğun kategori: ${s.topCategory}. En fazla şikayet gelen mahalle: ${s.topNeighborhood}. Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.`
-      : `${s.departmentName ?? "Birim"}: Toplam ${s.total} şikayet, %${resolvedPct} çözüm oranı. En yoğun kategori: ${s.topCategory}. Ortalama çözüm süresi: ${s.avgResolutionHours.toFixed(1)} saat.`;
+    const fallback = buildFallbackInsight(data.role, s);
+    const isExecutive = data.role === "baskan" || data.role === "admin";
 
     if (!key) return { insight: fallback };
 
     try {
       const gateway = createLovableGateway();
-      const prompt = data.role === "baskan"
-        ? `Sen bir belediye yapay zeka danışmanısın. Başkana hitaben kısa ve profesyonel (3-4 cümle) bir günlük yönetim özeti ve tavsiye yaz.
-Veriler: Toplam Şikayet: ${s.total}, Açık: ${s.open}, Çözülen: ${s.resolved} (%${resolvedPct}), Ort. Çözüm Süresi: ${s.avgResolutionHours.toFixed(1)} saat, En Yoğun Kategori: ${s.topCategory}, En Yoğun Mahalle: ${s.topNeighborhood}${s.satisfaction ? `, Memnuniyet: %${(s.satisfaction * 20).toFixed(0)}` : ""}.
-Sadece Türkçe düz metin döndür, JSON veya markdown kullanma.`
-        : `Sen bir belediye yapay zeka danışmanısın. ${s.departmentName ?? "Bu birim"} müdürüne hitaben kısa ve profesyonel (3-4 cümle) bir performans analizi ve tavsiye yaz.
-Veriler: Toplam Şikayet: ${s.total}, Açık: ${s.open}, Çözülen: ${s.resolved} (%${resolvedPct}), Ort. Çözüm Süresi: ${s.avgResolutionHours.toFixed(1)} saat, En Yoğun Kategori: ${s.topCategory}, En Yoğun Mahalle: ${s.topNeighborhood}.
-Sadece Türkçe düz metin döndür, JSON veya markdown kullanma.`;
+      const audience = isExecutive
+        ? "belediye başkanına ve üst yönetime"
+        : `${s.departmentName ?? "ilgili müdürlük"} müdürüne`;
+
+      const prompt = `Sen Alanya Belediyesi'nin kıdemli yapay zeka yönetim danışmanısın. ${audience} hitaben resmi, profesyonel ve veri odaklı bir yönetim brifingi yaz.
+
+KURALLAR:
+- Türkçe yaz, resmi ama anlaşılır bir dil kullan
+- 4 paragraf üret; paragraflar arasında boş satır bırak
+- Markdown, JSON, madde işareti veya başlık sembolü (#, *) kullanma
+- Her paragraf 2-3 cümle olsun
+- Somut rakam, mahalle adı, kategori ve müdürlük isimlerini mutlaka kullan
+- Genel geçer ifadelerden kaçın; veriye dayalı yorum yap
+
+VERİ SETİ:
+- Toplam şikayet: ${s.total}
+- Açık şikayet: ${s.open}
+- Çözülen şikayet: ${s.resolved} (çözüm oranı %${s.resolvedPct})
+- Ortalama çözüm süresi: ${s.avgResolutionHours.toFixed(1)} saat
+- İncelemede: ${s.inReview ?? 0}
+- Vatandaş yanıtı bekleyen: ${s.awaitingCitizen ?? 0}
+- Yüksek öncelikli açık: ${s.highPriorityOpen ?? 0}
+- Son 7 gün toplam: ${s.last7Total ?? 0}, çözülen: ${s.last7Resolved ?? 0}
+- Trend: ${s.trendLabel ?? "belirsiz"}${s.trendPct !== undefined ? ` (%${Math.abs(s.trendPct).toFixed(0)} değişim)` : ""}
+- En yoğun mahalle: ${s.topNeighborhood}
+- En yoğun kategori: ${s.topCategory}
+- En yoğun müdürlük: ${s.topDepartment ?? "—"}
+- Mahalle sıralaması (ilk 5): ${formatRankedList(s.topNeighborhoods)}
+- Kategori sıralaması (ilk 5): ${formatRankedList(s.topCategories)}
+- Müdürlük sıralaması (ilk 5): ${formatRankedList(s.topDepartments)}
+${s.satisfaction ? `- Memnuniyet skoru: %${(s.satisfaction * 20).toFixed(0)}` : ""}
+${s.departmentName ? `- Birim adı: ${s.departmentName}` : ""}
+
+PARAGRAF YAPISI:
+1) Genel operasyonel durum ve çözüm performansı
+2) Mahalle bazlı yoğunluk analizi (hangi mahalleler öne çıkıyor, ne anlama geliyor)
+3) Kategori/müdürlük yoğunluğu ve risk alanları (yüksek öncelik, vatandaş yanıtı bekleyenler)
+4) Somut yönetim önerileri (kaynak planlaması, saha müdahalesi, koordinasyon)`;
 
       const result = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
