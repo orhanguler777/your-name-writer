@@ -12,6 +12,7 @@ import pino from 'pino';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import express from 'express';
 
 // ─── Config ────────────────────────────────────────────────────────
 const logger = pino({ level: 'warn' }); // Sadece uyarı ve hataları göster
@@ -95,10 +96,27 @@ function isSelfChatOnly() {
   return true;
 }
 
+// İki koordinat arası mesafeyi (Haversine formülü) hesaplar
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
+const pendingComplaints = new Map();
 let departmentsCache = [];
 let neighborhoodsCache = [];
 let eventsCache = [];
+
+// Gerçek remoteJid'leri tutan bellek (Webhook 400 hatalarını önlemek için)
+global.activeJids = new Map();
 async function loadInitialData() {
   // Müdürlükleri yükle
   const { data: depts, error: deptError } = await supabase.from('departments').select('id, name');
@@ -110,7 +128,7 @@ async function loadInitialData() {
   }
 
   // Mahalleleri yükle
-  const { data: nbrs, error: nbrError } = await supabase.from('neighborhoods').select('id, name');
+  const { data: nbrs, error: nbrError } = await supabase.from('neighborhoods').select('id, name, mukhtar_name, mukhtar_phone, latitude, longitude');
   if (nbrError) {
     console.error('⚠️ Mahalleler yüklenemedi:', nbrError.message);
   } else {
@@ -152,6 +170,9 @@ async function startBot() {
     generateHighQualityLinkPreview: false,
   });
 
+  // Global referans: Webhook ve Realtime handler'lar her zaman güncel sock'u kullansın
+  global.currentSock = sock;
+
   // Bağlantı durumu güncellemeleri
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -185,15 +206,15 @@ async function startBot() {
             try {
               const newResponse = payload.new;
               
-              // Sadece personelin yazdığı manuel cevapları vatandaşa WhatsApp'tan ilet
-              if (newResponse.response_type !== 'manuel') return;
+              // Sadece personelin yazdığı manuel cevapları ve durum bildirimlerini ilet
+              if (newResponse.response_type !== 'manuel' && newResponse.response_type !== 'durum_bildirimi') return;
 
-              console.log(`\n   📨 Yeni belediye cevabı tespit edildi (Şikayet ID: ${newResponse.complaint_id})`);
+              console.log(`\n   📨 Yeni ${newResponse.response_type === 'durum_bildirimi' ? 'durum bildirimi' : 'belediye cevabı'} tespit edildi (Şikayet ID: ${newResponse.complaint_id})`);
 
               // Şikayeti ve vatandaşın telefonunu çek
               const { data: complaint, error: compError } = await supabase
                 .from('complaints')
-                .select('citizen_phone, citizen_name, status')
+                .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source')
                 .eq('id', newResponse.complaint_id)
                 .single();
 
@@ -202,26 +223,55 @@ async function startBot() {
                 return;
               }
 
-              // JID formatı (16690377154811 -> 16690377154811@s.whatsapp.net)
+              // Sadece WhatsApp kaynaklı şikayetler için bildirim gönder
+              if (complaint.source !== 'whatsapp_qr') {
+                console.log(`   ⏭️ Kaynak whatsapp_qr değil (${complaint.source}), bildirim atlanıyor.`);
+                return;
+              }
+
+              // JID formatı
               const jid = complaint.citizen_phone.includes('@') 
                 ? complaint.citizen_phone 
                 : `${complaint.citizen_phone}@s.whatsapp.net`;
-                
-              const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
-              const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
 
-              const responseText = 
-                `${statusEmoji} *Alanya Belediyesi Bilgilendirme*\n\n` +
-                `Sayın *${complaint.citizen_name}*,\n` +
-                `Şikayetinizin durumu *${statusText}* olarak güncellenmiştir.\n\n` +
-                `*Belediye Birim Açıklaması:*\n"${newResponse.response_text}"\n\n` +
-                `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+              let responseText;
+
+              if (newResponse.response_type === 'durum_bildirimi') {
+                // ✅ Çözüldü bildirimi
+                const trackingNo = newResponse.complaint_id.substring(0, 8).toUpperCase();
+                let neighborhoodName = '';
+                if (complaint.neighborhood_id) {
+                  const nbr = neighborhoodsCache.find(n => n.id === complaint.neighborhood_id);
+                  if (nbr) neighborhoodName = nbr.name;
+                }
+
+                responseText =
+                  `✅ *Alanya Belediyesi Durum Bildirimi*\n\n` +
+                  `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+                  `📋 Takip No: *${trackingNo}*\n` +
+                  (neighborhoodName ? `📍 Mahalle: *${neighborhoodName}*\n` : '') +
+                  `📌 Şikayet: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
+                  `🔄 Durum: *ÇÖZÜLDÜ*\n` +
+                  `${newResponse.response_text}\n\n` +
+                  `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+              } else {
+                // 📢 Manuel belediye cevabı
+                const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
+                const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
+
+                responseText = 
+                  `${statusEmoji} *Alanya Belediyesi Bilgilendirme*\n\n` +
+                  `Sayın *${complaint.citizen_name}*,\n` +
+                  `Şikayetinizin durumu *${statusText}* olarak güncellenmiştir.\n\n` +
+                  `*Belediye Birim Açıklaması:*\n"${newResponse.response_text}"\n\n` +
+                  `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+              }
 
               const sent = await sock.sendMessage(jid, { text: responseText });
               if (sent?.key?.id) {
                 addBotMessageId(sent.key.id);
               }
-              console.log(`   💬 Cevap WhatsApp üzerinden vatandaşa iletildi (${complaint.citizen_phone})`);
+              console.log(`   💬 ${newResponse.response_type === 'durum_bildirimi' ? 'Durum bildirimi' : 'Cevap'} WhatsApp üzerinden vatandaşa iletildi (${complaint.citizen_phone})`);
 
             } catch (err) {
               console.error('⚠️ Realtime bildirim gönderme hatası:', err.message);
@@ -229,6 +279,139 @@ async function startBot() {
           }
         )
         .subscribe();
+
+      // ── Express Webhook Sunucusu (CORS ve Realtime kesintilerini önlemek için) ──
+      const app = express();
+      app.use(express.json());
+
+      // CORS izinleri
+      app.use((req, res, next) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') return res.sendStatus(200);
+        next();
+      });
+
+      app.post('/webhook/resolved', async (req, res) => {
+        try {
+          const { complaintId } = req.body;
+          if (!complaintId) {
+            return res.status(400).json({ error: 'complaintId gereklidir' });
+          }
+
+          console.log(`\n   🔌 Webhook tetiklendi! Şikayet ID: ${complaintId}`);
+
+          // Güncel sock referansını kullan (yeniden bağlantıda güncellenir)
+          const activeSock = global.currentSock;
+          if (!activeSock) {
+            console.error('⚠️ WhatsApp bağlantısı hazır değil!');
+            return res.status(503).json({ error: 'WhatsApp bağlantısı hazır değil' });
+          }
+
+          // Şikayet detaylarını çek
+          const { data: complaint, error: compError } = await supabase
+            .from('complaints')
+            .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source')
+            .eq('id', complaintId)
+            .single();
+
+          if (compError || !complaint) {
+            console.error('⚠️ Webhook şikayet bilgisi çekilemedi:', compError?.message);
+            return res.status(404).json({ error: 'Şikayet bulunamadı' });
+          }
+
+          console.log(`   📋 Şikayet bulundu: phone=${complaint.citizen_phone}, source=${complaint.source}, status=${complaint.status}`);
+
+          // Sadece WhatsApp kaynaklı şikayetler
+          if (complaint.source !== 'whatsapp_qr') {
+            console.log(`   ⏭️ Kaynak whatsapp_qr değil (${complaint.source}), atlanıyor.`);
+            return res.json({ status: 'ignored', reason: 'source_not_whatsapp' });
+          }
+
+          if (!complaint.citizen_phone) {
+            console.log('   ⏭️ Telefon numarası yok, atlanıyor.');
+            return res.json({ status: 'ignored', reason: 'no_phone' });
+          }
+
+          let jid = complaint.citizen_phone.includes('@')
+            ? complaint.citizen_phone
+            : `${complaint.citizen_phone}@s.whatsapp.net`;
+
+          // Kendi numarasına (Self-Chat) gönderim yapılıyorsa cihaz JID'sini (user.id) kullan
+          const myJid = activeSock.user?.id;
+          console.log(`   🐛 DEBUG: myJid = ${myJid}, targetPhone = ${complaint.citizen_phone}`);
+          if (myJid) {
+            const myBareId = myJid.split(':')[0].split('@')[0];
+            console.log(`   🐛 DEBUG: myBareId = ${myBareId}`);
+            if (complaint.citizen_phone === myBareId) {
+              jid = myJid; // Kendi kendine atarken :15 gibi cihaz ekini koru
+            }
+          }
+
+          // BELLEKTEN GERÇEK JID'Yİ AL (Yapay zekanın başarıyla mesaj attığı JID)
+          const exactJid = global.activeJids.get(complaint.citizen_phone);
+          if (exactJid) {
+            console.log(`   🐛 DEBUG: Bellekten gerçek JID bulundu: ${exactJid}`);
+            jid = exactJid;
+          } else {
+            console.log(`   🐛 DEBUG: Bellekte JID bulunamadı, üretilen kullanılacak: ${jid}`);
+          }
+
+          console.log(`   📱 Mesaj gönderiliyor: JID=${jid}`);
+
+          const trackingNo = complaintId.substring(0, 8).toUpperCase();
+          
+          let neighborhoodName = '';
+          if (complaint.neighborhood_id) {
+            const nbr = neighborhoodsCache.find(n => n.id === complaint.neighborhood_id);
+            if (nbr) neighborhoodName = nbr.name;
+          }
+
+          const responseText =
+            `✅ *Alanya Belediyesi Durum Bildirimi*\n\n` +
+            `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+            `📋 Takip No: *${trackingNo}*\n` +
+            (neighborhoodName ? `📍 Mahalle: *${neighborhoodName}*\n` : '') +
+            `📌 Şikayet: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
+            `🔄 Durum: *ÇÖZÜLDÜ*\n` +
+            `Şikayetiniz başarıyla çözülmüştür. Alanya Belediyesi olarak hizmetlerimizi sürekli iyileştirmeye devam ediyoruz.\n\n` +
+            `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+
+          console.log(`   📤 Sohbet aktifleştiriliyor ve sendMessage çağrılıyor...`);
+          
+          // Gerçek bir kullanıcı gibi davranıp oturumu aktifleştirmek için "Yazıyor..." durumunu simüle et
+          try {
+            await activeSock.presenceSubscribe(jid);
+            await new Promise(r => setTimeout(r, 500));
+            await activeSock.sendPresenceUpdate('composing', jid);
+            await new Promise(r => setTimeout(r, 1000));
+            await activeSock.sendPresenceUpdate('paused', jid);
+          } catch (e) {
+            console.warn(`   ⚠️ Presence simülasyonu uyarı verdi: ${e.message}`);
+          }
+
+          const sent = await activeSock.sendMessage(jid, { text: responseText });
+          console.log(`   📬 sendMessage sonucu:`, JSON.stringify(sent?.key || 'BOŞ'));
+          
+          if (sent?.key?.id) {
+            addBotMessageId(sent.key.id);
+          }
+
+          console.log(`   💬 Çözüldü bildirimi Webhook aracılığıyla vatandaşa iletildi (${complaint.citizen_phone})`);
+          return res.json({ status: 'success', messageId: sent?.key?.id || null });
+        } catch (err) {
+          console.error('⚠️ Webhook hatası:', err.message);
+          return res.status(500).json({ error: err.message });
+        }
+      });
+
+      // Zaten dinlemede olan bir express sunucusu varsa tekrar başlatmamak için global nesnede tutalım
+      if (!global.webhookServer) {
+        global.webhookServer = app.listen(3001, () => {
+          console.log('   🔌 Webhook sunucusu port 3001 üzerinden dinleniyor...');
+        });
+      }
     }
 
     if (connection === 'close') {
@@ -311,15 +494,153 @@ async function startBot() {
         }
 
         const phone = remoteBareId || msg.key.remoteJid.split('@')[0];
+        
+        // Ham JID'yi belleğe kaydet (Webhook cevap atarken bu gerçek JID'yi kullanacak)
+        global.activeJids.set(phone, msg.key.remoteJid);
+
         const name = msg.pushName || 'Vatandaş';
 
-        console.log(`\n📩 Yeni Mesaj [${phone}]: ${text ? text.substring(0, 50) + '...' : '(Medya)'}`);
+        // Konum verilerini çıkar (locationMessage veya liveLocationMessage)
+        const isLocation = !!msg.message.locationMessage || !!msg.message.liveLocationMessage;
+        let locLat = null;
+        let locLng = null;
+        if (msg.message.locationMessage) {
+          locLat = msg.message.locationMessage.degreesLatitude;
+          locLng = msg.message.locationMessage.degreesLongitude;
+        } else if (msg.message.liveLocationMessage) {
+          locLat = msg.message.liveLocationMessage.degreesLatitude;
+          locLng = msg.message.liveLocationMessage.degreesLongitude;
+        }
+
+        console.log(`\n📩 Yeni Mesaj [${phone}]: ${isLocation ? '(Konum Paylaşımı)' : (text ? text.substring(0, 50) + '...' : '(Medya)')}`);
+
+        // Bekleyen şikayet kontrolü / iptal işlemi
+        const lowerTextTrim = text ? text.toLowerCase().trim() : '';
+        const pending = pendingComplaints.get(phone);
+        if (pending && (lowerTextTrim === 'iptal' || lowerTextTrim.includes('vazgeç') || lowerTextTrim.includes('vazgectim'))) {
+          pendingComplaints.delete(phone);
+          const sent = await sock.sendMessage(msg.key.remoteJid, { text: '❌ Şikayet talebiniz iptal edilmiştir. Yeni bir mesaj gönderebilirsiniz.' });
+          if (sent?.key?.id) {
+            addBotMessageId(sent.key.id);
+          }
+          continue;
+        }
+
+        // En yakın mahalleyi koordinata göre bul
+        let locationNbr = null;
+        if (locLat !== null && locLng !== null) {
+          let minDistance = Infinity;
+          for (const n of neighborhoodsCache) {
+            if (n.latitude && n.longitude) {
+              const d = getDistance(locLat, locLng, n.latitude, n.longitude);
+              if (d < minDistance) {
+                minDistance = d;
+                locationNbr = n;
+              }
+            }
+          }
+        }
+
+        // ── Konum Mesajı Geldi ──
+        if (locLat !== null && locLng !== null) {
+          console.log(`   📍 Konum mesajı algılandı: Lat: ${locLat}, Lng: ${locLng}`);
+          if (locationNbr) {
+            console.log(`   📍 En yakın mahalle: ${locationNbr.name}`);
+          }
+          
+          if (pending && pending.text) {
+            // Önce şikayet metnini yazmıştı, şimdi konumu yolladı
+            console.log(`   🗂️ Bekleyen şikayet metni ile konum birleştiriliyor: "${pending.text}"`);
+            
+            const textToAnalyze = `Önceki şikayet konusu: "${pending.text}". Şikayetin gerçekleştiği mahalle bilgisi: "${locationNbr ? locationNbr.name : ''}".`;
+            console.log('   🤖 Yapay zeka analizi yapılıyor (Konum birleşimi)...');
+            const analysis = await analyzeWithAI(textToAnalyze);
+            
+            let departmentId = null;
+            if (analysis.department) {
+              const foundDept = departmentsCache.find((d) => d.name === analysis.department);
+              if (foundDept) departmentId = foundDept.id;
+            }
+            
+            const { data: complaint, error: dbError } = await supabase
+              .from('complaints')
+              .insert([
+                {
+                  citizen_phone: phone,
+                  citizen_name: name,
+                  complaint_text: pending.text,
+                  status: 'yeni',
+                  source: 'whatsapp_qr',
+                  language: analysis.language || 'tr',
+                  neighborhood_id: locationNbr ? locationNbr.id : null,
+                  latitude: locLat,
+                  longitude: locLng
+                },
+              ])
+              .select()
+              .single();
+              
+            if (dbError) throw dbError;
+            
+            await supabase
+              .from('complaints')
+              .update({
+                category: analysis.category || 'Diğer',
+                ai_category: analysis.category,
+                ai_department_id: departmentId,
+                assigned_department_id: departmentId,
+                priority: analysis.priority,
+              })
+              .eq('id', complaint.id);
+              
+            pendingComplaints.delete(phone);
+            
+            const reply = `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${locationNbr ? locationNbr.name + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.\n\n` +
+              `📋 Kategori: ${analysis.category}\n` +
+              `🏢 Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
+              `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}`;
+              
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
+            if (sent?.key?.id) {
+              addBotMessageId(sent.key.id);
+            }
+            continue;
+          } else {
+            // Önce konumu yolladı, şikayet detayını sonra yazacak
+            pendingComplaints.set(phone, {
+              lat: locLat,
+              lng: locLng,
+              neighborhoodId: locationNbr ? locationNbr.id : null,
+              neighborhoodName: locationNbr ? locationNbr.name : null,
+              timestamp: Date.now()
+            });
+            
+            const reply = `📍 Gönderdiğiniz konuma göre ${locationNbr ? locationNbr.name + ' Mahallesi' : 'Alanya'} sınırlarında olduğunuzu tespit ettik.\n\n` +
+              `Lütfen bu bölgedeki şikayetinizin/talebinizin detaylarını yazar mısınız?`;
+              
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
+            if (sent?.key?.id) {
+              addBotMessageId(sent.key.id);
+            }
+            continue;
+          }
+        }
+
+        let textToAnalyze = text;
+        if (pending && (Date.now() - pending.timestamp < 5 * 60 * 1000)) {
+          if (pending.text) {
+            textToAnalyze = `Önceki şikayet konusu: "${pending.text}". Şikayetin gerçekleştiği mahalle bilgisi: "${text}".`;
+          } else if (pending.lat !== undefined) {
+            textToAnalyze = `Şikayet konusu: "${text}". Şikayetin gerçekleştiği mahalle bilgisi: "${pending.neighborhoodName || ''}".`;
+          }
+          console.log(`📌 Bekleyen oturum verisi birleştirildi: ${textToAnalyze}`);
+        }
 
         // ── 1) AI ile Önce Analiz Et ──────────────────────────────
         let analysis;
-        if (text && text.trim().length > 3) {
+        if (textToAnalyze && textToAnalyze.trim().length > 3) {
           console.log('   🤖 Yapay zeka analizi yapılıyor...');
-          analysis = await analyzeWithAI(text);
+          analysis = await analyzeWithAI(textToAnalyze);
           console.log('   📊 Analiz Sonucu:', JSON.stringify(analysis, null, 2));
         } else {
           analysis = {
@@ -328,8 +649,9 @@ async function startBot() {
             neighborhood: null,
             priority: 'orta',
             auto_response: '',
-            send_pdf: false,
+            send_pdfs: [],
             interaction_type: 'sikayet',
+            language: 'tr',
           };
         }
 
@@ -346,6 +668,7 @@ async function startBot() {
               citizen_name: name,
               category: analysis.category,
               department: analysis.department,
+              language: analysis.language || 'tr',
               source: 'whatsapp_qr',
             },
           }]);
@@ -385,17 +708,67 @@ async function startBot() {
 
         } else {
           // ─── ŞİKAYET: Şikayet tablosuna kaydet ───
+          
+          // AI Sonuçlarına göre Müdürlük bul
+          let departmentId = null;
+          if (analysis.department) {
+            const foundDept = departmentsCache.find((d) => d.name === analysis.department);
+            if (foundDept) departmentId = foundDept.id;
+          }
+
+          // AI Sonuçlarına göre Mahalle bul
+          let neighborhoodId = null;
+          if (pending && pending.neighborhoodId) {
+            neighborhoodId = pending.neighborhoodId;
+          } else if (analysis.neighborhood) {
+            const cleanedInput = analysis.neighborhood.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
+            const foundNbr = neighborhoodsCache.find((n) => {
+              const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
+              return cleanedName === cleanedInput || cleanedName.includes(cleanedInput) || cleanedInput.includes(cleanedName);
+            });
+            if (foundNbr) neighborhoodId = foundNbr.id;
+          }
+
+          // Mahalle bulunamadıysa veritabanına ekleme, kullanıcıya sor
+          if (!neighborhoodId) {
+            console.log('   ⚠️ Mahalle belirlenemedi veya bulunamadı, şikayet kaydı veritabanına OLUŞTURULMUYOR.');
+            
+            // Eğer henüz bekleyen bir şikayet yoksa, bu orijinal şikayet metnini hafızaya alalım
+            if (!pending) {
+              pendingComplaints.set(phone, { text: text || '(Medya İçeren Şikayet)', timestamp: Date.now() });
+            } else {
+              // Süreyi yenile
+              pending.timestamp = Date.now();
+            }
+
+            let askBase = analysis.auto_response ||
+              `Sayın ${name}, şikayetinizi doğru mahalle ile eşleştirebilmemiz için lütfen mahalle adını yazınız.`;
+            // "102 mahalle" ifadelerini temizle
+            askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, '').trim();
+            const askReply = askBase + `\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`;
+            
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
+            if (sent?.key?.id) {
+              addBotMessageId(sent.key.id);
+            }
+            continue; // döngüde sonraki mesaja geç
+          }
+
           console.log('   🗂️ Şikayet tespit edildi, kayıt oluşturuluyor.');
 
+          const complaintTextToSave = (pending && pending.text) ? pending.text : (text || '(Sadece Medya İçeren Mesaj)');
           const { data: complaint, error: dbError } = await supabase
             .from('complaints')
             .insert([
               {
                 citizen_phone: phone,
                 citizen_name: name,
-                complaint_text: text || '(Sadece Medya İçeren Mesaj)',
+                complaint_text: complaintTextToSave,
                 status: 'yeni',
                 source: 'whatsapp_qr',
+                language: analysis.language || 'tr',
+                latitude: (pending && pending.lat !== undefined) ? pending.lat : null,
+                longitude: (pending && pending.lng !== undefined) ? pending.lng : null,
               },
             ])
             .select()
@@ -423,22 +796,6 @@ async function startBot() {
           }
 
           // AI Sonuçlarını Güncelle
-          let departmentId = null;
-          if (analysis.department) {
-            const foundDept = departmentsCache.find((d) => d.name === analysis.department);
-            if (foundDept) departmentId = foundDept.id;
-          }
-
-          let neighborhoodId = null;
-          if (analysis.neighborhood) {
-            const cleanedInput = analysis.neighborhood.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-            const foundNbr = neighborhoodsCache.find((n) => {
-              const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-              return cleanedName === cleanedInput || cleanedName.includes(cleanedInput) || cleanedInput.includes(cleanedName);
-            });
-            if (foundNbr) neighborhoodId = foundNbr.id;
-          }
-
           await supabase
             .from('complaints')
             .update({
@@ -448,8 +805,12 @@ async function startBot() {
               assigned_department_id: departmentId,
               neighborhood_id: neighborhoodId,
               priority: analysis.priority,
+              language: analysis.language || 'tr',
             })
             .eq('id', complaint.id);
+
+          // Bekleyen şikayeti temizle
+          pendingComplaints.delete(phone);
 
           // Kullanıcıya Cevap Gönder
           const reply =
@@ -505,6 +866,7 @@ async function analyzeWithAI(text) {
     auto_response: '',
     send_pdfs: [],
     interaction_type: 'sikayet',
+    language: 'tr',
   };
 
   if (!openai) {
@@ -521,6 +883,10 @@ async function analyzeWithAI(text) {
   // Etkinlik bilgisini önce detaylı knowledge dosyasından, yoksa DB cache'den al
   const eventsList = eventsDocsText || eventsCache.map((e) => `- ${e.title}: ${e.start_date} - ${e.end_date} (${e.description || ''})`).join('\n');
   const pdfCatalog = buildPdfCatalogText();
+  const mukhtarsList = neighborhoodsCache
+    .filter((n) => n.mukhtar_name)
+    .map((n) => `- ${n.name} Mahallesi Muhtarı: ${n.mukhtar_name} (İletişim/Telefon: ${n.mukhtar_phone || 'Kayıtlı Değil'})`)
+    .join('\n');
 
   try {
     const response = await openai.chat.completions.create({
@@ -532,7 +898,7 @@ async function analyzeWithAI(text) {
           content: `Sen Alanya Belediyesi yapay zeka şikayet ve bilgi asistanısın. Antalya'nın Alanya ilçesinde görev yapıyorsun. Belediye Başkanı Osman Tarık Özçelik'tir.
 
 Vatandaştan gelen şikayeti veya bilgi talebini analiz et ve SADECE JSON döndür:
-{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Şikayette geçen mahalle adı (Örn: Fığla, Mahmutlar, Oba, Konaklı vb.) veya null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet|bilgi","send_pdfs":["dosya-adi.pdf"],"auto_response":"Vatandaşa kısa, nazik, profesyonel Türkçe cevap (3-4 cümle, emoji kullanabilirsin. Alanya Belediyesi olarak hitap et.)"}
+{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Şikayette geçen mahalle adı (Örn: Fığla, Mahmutlar, Oba, Konaklı vb.) veya null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet|bilgi","language":"tr|en|ru|de|... (mesajın dili)","send_pdfs":["dosya-adi.pdf"],"auto_response":"Vatandaşa kısa, nazik, profesyonel cevap (3-4 cümle, emoji kullanabilirsin. Alanya Belediyesi olarak hitap et. DİL KURALI: Gelen mesaj hangi dilde yazılmışsa, auto_response cevabını da O DİLDE oluştur.)"}
 
 Kategoriler: Yol / Altyapı, Temizlik / Atık, Park ve Bahçeler, İmar / Yapı, Çevre / Sıfır Atık, Zabıta / Düzen, Hayvan Hakları, Kültür / Sosyal, Kırsal Hizmetler, Kentsel Dönüşüm, Afet / Acil, Diğer.
 
@@ -544,20 +910,27 @@ ${nikahDocsText}
 BELEDİYE BİLGİ REHBERİ (RUHSAT VE İŞYERİ AÇMA İŞLEMLERİ):
 ${ruhsatDocsText}
 
+BELEDİYE BİLGİ REHBERİ (MAHALLE MUHTARLARI):
+${mukhtarsList}
+
 BELEDİYE ETKİNLİK REHBERİ (2026 YILI ETKİNLİKLERİ & FESTİVALLERİ):
 ${eventsList}
 
-GÖNDERİLEBİLİR PDF BELGELERİ:
+GÖNDERİLEBİR PDF BELGELERİ:
 ${pdfCatalog}
  
 KURALLAR:
 - Nikah, evlilik, evlenme belgeleri vb. sorular için "Müdürlük Adı" olarak "Yazı İşleri Müdürlüğü" seç.
 - İşyeri açma, ruhsat, sıhhi/gayrisıhhi müessese ruhsatı vb. sorular için "Müdürlük Adı" olarak "Ruhsat ve Denetim Müdürlüğü" seç.
+- Vatandaş bir mahallenin muhtarını, muhtar ismini veya muhtarlık iletişim/telefon numarasını sorarsa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (MAHALLE MUHTARLARI)" listesini kullanarak net, doğru ve doğrudan isim ile telefon numarasını içeren bir auto_response hazırla. Bu tür bilgi talepleri için "Müdürlük Adı" olarak "Muhtarlık İşleri Müdürlüğü" seç.
 - Vatandaş evlilik/nikah evrakları, yabancı evliliği, yaş sınırı, iddet müddeti gibi konuları sorursa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (EVLENDİRME İŞLEMLERİ)"ne göre akıl yürüterek tam, doğru ve detaylı bir auto_response hazırla.
 - Vatandaş ruhsat başvurusu, gerekli evraklar veya ruhsat onay süreçleri hakkında soru sorarsa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (RUHSAT VE İŞYERİ AÇMA İŞLEMLERİ)" bilgilerine göre gerekli evrakları ve adımları açıklayan detaylı bir auto_response hazırla.
 - Vatandaş belediyenin düzenlediği veya ev sahipliği yaptığı festivaller, konserler, fuarlar, etkinlikler, spor turnuvaları vb. hakkında soru sorarsa, yukarıdaki "BELEDİYE ETKİNLİK REHBERİ" bilgilerini kullanarak net, tarih ve detay içeren bir auto_response hazırla.
-- "send_pdfs": Vatandaşın sorusuyla ilgili GÖNDERİLEBİLİR PDF BELGELERİ listesindeki belgelerin dosya adlarını bir dizi (array) olarak ekle. Birden fazla PDF ilgiliyse hepsini ekle. Hiçbir PDF ilgili değilse boş dizi [] döndür. Sadece yukarıdaki listede bulunan dosya adlarını kullan.
+- "send_pdfs": Vatandaşın sorusuyla ilgili GÖNDERİLEBİR PDF BELGELERİ listesindeki belgelerin dosya adlarını bir dizi (array) olarak ekle. Birden fazla PDF ilgiliyse hepsini ekle. Hiçbir PDF ilgili değilse boş dizi [] döndür. Sadece yukarıdaki listede bulunan dosya adlarını kullan.
 - "interaction_type": Vatandaş belediyeye bir sorun bildiriyorsa, belediyeden fiziksel bir işlem, denetim veya onarım yapmasını talep ediyorsa (örneğin çöpün alınması, yolun yapılması, gürültü yapılması, seyyar satıcı, kaçak yapı, sokak hayvanı vb.) "sikayet" seç. Vatandaş sadece bilgi almak istiyorsa, belge/evrak soruyorsa, evlilik yaş sınırı, ruhsat belgeleri, çalışma saatleri veya belediye etkinliklerinin/festivallerinin tarihleri gibi bilgi verici konuları soruyorsa "bilgi" seç.
+- "language": Gelen mesajın dilini (tr, en, ru, de vb.) tespit edip buraya yaz.
+- Vatandaş bir şikayet ("interaction_type" = "sikayet") bildiriyorsa ancak mesajında belirgin/spesifik bir mahalle adı belirtmemişse veya "her yerde", "tüm Alanya" gibi belirsiz/genel ifadeler kullanmışsa, "neighborhood" değerini mutlaka null döndür. Bu durumda "auto_response" alanında vatandaştan şikayetin gerçekleştiği mahallenin adını yazmasını veya direkt konumunu (📍) paylaşarak yerini bildirmesini isteyen kısa ve nazik bir mesaj yaz (gelen mesajın kendi dilinde). Sakın mahalle sayısından veya "102 mahalle" gibi ifadelerden bahsetme.
+- auto_response yazılırken vatandaşın sorduğu dilde yaz (İngilizce sorduysa İngilizce, Rusça sorduysa Rusça vb.)
 - Müdürlük adını yukarıdaki listeden BİREBİR AYNY YAZIMLA seç.
 - Eğer vatandaş bir mahalle belirtmişse, auto_response içinde mahalle adını tekrar et.
 - auto_response mesajı Alanya Belediyesi adına yazılmalı.
@@ -594,6 +967,7 @@ KURALLAR:
       auto_response: parsed.auto_response || fallback.auto_response,
       send_pdfs: sendPdfs,
       interaction_type: parsed.interaction_type || fallback.interaction_type,
+      language: parsed.language || 'tr',
     };
   } catch (err) {
     console.error('⚠️ AI analiz hatası:', err.message);
