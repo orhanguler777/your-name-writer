@@ -82,6 +82,14 @@ function Panel() {
     ? data?.depts?.find((d: any) => d.id === deptId)?.name ?? null
     : null;
 
+  // Ranked lists for AI insight
+  const rankedNbrs = Object.entries(byNbr).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const rankedCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const rankedDepts = Object.entries(byDept).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const awaitingCitizen = c.filter((x: any) => x.status === "vatandas_yaniti_bekleniyor").length;
+  const highPriorityOpen = c.filter((x: any) => x.priority === "high" && !["cozuldu", "reddedildi"].includes(x.status)).length;
+  const inReview = c.filter((x: any) => x.status === "incelemede").length;
+
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
   const { data: aiData, isLoading: aiLoading } = useQuery({
     queryKey: ["dashboard-insight", primaryRole, deptId, total, aiRefreshKey],
@@ -94,11 +102,19 @@ function Panel() {
             total,
             open,
             resolved,
+            resolvedPct: total > 0 ? parseFloat(((resolved / total) * 100).toFixed(1)) : 0,
             avgResolutionHours,
             topCategory,
             topNeighborhood: topNbr,
+            topDepartment: topDept,
             departmentName: deptName,
             satisfaction: avgSat || undefined,
+            topNeighborhoods: rankedNbrs,
+            topCategories: rankedCats,
+            topDepartments: rankedDepts,
+            awaitingCitizen,
+            highPriorityOpen,
+            inReview,
           },
           role: primaryRole as any,
         },
@@ -108,8 +124,8 @@ function Panel() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`}
-        description={`Rolünüz: ${ROLE_LABELS[primaryRole]} — ${isMudurluk && deptName ? deptName + " — " : ""}Belediye AI Modülü`}
+        title={isBaskanOrAdmin ? `Hoş geldiniz, Başkanım` : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`}
+        description={`${isBaskanOrAdmin ? "Başkanlık Paneli" : `Rolünüz: ${ROLE_LABELS[primaryRole]}`} — ${isMudurluk && deptName ? deptName + " — " : ""}Belediye AI Modülü`}
       />
 
       {/* KPI Cards */}

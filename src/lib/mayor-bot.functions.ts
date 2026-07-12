@@ -18,7 +18,7 @@ export const askMayorBot = createServerFn({ method: "POST" })
 
     // Pull compact snapshots for grounding
     const [{ data: complaints }, { data: depts }, { data: nbrs }, { data: vehicles }, { data: attendance }, { data: openComplaints }] = await Promise.all([
-      supabaseAdmin.from("complaints").select("category, status, priority, satisfaction_score, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)").limit(500),
+      supabaseAdmin.from("complaints").select("category, status, priority, satisfaction_score, complaint_text, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)").limit(1000),
       supabaseAdmin.from("departments").select("id, name, deputy_mayors(full_name)"),
       supabaseAdmin.from("neighborhoods").select("id, name, mukhtar_name, mukhtar_phone"),
       supabaseAdmin.from("vehicles").select("plate_number, status, maintenance_start_date, maintenance_reason, departments(name)"),
@@ -35,6 +35,45 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const byNbr = tally(complaints ?? [], (c: any) => c.neighborhoods?.name);
     const byDept = tally(complaints ?? [], (c: any) => c.departments?.name);
     const byStatus = tally(complaints ?? [], (c: any) => c.status);
+    
+    // Memnuniyet hesaplama
+    const ratedComplaints = (complaints ?? []).filter((c: any) => c.satisfaction_score !== null && c.satisfaction_score !== undefined);
+    const totalRated = ratedComplaints.length;
+    const totalSatScore = ratedComplaints.reduce((acc: number, c: any) => acc + (c.satisfaction_score || 0), 0);
+    const avgSatisfactionScore = totalRated > 0 ? (totalSatScore / totalRated) : 0;
+    const happyCount = ratedComplaints.filter((c: any) => (c.satisfaction_score || 0) >= 4).length;
+    const satisfactionRate = totalRated > 0 ? (happyCount / totalRated) * 100 : 0;
+
+    // Birim bazlı memnuniyet
+    const deptSatTotal: Record<string, number> = {};
+    const deptSatCount: Record<string, number> = {};
+    ratedComplaints.forEach((c: any) => {
+      const deptName = c.departments?.name;
+      if (deptName) {
+        deptSatTotal[deptName] = (deptSatTotal[deptName] ?? 0) + (c.satisfaction_score || 0);
+        deptSatCount[deptName] = (deptSatCount[deptName] ?? 0) + 1;
+      }
+    });
+    const deptSatAvg: Record<string, number> = {};
+    Object.keys(deptSatCount).forEach((k) => {
+      deptSatAvg[k] = parseFloat((deptSatTotal[k] / deptSatCount[k]).toFixed(2));
+    });
+
+    // Mahalle bazlı memnuniyet
+    const nbrSatTotal: Record<string, number> = {};
+    const nbrSatCount: Record<string, number> = {};
+    ratedComplaints.forEach((c: any) => {
+      const nbrName = c.neighborhoods?.name;
+      if (nbrName) {
+        nbrSatTotal[nbrName] = (nbrSatTotal[nbrName] ?? 0) + (c.satisfaction_score || 0);
+        nbrSatCount[nbrName] = (nbrSatCount[nbrName] ?? 0) + 1;
+      }
+    });
+    const nbrSatAvg: Record<string, number> = {};
+    Object.keys(nbrSatCount).forEach((k) => {
+      nbrSatAvg[k] = parseFloat((nbrSatTotal[k] / nbrSatCount[k]).toFixed(2));
+    });
+
     const avgResHours: Record<string, number> = {};
     const cntRes: Record<string, number> = {};
     (complaints ?? []).forEach((c: any) => {
@@ -70,6 +109,13 @@ BELEDİYE VERİ ÖZETİ:
 - Geç giriş dağılımı (son 10 gün): ${JSON.stringify(lateByDept)}
 - ALANYA MAHALLE MUHTARLARI: ${mukhtarsList}
 
+MEMNUNİYET ANKETİ VERİLERİ (Çözülen şikayetler sonrası vatandaş oyları, 1-5 yıldız):
+- Memnuniyet puanı olan toplam şikayet sayısı: ${totalRated}
+- Ortalama vatandaş memnuniyet puanı (1-5 yıldız): ${avgSatisfactionScore.toFixed(2)} / 5.0
+- Mutlu vatandaş oranı (4 veya 5 puan verenler): %${satisfactionRate.toFixed(1)}
+- Müdürlüklere göre memnuniyet ortalaması (1-5 yıldız): ${JSON.stringify(deptSatAvg)}
+- Mahallelere göre memnuniyet ortalaması (1-5 yıldız): ${JSON.stringify(nbrSatAvg)}
+
 SON AÇIK (ÇÖZÜLMEMİŞ) ŞİKAYETLER (Detay istendiğinde bu veriyi kullan):
 ${openIssues}
 `;
@@ -82,6 +128,20 @@ ${openIssues}
     try {
       const systemPrompt = `Sen Türk bir belediye başkanının kişisel AI asistanısın. Aşağıdaki gerçek belediye verilerini kullanarak başkanın sorularına Türkçe cevap ver.
 Eğer belirli bir şikayetin detayından bahsediyorsan, MUTLAKA tıklanabilir Markdown linki formatında /sikayetler/ID şeklinde link ver (Örn: [İncele](/sikayetler/1234-5678)).
+
+KULLANIM VE DİL KURALLARI:
+- DERİN ÇIKARIM VE BÜTÜNSEL BAKIŞ: Sadece kuru istatistik vermekle yetinme. Veriler arasındaki ilişkileri analiz et. Örneğin:
+  - Hangi mahallelerde şikayet sayısı yüksek olmasına rağmen memnuniyet oranı veya anket puanı düşük?
+  - Hangi müdürlüklerin çözüm süreleri çok uzuyor ve bu durum vatandaş memnuniyetine (anket skorlarına) nasıl yansıyor?
+  - Altyapı, temizlik gibi kritik kategorilerdeki açık şikayetlerin genel gidişata etkisi nedir?
+  - Muhtarların bölgelerindeki şikayet yoğunlukları ile oradaki genel memnuniyet arasında bir korelasyon var mı?
+- Vatandaş Memnuniyeti Soruları: Başkan, vatandaş memnuniyeti, memnuniyet anketi puanları, birimlerin memnuniyet oranları veya mahallelere göre memnuniyet durumunu sorduğunda, yukarıda "MEMNUNİYET ANKETİ VERİLERİ" başlığı altındaki verileri kullanacaksın. 
+- Genel memnuniyet oranını sormak ile "anket sonuçlarına göre memnuniyet puanını" sormak farklıdır:
+  1) Şikayet çözüm oranı/Genel memnuniyet oranı derse: Çözülen şikayetlerin toplam şikayetlere oranıdır (örn: 18 / 29 = %62).
+  2) Anket memnuniyeti/Vatandaş puanı derse: Vatandaşların WhatsApp üzerinden 1-5 arası verdiği oyların ortalamasını (örn: ${avgSatisfactionScore.toFixed(2)} / 5.0) ve memnuniyet oranını (örn: %${satisfactionRate.toFixed(1)}) vereceksin.
+  3) Birim/Müdürlük ve Mahalle memnuniyetleri derse: yukarıdaki deptSatAvg ve nbrSatAvg detaylarını sunacaksın.
+- MATEMATİKSEL İFADELERDE YAZIM KURALI: Matematiksel formülleri veya oranları gösterirken asla LaTeX biçimlendirmesi (örn: \\[ \\], \\frac, \\text vb.) kullanma. Tüm matematiksel hesaplamaları ve oranları sade bir metin olarak yaz (Örn: "Memnuniyet Oranı = (Çözülen Şikayetler / Toplam Şikayetler) * 100 = (18 / 29) * 100 = %62" veya doğrudan "%62" şeklinde yaz).
+- Her zaman doğrudan, profesyonel, yapıcı ve rakamsal verilere sadık cevaplar hazırla. Belediye yönetiminin verimliliğini artıracak stratejik çıkarımlar yap.
 
 ${context}`;
 
