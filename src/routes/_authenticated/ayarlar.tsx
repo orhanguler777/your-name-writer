@@ -29,6 +29,12 @@ function Page() {
   const getSettings = useServerFn(getBotSettings);
   const updateSettings = useServerFn(updateBotSettings);
   const [selfChatOnly, setSelfChatOnly] = useState(true);
+  
+  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
+  const [slaLimitHours, setSlaLimitHours] = useState(120);
+  const [crisisLimitHours, setCrisisLimitHours] = useState(1);
+  const [crisisLimitCount, setCrisisLimitCount] = useState(4);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const { data: botSettings, refetch: refetchSettings } = useQuery({
     queryKey: ["bot-settings"],
@@ -38,6 +44,9 @@ function Page() {
   useEffect(() => {
     if (botSettings) {
       setSelfChatOnly(botSettings.selfChatOnly ?? true);
+      setSlaLimitHours(botSettings.slaLimitHours ?? 120);
+      setCrisisLimitHours(botSettings.crisisLimitHours ?? 1);
+      setCrisisLimitCount(botSettings.crisisLimitCount ?? 4);
     }
   }, [botSettings]);
 
@@ -71,6 +80,29 @@ function Page() {
     }
   };
 
+  const handleSaveThresholds = async () => {
+    setIsSavingSettings(true);
+    try {
+      const res = await updateSettings({
+        data: {
+          slaLimitHours: Number(slaLimitHours),
+          crisisLimitHours: Number(crisisLimitHours),
+          crisisLimitCount: Number(crisisLimitCount),
+        }
+      });
+      if (res.success) {
+        toast.success("SLA ve Kriz eşik değerleri başarıyla güncellendi.");
+        refetchSettings();
+      } else {
+        toast.error("Ayarlar kaydedilemedi: " + res.error);
+      }
+    } catch (e: any) {
+      toast.error("Bir hata oluştu: " + e.message);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Ayarlar" description="Profil bilgilerinizi güncelleyin." />
@@ -101,6 +133,64 @@ function Page() {
               </p>
             </div>
           </Card>
+
+          {isBaskanOrAdmin && (
+            <Card className="p-5 space-y-4">
+              <h3 className="font-display font-semibold mb-2 text-red-500">SLA & Kriz Eşik Değerleri</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold">SLA İhlal Limiti (Saat)</Label>
+                  <Input 
+                    type="number" 
+                    value={slaLimitHours} 
+                    onChange={(e) => setSlaLimitHours(Number(e.target.value))} 
+                    className="mt-1"
+                    min={1}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Yüksek öncelikli şikayetin kaç saat çözülmeden kalması durumunda SLA ihlali sayılacağını belirler (Örn: 120 saat = 5 gün, 4 saat).
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold">Bölgesel Kriz Analiz Penceresi (Saat)</Label>
+                  <Input 
+                    type="number" 
+                    value={crisisLimitHours} 
+                    onChange={(e) => setCrisisLimitHours(Number(e.target.value))} 
+                    className="mt-1"
+                    min={1}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Bölgesel kriz analizi için son kaç saatlik şikayetlerin taranacağını belirler (Örn: 1 saat, 4 saat).
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold">Bölgesel Kriz Şikayet Limit Adeti</Label>
+                  <Input 
+                    type="number" 
+                    value={crisisLimitCount} 
+                    onChange={(e) => setCrisisLimitCount(Number(e.target.value))} 
+                    className="mt-1"
+                    min={1}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Belirlenen analiz penceresinde aynı mahalle ve kategoriden en az kaç açık şikayet olursa kriz ilan edileceğini belirler (Örn: 4 adet).
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handleSaveThresholds} 
+                  disabled={isSavingSettings}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white mt-2"
+                >
+                  {isSavingSettings ? "Kaydediliyor..." : "Limitleri Kaydet"}
+                </Button>
+              </div>
+            </Card>
+          )}
 
           <Card className="p-5 space-y-3">
             <h3 className="font-display font-semibold mb-2 text-red-500">WhatsApp Bot Ayarları</h3>
