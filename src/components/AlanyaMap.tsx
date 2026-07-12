@@ -752,7 +752,7 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [mapType, setMapType] = useState<keyof typeof MAP_PROVIDERS>("voyager");
+  const [mapType, setMapType] = useState<keyof typeof MAP_PROVIDERS>("satellite");
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const olMapRef = useRef<any>(null);
   const tileSourceRef = useRef<any>(null);

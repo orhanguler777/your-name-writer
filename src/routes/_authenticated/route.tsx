@@ -6,7 +6,7 @@ import type { AppRole } from "@/hooks/useAuth";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle,
+  HelpCircle, Smile,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const MENU: MenuItem[] = [
   { to: "/sikayetler", label: "Şikayetler", icon: MessageSquare },
   { to: "/bilgi-talepleri", label: "Bilgi Talepleri", icon: HelpCircle },
   { to: "/cozum-masasi", label: "Çözüm Masası", icon: HeadphonesIcon, roles: ["cozum_masasi", "admin", "baskan"] },
+  { to: "/memnuniyet", label: "Memnuniyet Analizi", icon: Smile, roles: ["baskan", "admin", "cozum_masasi"] },
   { to: "/baskan-ai-bot", label: "Başkan AI Bot", icon: Bot, roles: ["baskan", "admin"] },
   { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },
   { to: "/arac-bakim", label: "Araç Bakım", icon: Truck, roles: ["baskan", "admin", "mudurluk"] },
@@ -111,7 +112,7 @@ function AuthedLayout() {
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium">{profile?.full_name || profile?.email}</div>
-              <div className="text-[11px] text-muted-foreground">{ROLE_LABELS[primaryRole]}</div>
+              <div className="text-[11px] text-muted-foreground">{primaryRole === "baskan" ? "Başkanlık Makamı" : ROLE_LABELS[primaryRole]}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
               {(profile?.full_name || profile?.email || "?").charAt(0).toUpperCase()}

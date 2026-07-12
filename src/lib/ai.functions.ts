@@ -179,7 +179,7 @@ function buildFallbackInsight(
 
   if (role === "baskan" || role === "admin") {
     return [
-      `Genel Durum: Sistemde toplam ${s.total} şikayet kayıtlıdır. ${s.open} şikayet halen açık, ${s.resolved} şikayet çözülmüştür (çözüm oranı %${s.resolvedPct}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.${s.trendLabel ? ` Son 7 günde ${s.trendLabel}.` : ""}`,
+      `Genel Durum: Sistemde toplam ${s.total} şikayet kayıtlıdır. ${s.open} şikayet halen açık, ${s.resolved} şikayet çözülmüştür (çözüm oranı %${Number(s.resolvedPct).toFixed(1)}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.${s.trendLabel ? ` Son 7 günde ${s.trendLabel}.` : ""}`,
       `Mahalle Analizi: En yoğun mahalle ${s.topNeighborhood} olup ilk beş mahalle sıralaması şöyledir: ${nbrList}. Bu dağılım, saha ekiplerinin öncelikli yönlendirilmesi için dikkate alınmalıdır.`,
       `Kategori ve Müdürlük Yoğunluğu: En sık bildirilen kategori ${s.topCategory}. Kategori dağılımı: ${catList}. Müdürlük bazında yoğunluk: ${deptList}.${s.highPriorityOpen ? ` ${s.highPriorityOpen} yüksek öncelikli açık şikayet acil takip gerektirmektedir.` : ""}${s.awaitingCitizen ? ` ${s.awaitingCitizen} şikayette vatandaş yanıtı beklenmektedir.` : ""}`,
       `Yönetim Önerisi: Yoğun mahallelerde proaktif denetim artırılmalı, açık şikayetlerde özellikle yüksek öncelikli dosyalar günlük olarak izlenmeli ve çözüm oranının sürdürülebilirliği için müdürlükler arası koordinasyon güçlendirilmelidir.`,
@@ -187,7 +187,7 @@ function buildFallbackInsight(
   }
 
   return [
-    `Birim Performansı: ${s.departmentName ?? "Birim"} kapsamında toplam ${s.total} şikayet bulunmaktadır. Açık ${s.open}, çözülen ${s.resolved} (çözüm oranı %${s.resolvedPct}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.`,
+    `Birim Performansı: ${s.departmentName ?? "Birim"} kapsamında toplam ${s.total} şikayet bulunmaktadır. Açık ${s.open}, çözülen ${s.resolved} (çözüm oranı %${Number(s.resolvedPct).toFixed(1)}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.`,
     `Mahalle ve Kategori Dağılımı: En yoğun mahalle ${s.topNeighborhood}. Mahalle sıralaması: ${nbrList}. En sık kategori ${s.topCategory}; kategori dağılımı: ${catList}.${s.awaitingCitizen ? ` ${s.awaitingCitizen} şikayette vatandaş yanıtı beklenmektedir.` : ""}`,
     `Operasyonel Tavsiye: Açık dosyalar öncelik sırasına göre günlük takip edilmeli, yoğun mahallelerde saha kapasitesi artırılmalı ve vatandaş yanıtı bekleyen kayıtlar gecikmeden sonuçlandırılmalıdır.`,
   ].join("\n\n");
@@ -196,7 +196,7 @@ function buildFallbackInsight(
 export const generateDashboardInsight = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => DashboardInsightInput.parse(input))
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env.OPENAI_API_KEY;
     const s = data.stats;
     const fallback = buildFallbackInsight(data.role, s);
     const isExecutive = data.role === "baskan" || data.role === "admin";
@@ -222,7 +222,7 @@ KURALLAR:
 VERİ SETİ:
 - Toplam şikayet: ${s.total}
 - Açık şikayet: ${s.open}
-- Çözülen şikayet: ${s.resolved} (çözüm oranı %${s.resolvedPct})
+- Çözülen şikayet: ${s.resolved} (çözüm oranı %${Number(s.resolvedPct).toFixed(1)})
 - Ortalama çözüm süresi: ${s.avgResolutionHours.toFixed(1)} saat
 - İncelemede: ${s.inReview ?? 0}
 - Vatandaş yanıtı bekleyen: ${s.awaitingCitizen ?? 0}
@@ -245,7 +245,7 @@ PARAGRAF YAPISI:
 4) Somut yönetim önerileri (kaynak planlaması, saha müdahalesi, koordinasyon)`;
 
       const result = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
+        model: openai("gpt-4o-mini"),
         prompt,
       });
       return { insight: result.text.trim() || fallback };
