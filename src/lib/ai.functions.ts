@@ -65,25 +65,43 @@ export const getBotSettings = createServerFn({ method: "GET" })
     const fs = await import("fs");
     const path = await import("path");
     const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
+    const defaults = {
+      selfChatOnly: true,
+      slaLimitHours: 120,
+      crisisLimitHours: 1,
+      crisisLimitCount: 4,
+    };
     try {
       if (fs.existsSync(settingsPath)) {
         const data = fs.readFileSync(settingsPath, "utf-8");
-        return JSON.parse(data);
+        return { ...defaults, ...JSON.parse(data) };
       }
     } catch (e) {
       console.error("Failed to read bot settings", e);
     }
-    return { selfChatOnly: true }; // Varsayılan olarak kendi kendimize test modu açık
+    return defaults;
   });
 
 export const updateBotSettings = createServerFn({ method: "POST" })
-  .inputValidator((input: any) => z.object({ selfChatOnly: z.boolean() }).parse(input))
+  .inputValidator((input: any) =>
+    z.object({
+      selfChatOnly: z.boolean().optional(),
+      slaLimitHours: z.number().optional(),
+      crisisLimitHours: z.number().optional(),
+      crisisLimitCount: z.number().optional(),
+    }).parse(input)
+  )
   .handler(async ({ data }) => {
     const fs = await import("fs");
     const path = await import("path");
     const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
     try {
-      fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2));
+      let existing: any = {};
+      if (fs.existsSync(settingsPath)) {
+        existing = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      }
+      const updated = { ...existing, ...data };
+      fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2));
       return { success: true };
     } catch (e: any) {
       console.error("Failed to write bot settings", e);
@@ -160,6 +178,9 @@ const DashboardInsightInput = z.object({
     topDepartments: z.array(RankedItem).optional(),
     last7Total: z.number().optional(),
     last7Resolved: z.number().optional(),
+    foreignTotal: z.number().optional(),
+    foreignResolved: z.number().optional(),
+    foreignSatisfaction: z.number().optional(),
   }),
   role: z.enum(["baskan", "mudurluk", "admin", "cozum_masasi"]),
 });
@@ -182,6 +203,7 @@ function buildFallbackInsight(
       `Genel Durum: Sistemde toplam ${s.total} şikayet kayıtlıdır. ${s.open} şikayet halen açık, ${s.resolved} şikayet çözülmüştür (çözüm oranı %${Number(s.resolvedPct).toFixed(1)}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.${s.trendLabel ? ` Son 7 günde ${s.trendLabel}.` : ""}`,
       `Mahalle Analizi: En yoğun mahalle ${s.topNeighborhood} olup ilk beş mahalle sıralaması şöyledir: ${nbrList}. Bu dağılım, saha ekiplerinin öncelikli yönlendirilmesi için dikkate alınmalıdır.`,
       `Kategori ve Müdürlük Yoğunluğu: En sık bildirilen kategori ${s.topCategory}. Kategori dağılımı: ${catList}. Müdürlük bazında yoğunluk: ${deptList}.${s.highPriorityOpen ? ` ${s.highPriorityOpen} yüksek öncelikli açık şikayet acil takip gerektirmektedir.` : ""}${s.awaitingCitizen ? ` ${s.awaitingCitizen} şikayette vatandaş yanıtı beklenmektedir.` : ""}`,
+      `Yabancı Vatandaş Analizi: Yabancı dilde açılan toplam ${s.foreignTotal || 0} şikayetin ${s.foreignResolved || 0} tanesi çözülmüştür. ${s.foreignSatisfaction ? `Yabancı uyrukluların memnuniyet oranı %${(s.foreignSatisfaction * 20).toFixed(0)} civarındadır.` : ""}`,
       `Yönetim Önerisi: Yoğun mahallelerde proaktif denetim artırılmalı, açık şikayetlerde özellikle yüksek öncelikli dosyalar günlük olarak izlenmeli ve çözüm oranının sürdürülebilirliği için müdürlükler arası koordinasyon güçlendirilmelidir.`,
     ].join("\n\n");
   }
@@ -237,11 +259,14 @@ VERİ SETİ:
 - Müdürlük sıralaması (ilk 5): ${formatRankedList(s.topDepartments)}
 ${s.satisfaction ? `- Memnuniyet skoru: %${(s.satisfaction * 20).toFixed(0)}` : ""}
 ${s.departmentName ? `- Birim adı: ${s.departmentName}` : ""}
+${s.foreignTotal !== undefined ? `- Yabancı dildeki (turist/yerleşik yabancı) şikayet sayısı: ${s.foreignTotal}` : ""}
+${s.foreignResolved !== undefined ? `- Çözülen yabancı şikayet sayısı: ${s.foreignResolved}` : ""}
+${s.foreignSatisfaction ? `- Yabancı memnuniyet skoru: %${(s.foreignSatisfaction * 20).toFixed(0)}` : ""}
 
 PARAGRAF YAPISI:
 1) Genel operasyonel durum ve çözüm performansı
 2) Mahalle bazlı yoğunluk analizi (hangi mahalleler öne çıkıyor, ne anlama geliyor)
-3) Kategori/müdürlük yoğunluğu ve risk alanları (yüksek öncelik, vatandaş yanıtı bekleyenler)
+3) Kategori/müdürlük yoğunluğu ve yabancılardan/turistlerden gelen şikayetlerin durumu
 4) Somut yönetim önerileri (kaynak planlaması, saha müdahalesi, koordinasyon)`;
 
       const result = await generateText({

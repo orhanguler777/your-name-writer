@@ -1,3 +1,6 @@
 {
-  "selfChatOnly": true
+  "selfChatOnly": true,
+  "slaLimitHours": 96,
+  "crisisLimitHours": 1,
+  "crisisLimitCount": 3
 }

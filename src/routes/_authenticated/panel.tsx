@@ -4,13 +4,14 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { KpiCard, PageHeader, StatusBadge, PriorityBadge } from "@/components/panel-primitives";
-import { MessageSquare, CheckCircle2, Clock, TrendingUp, Building2, Bot, Sparkles, RefreshCw, MapPin, Zap, Smile } from "lucide-react";
+import { MessageSquare, CheckCircle2, Clock, TrendingUp, Building2, Bot, Sparkles, RefreshCw, MapPin, Zap, Smile, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useServerFn } from "@tanstack/react-start";
 import { ROLE_LABELS, STATUS_LABELS } from "@/lib/turkish";
-import { generateDashboardInsight } from "@/lib/ai.functions";
+import { generateDashboardInsight, getBotSettings } from "@/lib/ai.functions";
 import { AlanyaMap } from "@/components/AlanyaMap";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -30,6 +31,12 @@ function Panel() {
   const deptId = profile?.department_id;
   const isMudurluk = primaryRole === "mudurluk";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
+
+  const getSettings = useServerFn(getBotSettings);
+  const { data: botSettings } = useQuery({
+    queryKey: ["bot-settings"],
+    queryFn: () => getSettings(),
+  });
 
   const { data } = useQuery({
     queryKey: ["panel-unified", deptId, isMudurluk],
@@ -89,6 +96,39 @@ function Panel() {
   const awaitingCitizen = c.filter((x: any) => x.status === "vatandas_yaniti_bekleniyor").length;
   const highPriorityOpen = c.filter((x: any) => x.priority === "high" && !["cozuldu", "reddedildi"].includes(x.status)).length;
   const inReview = c.filter((x: any) => x.status === "incelemede").length;
+  
+  // Foreign stats
+  const foreignComplaints = c.filter((x: any) => x.language && x.language !== "tr");
+  const foreignTotal = foreignComplaints.length;
+  const foreignResolved = foreignComplaints.filter((x: any) => x.status === "cozuldu").length;
+  const foreignSatScores = foreignComplaints.filter((x: any) => x.satisfaction_score).map((x: any) => x.satisfaction_score);
+  const foreignSatisfaction = foreignSatScores.length ? (foreignSatScores.reduce((a: number, b: number) => a + b, 0) / foreignSatScores.length) : undefined;
+
+  // SLA & Crisis calculations
+  const slaLimitHours = botSettings?.slaLimitHours ?? 120;
+  const crisisLimitHours = botSettings?.crisisLimitHours ?? 1;
+  const crisisLimitCount = botSettings?.crisisLimitCount ?? 4;
+
+  const now = new Date().getTime();
+  const escalatedComplaints = c.filter((x: any) =>
+    x.priority === "yuksek" &&
+    !["cozuldu", "reddedildi"].includes(x.status) &&
+    (now - new Date(x.created_at).getTime()) > slaLimitHours * 3600000
+  );
+
+  const recentCrisesGroups: { [key: string]: { count: number, neighborhood: string, category: string } } = {};
+  c.forEach((x: any) => {
+    if ((now - new Date(x.created_at).getTime()) <= crisisLimitHours * 3600000) {
+      const nbr = x.neighborhoods?.name;
+      const cat = x.category;
+      if (nbr && cat && !["cozuldu", "reddedildi"].includes(x.status)) {
+        const key = `${nbr}-${cat}`;
+        if (!recentCrisesGroups[key]) recentCrisesGroups[key] = { count: 0, neighborhood: nbr, category: cat };
+        recentCrisesGroups[key].count++;
+      }
+    }
+  });
+  const activeCrises = Object.values(recentCrisesGroups).filter(g => g.count >= crisisLimitCount);
 
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
   const { data: aiData, isLoading: aiLoading } = useQuery({
@@ -115,6 +155,9 @@ function Panel() {
             awaitingCitizen,
             highPriorityOpen,
             inReview,
+            foreignTotal,
+            foreignResolved,
+            foreignSatisfaction,
           },
           role: primaryRole as any,
         },
@@ -127,6 +170,43 @@ function Panel() {
         title={isBaskanOrAdmin ? `Hoş geldiniz, Başkanım` : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`}
         description={`${isBaskanOrAdmin ? "Başkanlık Paneli" : `Rolünüz: ${ROLE_LABELS[primaryRole]}`} — ${isMudurluk && deptName ? deptName + " — " : ""}Belediye AI Modülü`}
       />
+
+      {/* Alerts */}
+      {(isBaskanOrAdmin || isMudurluk) && (activeCrises.length > 0 || escalatedComplaints.length > 0) && (
+        <div className="space-y-3">
+          {activeCrises.map((crisis, i) => (
+            <div key={`crisis-${i}`} className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5">
+              <div className="bg-red-500/20 p-2 rounded-full shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-red-400">BÖLGESEL KRİZ UYARISI</h4>
+                <p className="text-sm mt-1 text-red-200">
+                  {crisis.neighborhood} mahallesinde son {crisisLimitHours} saat içinde {crisis.count} adet açık <strong>{crisis.category}</strong> şikayeti tespit edildi. Bu şikayetlerin önceliği otomatik olarak "Yüksek" yapıldı.
+                </p>
+              </div>
+            </div>
+          ))}
+          {escalatedComplaints.map((esc: any) => (
+            <div key={`esc-${esc.id}`} className="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-orange-500/5">
+              <div className="flex items-start gap-3">
+                <div className="bg-orange-500/20 p-2 rounded-full shrink-0">
+                  <Clock className="h-5 w-5 text-orange-500" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-orange-400">SLA İHLALİ (ESKALASYON)</h4>
+                  <p className="text-sm mt-1 text-orange-200">
+                    <strong>{esc.id.substring(0,8).toUpperCase()}</strong> takip numaralı Yüksek Öncelikli şikayet ({esc.category}) {slaLimitHours >= 24 ? `${Math.round(slaLimitHours / 24)} günü` : `${slaLimitHours} saati`} aştı ve halen çözülemedi.
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" className="border-orange-500/30 hover:bg-orange-500/20 hover:text-orange-400 shrink-0" asChild>
+                <Link to="/sikayetler/$id" params={{ id: esc.id }}>İncele</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

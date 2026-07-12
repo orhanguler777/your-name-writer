@@ -81,19 +81,29 @@ function addBotMessageId(id) {
   }
 }
 
-// Geliştirici/Test modu ayarı kontrolü
-function isSelfChatOnly() {
+// Bot ayarlarını json dosyasından yükler
+function getBotSettings() {
+  const defaults = {
+    selfChatOnly: true,
+    slaLimitHours: 120,
+    crisisLimitHours: 1,
+    crisisLimitCount: 4,
+  };
   try {
     const settingsPath = path.join(__dirname, 'bot-settings.json');
     if (fs.existsSync(settingsPath)) {
       const data = fs.readFileSync(settingsPath, 'utf-8');
-      const parsed = JSON.parse(data);
-      return parsed.selfChatOnly === true;
+      return { ...defaults, ...JSON.parse(data) };
     }
   } catch (e) {
-    // Okuma hatası durumunda güvenli tarafta kalıp true dönüyoruz
+    // ignore
   }
-  return true;
+  return defaults;
+}
+
+// Geliştirici/Test modu ayarı kontrolü
+function isSelfChatOnly() {
+  return getBotSettings().selfChatOnly === true;
 }
 
 // İki koordinat arası mesafeyi (Haversine formülü) hesaplar
@@ -147,6 +157,190 @@ async function loadInitialData() {
   }
 }
 
+function getLocalizedMessages(lang) {
+  const l = (lang || 'tr').toLowerCase().trim();
+  if (l === 'en' || l === 'english') {
+    return {
+      statusTitle: '✅ *Alanya Municipality Status Update*',
+      infoTitle: '❓ *Alanya Municipality — Information Request*',
+      generalTitle: '*Alanya Municipality Update*',
+      dear: 'Dear',
+      trackingNo: 'Tracking No',
+      neighborhood: 'Neighborhood',
+      complaint: 'Complaint',
+      statusResolved: 'RESOLVED',
+      statusUpdated: 'UPDATED',
+      resolvedDesc: 'Your complaint has been successfully resolved. As Alanya Municipality, we continuously improve our services.',
+      greeting: 'As Alanya Municipality, we wish you a good day. 🌟',
+      infoBody: '*Municipality Question:*',
+      infoFooter: 'Please reply to this message to provide information. Your response will be added to the same complaint record.\n\nIf you want to report a new complaint, you can type "new complaint".',
+      infoDesc: '*Municipality Explanation:*',
+      surveyTitle: '📊 *Alanya Municipality Satisfaction Survey*',
+      surveyBody: 'It is very important for us that you evaluate the resolution process of your complaint! Please rate our service quality between *1 and 5*:\n\n1️⃣ Very Bad\n2️⃣ Bad\n3️⃣ Average\n4️⃣ Good\n5️⃣ Very Good\n\n*You can send your rating simply as a number (e.g. 4)*',
+      surveyThanks: 'Thank you very much for your evaluation! As Alanya Municipality, your feedback is very valuable to us. We wish you a good day. 🙏🌸',
+      surveyWarn: 'Please write and send only a number between 1 and 5 to evaluate our service (e.g. 4).'
+    };
+  } else if (l === 'de' || l === 'german' || l === 'deutsch') {
+    return {
+      statusTitle: '✅ *Stadtverwaltung Alanya Status-Update*',
+      infoTitle: '❓ *Stadtverwaltung Alanya — Informationsanfrage*',
+      generalTitle: '*Stadtverwaltung Alanya Update*',
+      dear: 'Sehr geehrte(r)',
+      trackingNo: 'Auftragsnummer',
+      neighborhood: 'Viertel',
+      complaint: 'Beschwerde',
+      statusResolved: 'GELÖST',
+      statusUpdated: 'AKTUALISIERT',
+      resolvedDesc: 'Ihre Beschwerde wurde erfolgreich gelöst. Als Stadtverwaltung Alanya verbessern wir unsere Dienstleistungen kontinuierlich.',
+      greeting: 'Als Stadtverwaltung Alanya wünschen wir Ihnen einen schönen Tag. 🌟',
+      infoBody: '*Frage der Stadtverwaltung:*',
+      infoFooter: 'Bitte antworten Sie auf diese Nachricht, um Informationen bereitzustellen. Ihre Antwort wird demselben Beschwerdedatensatz hinzugefügt.\n\nWenn Sie eine neue Beschwerde melden möchten, können Sie "neue beschwerde" eingeben.',
+      infoDesc: '*Erklärung der Stadtverwaltung:*',
+      surveyTitle: '📊 *Stadtverwaltung Alanya Zufriedenheitsumfrage*',
+      surveyBody: 'Es ist uns sehr wichtig, dass Sie den Lösungsprozess Ihrer Beschwerde bewerten! Bitte bewerten Sie unsere Servicequalität zwischen *1 und 5*:\n\n1️⃣ Sehr schlecht\n2️⃣ Schlecht\n3️⃣ Durchschnittlich\n4️⃣ Gut\n5️⃣ Sehr gut\n\n*Sie können Ihre Bewertung einfach als Zahl senden (z. B. 4)*',
+      surveyThanks: 'Vielen Dank für Ihre Bewertung! Als Stadtverwaltung Alanya ist uns Ihr Feedback sehr wichtig. Wir wünschen Ihnen einen schönen Tag. 🙏🌸',
+      surveyWarn: 'Bitte schreiben und senden Sie nur eine Zahl zwischen 1 und 5, um unseren Service zu bewerten (z. B. 4).'
+    };
+  } else if (l === 'ru' || l === 'russian' || l === 'русский') {
+    return {
+      statusTitle: '✅ *Муниципалитет Алании Обновление статуса*',
+      infoTitle: '❓ *Муниципалитет Алании — Запрос информации*',
+      generalTitle: '*Муниципалитет Алании Обновление*',
+      dear: 'Уважаемый(ая)',
+      trackingNo: 'Номер отслеживания',
+      neighborhood: 'Район',
+      complaint: 'Жалоба',
+      statusResolved: 'РЕШЕНО',
+      statusUpdated: 'ОБНОВЛЕНО',
+      resolvedDesc: 'Ваша жалоба успешно решена. Муниципалитет Алании постоянно улучшает свои услуги.',
+      greeting: 'Муниципалитет Алании желает вам хорошего дня. 🌟',
+      infoBody: '*Вопрос муниципалитета:*',
+      infoFooter: 'Пожалуйста, ответьте на это сообщение, чтобы предоставить информацию. Ваш ответ будет добавлен к той же записи жалобы.\n\nЕсли вы хотите сообщить о новой жалобе, вы можете написать "новая жалоба".',
+      infoDesc: '*Объяснение муниципалитета:*',
+      surveyTitle: '📊 *Муниципалитет Алании Опрос удовлетворенности*',
+      surveyBody: 'Для нас очень важно, чтобы вы оценили процесс решения вашей жалобы! Пожалуйста, оцените качество нашего обслуживания от *1 до 5*:\n\n1️⃣ Очень плохо\n2️⃣ Плохо\n3️⃣ Средне\n4️⃣ Хорошо\n5️⃣ Отлично\n\n*Вы можете отправить оценку просто числом (например, 4)*',
+      surveyThanks: 'Большое спасибо за вашу оценку! Как муниципалитет Алании, ваши отзывы очень важны для нас. Желаем вам хорошего дня. 🙏🌸',
+      surveyWarn: 'Пожалуйста, напишите и отправьте только число от 1 до 5, чтобы оценить наш сервис (например, 4).'
+    };
+  }
+  
+  // Default Turkish
+  return {
+    statusTitle: '✅ *Alanya Belediyesi Durum Bildirimi*',
+    infoTitle: '❓ *Alanya Belediyesi — Ek Bilgi Talebi*',
+    generalTitle: '*Alanya Belediyesi Bilgilendirme*',
+    dear: 'Sayın',
+    trackingNo: 'Takip No',
+    neighborhood: 'Mahalle',
+    complaint: 'Şikayet',
+    statusResolved: 'ÇÖZÜLDÜ',
+    statusUpdated: 'GÜNCELLENDİ',
+    resolvedDesc: 'Şikayetiniz başarıyla çözülmüştür. Alanya Belediyesi olarak hizmetlerimizi sürekli iyileştirmeye devam ediyoruz.',
+    greeting: 'Alanya Belediyesi olarak iyi günler dileriz. 🌟',
+    infoBody: '*Belediye Birim Sorusu:*',
+    infoFooter: 'Lütfen bu mesaja yanıt vererek bilgi paylaşın. Yanıtınız aynı şikayet kaydına eklenecektir.\n\nYeni bir şikayet bildirmek isterseniz "yeni şikayet" yazabilirsiniz.',
+    infoDesc: '*Belediye Birim Açıklaması:*',
+    surveyTitle: '📊 *Alanya Belediyesi Memnuniyet Anketi*',
+    surveyBody: 'Şikayetinizin çözülme sürecini değerlendirmeniz bizim için çok önemlidir! Lütfen hizmet kalitemize *1 ile 5 arasında* bir puan verin:\n\n1️⃣ Çok Kötü\n2️⃣ Kötü\n3️⃣ Orta\n4️⃣ İyi\n5️⃣ Çok İyi\n\n*Puanınızı sadece rakam olarak yazıp gönderebilirsiniz (örn: 4)*',
+    surveyThanks: 'Değerlendirmeniz için çok teşekkür ederiz! Alanya Belediyesi olarak görüşleriniz bizim için çok değerlidir. İyi günler dileriz. 🙏🌸',
+    surveyWarn: 'Lütfen hizmetimizi değerlendirmek için sadece 1 ile 5 arasında bir rakam yazıp gönderin (Örn: 4).'
+  };
+}
+
+// ─── SLA ve KRİZ Daemon ──────────────────────────────────
+async function checkSLAsAndCrises(sock) {
+  try {
+    const adminJid = '16690377154811@s.whatsapp.net'; // Başkan / Yönetici Numarası
+    const now = new Date().getTime();
+
+    // Ayarları yükle
+    const settings = getBotSettings();
+    const slaLimitHours = settings.slaLimitHours || 120;
+    const crisisLimitHours = settings.crisisLimitHours || 1;
+    const crisisLimitCount = settings.crisisLimitCount || 4;
+    
+    // 1. SLA İhlali Kontrolü (Öncelik: Yüksek, slaLimitHours aşmış, çözülmemiş)
+    const { data: openComplaints, error: compError } = await supabase
+      .from('complaints')
+      .select('id, category, created_at, status, priority, neighborhood_id')
+      .eq('priority', 'yuksek');
+      
+    if (!compError && openComplaints) {
+      for (const comp of openComplaints) {
+        if (['cozuldu', 'reddedildi'].includes(comp.status)) continue;
+        
+        if ((now - new Date(comp.created_at).getTime()) > slaLimitHours * 3600000) {
+          // Check if already escalated
+          const { data: existingResp } = await supabase
+            .from('complaint_responses')
+            .select('id')
+            .eq('complaint_id', comp.id)
+            .eq('response_type', 'eskalasyon')
+            .maybeSingle();
+            
+          if (!existingResp) {
+            console.log(`   🚨 SLA Eskalasyonu: ${comp.id}`);
+            // Send WhatsApp message to Admin
+            const slaText = slaLimitHours >= 24 ? `${Math.round(slaLimitHours / 24)} gündür` : `${slaLimitHours} saattir`;
+            const escText = `🚨 *SLA İHLALİ (ESKALASYON)*\n\n*Takip No:* ${comp.id.substring(0,8).toUpperCase()}\n*Kategori:* ${comp.category}\n*Durum:* Yüksek öncelikli şikayet ${slaText} çözülemedi! Lütfen acil müdahale edin.`;
+            await sock.sendMessage(adminJid, { text: escText });
+            
+            // Log to database
+            await supabase.from('complaint_responses').insert({
+              complaint_id: comp.id,
+              response_text: `Otomatik SLA Eskalasyonu yapıldı (${slaText} aşımı).`,
+              response_type: 'eskalasyon'
+            });
+          }
+        }
+      }
+    }
+
+    // 2. Kriz Algılama (Son X saat içinde aynı mahalle ve kategoriden >= Y açık şikayet → otomatik yüksek öncelik)
+    const { data: recentComplaints } = await supabase
+      .from('complaints')
+      .select('id, category, neighborhood_id, status, priority, created_at')
+      .gte('created_at', new Date(now - crisisLimitHours * 3600000).toISOString());
+      
+    if (recentComplaints && recentComplaints.length > 0) {
+      const groups = {};
+      recentComplaints.forEach(c => {
+        if (c.neighborhood_id && c.category && !['cozuldu', 'reddedildi'].includes(c.status)) {
+          const key = `${c.neighborhood_id}::${c.category}`;
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(c);
+        }
+      });
+      
+      if (!global.notifiedCrises) global.notifiedCrises = new Set();
+      
+      for (const [key, complaints] of Object.entries(groups)) {
+        if (complaints.length >= crisisLimitCount && !global.notifiedCrises.has(key)) {
+          const [nbrId, cat] = key.split('::');
+          const nbr = neighborhoodsCache.find(n => n.id === nbrId);
+          const nbrName = nbr ? nbr.name : 'Bilinmeyen Mahalle';
+          
+          console.log(`   ⚠️ BÖLGESEL KRİZ: ${nbrName} - ${cat} (${complaints.length} şikayet)`);
+          
+          // Otomatik olarak bu şikayetlerin önceliğini "yuksek" yap
+          const toUpgrade = complaints.filter(c => c.priority !== 'yuksek');
+          for (const comp of toUpgrade) {
+            await supabase.from('complaints').update({ priority: 'yuksek' }).eq('id', comp.id);
+            console.log(`   ⬆️ Öncelik yükseltildi: ${comp.id.substring(0,8).toUpperCase()}`);
+          }
+          
+          const crisisText = `⚠️ *BÖLGESEL KRİZ UYARISI*\n\n*Mahalle:* ${nbrName}\n*Kategori:* ${cat}\n*Durum:* Son ${crisisLimitHours} saat içinde bu bölgede ${complaints.length} adet çözülmemiş şikayet birikti.\n\n🔺 Tüm ilgili şikayetlerin önceliği otomatik olarak *Yüksek* seviyeye çıkarıldı.\n\nSaha ekiplerinin acilen yönlendirilmesi tavsiye edilir.`;
+          await sock.sendMessage(adminJid, { text: crisisText });
+          
+          global.notifiedCrises.add(key);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('⚠️ checkSLAsAndCrises Hatası:', e.message);
+  }
+}
+
 // ─── WhatsApp Bağlantısı (Baileys) ──────────────────────────────
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./.baileys_auth');
@@ -189,6 +383,15 @@ async function startBot() {
       console.log('   Gelen şikayetler dinleniyor...\n');
       await loadInitialData();
 
+      // SLA ve Kriz kontrolünü her 5 dakikada bir çalıştır
+      if (!global.slaDaemonStarted) {
+        global.slaDaemonStarted = true;
+        console.log('   ⏱️ SLA ve Kriz Daemon aktif edildi (5 dakikada bir kontrol edilecek).');
+        setInterval(() => checkSLAsAndCrises(global.currentSock), 5 * 60 * 1000);
+        // İlk kontrolü 10 saniye sonra yap
+        setTimeout(() => checkSLAsAndCrises(global.currentSock), 10 * 1000);
+      }
+
       // Realtime Dinleme (Belediye Personeli Cevap Yazınca WhatsApp'a Bildirim Gitmesi)
       console.log('   📡 Supabase Realtime şikayet cevapları dinleniyor...');
       
@@ -215,7 +418,7 @@ async function startBot() {
               // Şikayeti ve vatandaşın telefonunu çek
               const { data: complaint, error: compError } = await supabase
                 .from('complaints')
-                .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source')
+                .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source, language')
                 .eq('id', newResponse.complaint_id)
                 .single();
 
@@ -236,6 +439,7 @@ async function startBot() {
                 : `${complaint.citizen_phone}@s.whatsapp.net`;
 
               let responseText;
+              const loc = getLocalizedMessages(complaint.language);
 
               if (newResponse.response_type === 'durum_bildirimi') {
                 // ✅ Çözüldü bildirimi
@@ -247,33 +451,32 @@ async function startBot() {
                 }
 
                 responseText =
-                  `✅ *Alanya Belediyesi Durum Bildirimi*\n\n` +
-                  `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-                  `📋 Takip No: *${trackingNo}*\n` +
-                  (neighborhoodName ? `📍 Mahalle: *${neighborhoodName}*\n` : '') +
-                  `📌 Şikayet: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
-                  `🔄 Durum: *ÇÖZÜLDÜ*\n` +
+                  `${loc.statusTitle}\n\n` +
+                  `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+                  `📋 ${loc.trackingNo}: *${trackingNo}*\n` +
+                  (neighborhoodName ? `📍 ${loc.neighborhood}: *${neighborhoodName}*\n` : '') +
+                  `📌 ${loc.complaint}: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
+                  `🔄 Durum: *${loc.statusResolved}*\n` +
                   `${newResponse.response_text}\n\n` +
-                  `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+                  `${loc.greeting}`;
               } else if (newResponse.response_type === 'soru') {
                 const trackingNo = newResponse.complaint_id.substring(0, 8).toUpperCase();
                 responseText =
-                  `❓ *Alanya Belediyesi — Ek Bilgi Talebi*\n\n` +
-                  `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-                  `📋 Takip No: *${trackingNo}*\n\n` +
-                  `*Belediye Birim Sorusu:*\n"${newResponse.response_text}"\n\n` +
-                  `Lütfen bu mesaja yanıt vererek bilgi paylaşın. Yanıtınız aynı şikayet kaydına eklenecektir.\n\n` +
-                  `Yeni bir şikayet bildirmek isterseniz "yeni şikayet" yazabilirsiniz.`;
+                  `${loc.infoTitle}\n\n` +
+                  `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+                  `📋 ${loc.trackingNo}: *${trackingNo}*\n\n` +
+                  `${loc.infoBody}\n"${newResponse.response_text}"\n\n` +
+                  `${loc.infoFooter}`;
               } else {
                 const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
-                const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
+                const statusText = complaint.status === 'cozuldu' ? loc.statusResolved : loc.statusUpdated;
 
                 responseText = 
-                  `${statusEmoji} *Alanya Belediyesi Bilgilendirme*\n\n` +
-                  `Sayın *${complaint.citizen_name}*,\n` +
+                  `${statusEmoji} ${loc.generalTitle}\n\n` +
+                  `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n` +
                   `Şikayetinizin durumu *${statusText}* olarak güncellenmiştir.\n\n` +
-                  `*Belediye Birim Açıklaması:*\n"${newResponse.response_text}"\n\n` +
-                  `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+                  `${loc.infoDesc}\n"${newResponse.response_text}"\n\n` +
+                  `${loc.greeting}`;
               }
 
               const sent = await sock.sendMessage(jid, { text: responseText });
@@ -287,14 +490,8 @@ async function startBot() {
                 const phoneClean = complaint.citizen_phone;
                 pendingSurveys.set(phoneClean, newResponse.complaint_id);
                 const surveyText = 
-                  `📊 *Alanya Belediyesi Memnuniyet Anketi*\n\n` +
-                  `Şikayetinizin çözülme sürecini değerlendirmeniz bizim için çok önemlidir! Lütfen hizmet kalitemize *1 ile 5 arasında* bir puan verin:\n\n` +
-                  `1️⃣ Çok Kötü\n` +
-                  `2️⃣ Kötü\n` +
-                  `3️⃣ Orta\n` +
-                  `4️⃣ İyi\n` +
-                  `5️⃣ Çok İyi\n\n` +
-                  `*Puanınızı sadece rakam olarak yazıp gönderebilirsiniz (örn: 4)*`;
+                  `${loc.surveyTitle}\n\n` +
+                  `${loc.surveyBody}`;
                 
                 setTimeout(async () => {
                   try {
@@ -348,7 +545,7 @@ async function startBot() {
           // Şikayet detaylarını çek
           const { data: complaint, error: compError } = await supabase
             .from('complaints')
-            .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source')
+            .select('citizen_phone, citizen_name, status, complaint_text, neighborhood_id, source, language')
             .eq('id', complaintId)
             .single();
 
@@ -404,15 +601,17 @@ async function startBot() {
             if (nbr) neighborhoodName = nbr.name;
           }
 
+          const loc = getLocalizedMessages(complaint.language);
+
           const responseText =
-            `✅ *Alanya Belediyesi Durum Bildirimi*\n\n` +
-            `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-            `📋 Takip No: *${trackingNo}*\n` +
-            (neighborhoodName ? `📍 Mahalle: *${neighborhoodName}*\n` : '') +
-            `📌 Şikayet: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
-            `🔄 Durum: *ÇÖZÜLDÜ*\n` +
-            `Şikayetiniz başarıyla çözülmüştür. Alanya Belediyesi olarak hizmetlerimizi sürekli iyileştirmeye devam ediyoruz.\n\n` +
-            `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+            `${loc.statusTitle}\n\n` +
+            `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+            `📋 ${loc.trackingNo}: *${trackingNo}*\n` +
+            (neighborhoodName ? `📍 ${loc.neighborhood}: *${neighborhoodName}*\n` : '') +
+            `📌 ${loc.complaint}: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
+            `🔄 Durum: *${loc.statusResolved}*\n` +
+            `${loc.resolvedDesc}\n\n` +
+            `${loc.greeting}`;
 
           console.log(`   📤 Sohbet aktifleştiriliyor ve sendMessage çağrılıyor...`);
           
@@ -440,14 +639,8 @@ async function startBot() {
           const phoneClean = complaint.citizen_phone;
           pendingSurveys.set(phoneClean, complaintId);
           const surveyText = 
-            `📊 *Alanya Belediyesi Memnuniyet Anketi*\n\n` +
-            `Şikayetinizin çözülme sürecini değerlendirmeniz bizim için çok önemlidir! Lütfen hizmet kalitemize *1 ile 5 arasında* bir puan verin:\n\n` +
-            `1️⃣ Çok Kötü\n` +
-            `2️⃣ Kötü\n` +
-            `3️⃣ Orta\n` +
-            `4️⃣ İyi\n` +
-            `5️⃣ Çok İyi\n\n` +
-            `*Puanınızı sadece rakam olarak yazıp gönderebilirsiniz (örn: 4)*`;
+            `${loc.surveyTitle}\n\n` +
+            `${loc.surveyBody}`;
           
           setTimeout(async () => {
             try {
@@ -481,7 +674,7 @@ async function startBot() {
 
           const { data: complaint, error: compError } = await supabase
             .from('complaints')
-            .select('citizen_phone, citizen_name, status, source')
+            .select('citizen_phone, citizen_name, status, source, language')
             .eq('id', complaintId)
             .single();
 
@@ -515,25 +708,25 @@ async function startBot() {
 
           const trackingNo = complaintId.substring(0, 8).toUpperCase();
           let msgText;
+          const loc = getLocalizedMessages(complaint.language);
 
           if (isQuestion || complaint.status === 'vatandas_yaniti_bekleniyor') {
             msgText =
-              `❓ *Alanya Belediyesi — Ek Bilgi Talebi*\n\n` +
-              `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-              `📋 Takip No: *${trackingNo}*\n\n` +
-              `*Belediye Birim Sorusu:*\n"${manualText}"\n\n` +
-              `Lütfen bu mesaja yanıt vererek bilgi paylaşın. Yanıtınız aynı şikayet kaydına eklenecektir.\n\n` +
-              `Yeni bir şikayet bildirmek isterseniz "yeni şikayet" yazabilirsiniz.`;
+              `${loc.infoTitle}\n\n` +
+              `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
+              `📋 ${loc.trackingNo}: *${trackingNo}*\n\n` +
+              `${loc.infoBody}\n"${manualText}"\n\n` +
+              `${loc.infoFooter}`;
           } else {
             const statusEmoji = complaint.status === 'cozuldu' ? '✅' : '📢';
-            const statusText = complaint.status === 'cozuldu' ? 'ÇÖZÜLDÜ' : 'GÜNCELLENDİ';
+            const statusText = complaint.status === 'cozuldu' ? loc.statusResolved : loc.statusUpdated;
 
             msgText =
-              `${statusEmoji} *Alanya Belediyesi Bilgilendirme*\n\n` +
-              `Sayın *${complaint.citizen_name || 'Vatandaş'}*,\n` +
+              `${statusEmoji} ${loc.generalTitle}\n\n` +
+              `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n` +
               `Şikayetinizin durumu *${statusText}* olarak güncellenmiştir.\n\n` +
-              `*Belediye Birim Açıklaması:*\n"${manualText}"\n\n` +
-              `Alanya Belediyesi olarak iyi günler dileriz. 🌟`;
+              `${loc.infoDesc}\n"${manualText}"\n\n` +
+              `${loc.greeting}`;
           }
 
           console.log(`   📤 Sohbet aktifleştiriliyor ve sendMessage çağrılıyor...`);
@@ -640,6 +833,15 @@ async function startBot() {
         // ── Memnuniyet Anketi Kontrolü ──
         if (pendingSurveys.has(phone)) {
           const complaintId = pendingSurveys.get(phone);
+          
+          // Şikayetin dilini öğren
+          const { data: survComp } = await supabase
+            .from('complaints')
+            .select('language')
+            .eq('id', complaintId)
+            .single();
+          const loc = getLocalizedMessages(survComp?.language);
+          
           const score = parseInt(lowerTextTrim);
           if (!isNaN(score) && score >= 1 && score <= 5) {
             console.log(`   📊 Anket yanıtı alındı [${phone}]: ${score} (Şikayet ID: ${complaintId})`);
@@ -653,12 +855,12 @@ async function startBot() {
             }
             pendingSurveys.delete(phone);
 
-            const thanksMsg = `Değerlendirmeniz için çok teşekkür ederiz! Alanya Belediyesi olarak görüşleriniz bizim için çok değerlidir. İyi günler dileriz. 🙏🌸`;
+            const thanksMsg = loc.surveyThanks;
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: thanksMsg });
             if (sent?.key?.id) addBotMessageId(sent.key.id);
             continue;
           } else {
-            const warnMsg = `Lütfen hizmetimizi değerlendirmek için sadece 1 ile 5 arasında bir rakam yazıp gönderin (Örn: 4).`;
+            const warnMsg = loc.surveyWarn;
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: warnMsg });
             if (sent?.key?.id) addBotMessageId(sent.key.id);
             continue;
@@ -1048,15 +1250,46 @@ async function startBot() {
           pendingComplaints.delete(phone);
 
           // Kullanıcıya Cevap Gönder
+          const lang = (analysis.language || 'tr').toLowerCase().trim();
+          
+          let confirmationText = `✅ Sayın ${name}, şikayetiniz başarıyla alınmıştır.`;
+          let categoryText = `📋 Kategori: ${analysis.category}`;
+          let departmentText = `🏢 Yönlendirilen Birim: ${analysis.department || 'İlgili Müdürlük'}`;
+          let trackingText = `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}`;
+          let footerText = `Alanya Belediyesi olarak en kısa sürede dönüş yapacağız.`;
+          let representativeText = `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\nhttps://wa.me/905362206204?text=temsilci`;
+
+          if (lang === 'en' || lang === 'english') {
+            confirmationText = `✅ Dear ${name}, your request has been successfully received.`;
+            categoryText = `📋 Category: ${analysis.category}`;
+            departmentText = `🏢 Assigned Department: ${analysis.department || 'Relevant Department'}`;
+            trackingText = `Tracking number: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            footerText = `As Alanya Municipality, we will get back to you as soon as possible.`;
+            representativeText = `💬 If you want to speak with a real representative, you can click the link below:\nhttps://wa.me/905362206204?text=representative`;
+          } else if (lang === 'de' || lang === 'german' || lang === 'deutsch') {
+            confirmationText = `✅ Sehr geehrte(r) ${name}, Ihr Anliegen wurde erfolgreich entgegengenommen.`;
+            categoryText = `📋 Kategorie: ${analysis.category}`;
+            departmentText = `🏢 Zuständige Abteilung: ${analysis.department || 'Zuständige Abteilung'}`;
+            trackingText = `Auftragsnummer: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            footerText = `Als Stadtverwaltung Alanya werden wir uns so schnell wie möglich bei Ihnen melden.`;
+            representativeText = `💬 Wenn Sie mit einem echten Vertreter sprechen möchten, klicken Sie bitte auf den folgenden Link:\nhttps://wa.me/905362206204?text=vertreter`;
+          } else if (lang === 'ru' || lang === 'russian' || lang === 'русский') {
+            confirmationText = `✅ Уважаемый(ая) ${name}, ваш запрос успешно получен.`;
+            categoryText = `📋 Категория: ${analysis.category}`;
+            departmentText = `🏢 Назначенный отдел: ${analysis.department || 'Соответствующий отдел'}`;
+            trackingText = `Номер отслеживания: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            footerText = `Муниципалитет Алании свяжется с вами в кратчайшие сроки.`;
+            representativeText = `💬 Если вы хотите поговорить с настоящим представителем, нажмите на ссылку ниже:\nhttps://wa.me/905362206204?text=представитель`;
+          }
+
           const reply =
             (analysis.auto_response ? analysis.auto_response + '\n\n' : '') +
-            `✅ Sayın ${name}, şikayetiniz başarıyla alınmıştır.\n\n` +
-              `📋 Kategori: ${analysis.category}\n` +
-              `🏢 Yönlendirilen Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
-              `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}\n` +
-              `Alanya Belediyesi olarak en kısa sürede dönüş yapacağız.\n\n` +
-              `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\n` +
-              `https://wa.me/905362206204?text=temsilci`;
+            `${confirmationText}\n\n` +
+            `${categoryText}\n` +
+            `${departmentText}\n` +
+            `${trackingText}\n` +
+            `${footerText}\n\n` +
+            `${representativeText}`;
 
           const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
           if (sent?.key?.id) {
