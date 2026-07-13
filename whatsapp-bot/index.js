@@ -1359,7 +1359,12 @@ async function startBot() {
             const cleanedInput = analysis.neighborhood.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
             const foundNbr = neighborhoodsCache.find((n) => {
               const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-              return cleanedName === cleanedInput || cleanedName.includes(cleanedInput) || cleanedInput.includes(cleanedName);
+              return cleanedName === cleanedInput;
+            }) || neighborhoodsCache.find((n) => {
+              const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
+              // "oba" kelimesinin "obaalacami" içinde geçip hatalı eşleşmesini önlemek için kelime bazlı sınır kontrolü
+              const regex = new RegExp(`\\b${cleanedInput}\\b`, 'i');
+              return regex.test(cleanedName) || cleanedName.includes(cleanedInput);
             });
             if (foundNbr) neighborhoodId = foundNbr.id;
           }
