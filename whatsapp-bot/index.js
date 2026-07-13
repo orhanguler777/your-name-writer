@@ -341,6 +341,140 @@ async function checkSLAsAndCrises(sock) {
   }
 }
 
+// ─── Duyuru Broadcast ──────────────────────────────────────────
+async function broadcastAnnouncement(sock, announcement) {
+  try {
+    console.log(`\n📢 Duyuru Broadcast başlatılıyor: "${announcement.title}"`);
+
+    // Daha önce bot ile iletişime geçmiş benzersiz vatandaş telefonlarını çek
+    const { data: citizens, error: citizenError } = await supabase
+      .from('complaints')
+      .select('citizen_phone')
+      .in('source', ['whatsapp_qr', 'whatsapp'])
+      .not('citizen_phone', 'is', null);
+
+    if (citizenError || !citizens) {
+      console.error('⚠️ Vatandaş listesi alınamadı:', citizenError?.message);
+      return;
+    }
+
+    // Benzersiz telefon numaralarını al
+    const uniquePhones = [...new Set(citizens.map(c => c.citizen_phone).filter(Boolean))];
+    console.log(`   📋 ${uniquePhones.length} benzersiz vatandaşa gönderilecek.`);
+
+    if (uniquePhones.length === 0) {
+      console.log('   ⏭️ Gönderilecek vatandaş bulunamadı.');
+      return;
+    }
+
+    // Mesaj metnini hazırla
+    const dateRange = announcement.start_date && announcement.end_date
+      ? `\n📅 *Tarih:* ${new Date(announcement.start_date).toLocaleDateString('tr-TR')} — ${new Date(announcement.end_date).toLocaleDateString('tr-TR')}`
+      : announcement.start_date
+      ? `\n📅 *Tarih:* ${new Date(announcement.start_date).toLocaleDateString('tr-TR')}`
+      : '';
+
+    const messageText =
+      `📢 *Alanya Belediyesi Duyurusu*\n\n` +
+      `🔔 *${announcement.title}*\n` +
+      (announcement.description ? `\n${announcement.description}` : '') +
+      dateRange +
+      `\n\n_Alanya Belediyesi olarak iyi günler dileriz. 🌟_`;
+
+    let sentCount = 0;
+    let failCount = 0;
+
+    for (let phone of uniquePhones) {
+      try {
+        // Numarayı temizle (sadece rakamları tut, başındaki sıfır veya + işaretini standartlaştır)
+        let cleanPhone = phone.replace(/\D/g, '');
+        
+        // Eğer 0 ile başlıyorsa ve Türkiye numarasıysa (örn: 0532...) 90 ile başlasın
+        if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+          cleanPhone = '90' + cleanPhone.substring(1);
+        }
+        
+        // Eğer başında ülke kodu yoksa ve 10 haneli ise (örn: 532...) 90 ekle
+        if (cleanPhone.length === 10 && cleanPhone.startsWith('5')) {
+          cleanPhone = '90' + cleanPhone;
+        }
+
+        let jid = `${cleanPhone}@s.whatsapp.net`;
+        const exactJid = global.activeJids?.get(phone) || jid;
+
+        console.log(`   📤 Gönderiliyor: ${cleanPhone} (${phone})`);
+
+        // Gönderici hedefleri (hedef numara ve test amaçlı kendi numaramız)
+        const targets = [exactJid];
+        
+        // Kendi JID'imizi ekle (eğer listede yoksa kendimize de gitsin)
+        if (sock.user?.id) {
+          const myJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+          if (!targets.includes(myJid)) {
+            targets.push(myJid);
+            console.log(`   🧪 Test modu: Bot kendi numarasına da gönderecek (${myJid})`);
+          }
+        }
+
+        for (const targetJid of targets) {
+          // Eğer görsel varsa önce görseli gönder
+          if (announcement.file_url && announcement.file_type === 'image') {
+            try {
+              const response = await fetch(announcement.file_url);
+              const buffer = Buffer.from(await response.arrayBuffer());
+              const sentImg = await sock.sendMessage(targetJid, {
+                image: buffer,
+                caption: messageText,
+              });
+              if (sentImg?.key?.id) addBotMessageId(sentImg.key.id);
+            } catch (imgErr) {
+              console.log(`   ⚠️ Görsel gönderilemedi (${targetJid}), metin gönderiliyor...`);
+              const sent = await sock.sendMessage(targetJid, { text: messageText });
+              if (sent?.key?.id) addBotMessageId(sent.key.id);
+            }
+          } else if (announcement.file_url && announcement.file_type === 'pdf') {
+            try {
+              const response = await fetch(announcement.file_url);
+              const buffer = Buffer.from(await response.arrayBuffer());
+              const sentText = await sock.sendMessage(targetJid, { text: messageText });
+              if (sentText?.key?.id) addBotMessageId(sentText.key.id);
+              const sentDoc = await sock.sendMessage(targetJid, {
+                document: buffer,
+                mimetype: 'application/pdf',
+                fileName: `${announcement.title}.pdf`,
+              });
+              if (sentDoc?.key?.id) addBotMessageId(sentDoc.key.id);
+            } catch (docErr) {
+              console.log(`   ⚠️ PDF gönderilemedi (${targetJid}), sadece metin gönderildi.`);
+              const sent = await sock.sendMessage(targetJid, { text: messageText });
+              if (sent?.key?.id) addBotMessageId(sent.key.id);
+            }
+          } else {
+            const sent = await sock.sendMessage(targetJid, { text: messageText });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+          }
+        }
+
+        sentCount++;
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (sendErr) {
+        failCount++;
+        console.error(`   ❌ Gönderilemedi (${phone}): ${sendErr.message}`);
+      }
+    }
+
+    // sent_at güncelle
+    await supabase
+      .from('announcements')
+      .update({ sent_at: new Date().toISOString() })
+      .eq('id', announcement.id);
+
+    console.log(`   ✅ Duyuru broadcast tamamlandı: ${sentCount} başarılı, ${failCount} başarısız.`);
+  } catch (e) {
+    console.error('⚠️ broadcastAnnouncement Hatası:', e.message);
+  }
+}
+
 // ─── WhatsApp Bağlantısı (Baileys) ──────────────────────────────
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./.baileys_auth');
@@ -513,6 +647,34 @@ async function startBot() {
         )
         .subscribe();
 
+      // Duyuru Realtime Dinleme (Yeni duyuru eklenince otomatik broadcast — isteğe bağlı)
+      console.log('   📡 Supabase Realtime duyurular dinleniyor...');
+      supabase
+        .channel('whatsapp_announcements')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'announcements',
+          },
+          async (payload) => {
+            try {
+              const ann = payload.new;
+              const oldAnn = payload.old;
+              // sent_at null'dan değere geçtiyse → broadcast tetiklendi
+              if (!oldAnn.sent_at && ann.sent_at) {
+                console.log(`\n   📢 Duyuru broadcast tetiklendi (Realtime): "${ann.title}"`);
+                // sent_at zaten set edildi, doğrudan broadcast et
+                await broadcastAnnouncement(global.currentSock, ann);
+              }
+            } catch (err) {
+              console.error('⚠️ Duyuru Realtime hatası:', err.message);
+            }
+          }
+        )
+        .subscribe();
+
       // ── Express Webhook Sunucusu (CORS ve Realtime kesintilerini önlemek için) ──
       const app = express();
       app.use(express.json());
@@ -524,6 +686,42 @@ async function startBot() {
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
         if (req.method === 'OPTIONS') return res.sendStatus(200);
         next();
+      });
+
+      // Duyuru Broadcast Webhook Endpoint
+      app.post('/broadcast-announcement', async (req, res) => {
+        try {
+          const { announcementId } = req.body;
+          if (!announcementId) {
+            return res.status(400).json({ status: 'error', reason: 'announcementId gerekli' });
+          }
+
+          const activeSock = global.currentSock;
+          if (!activeSock) {
+            return res.status(503).json({ status: 'error', reason: 'WhatsApp bağlantısı aktif değil' });
+          }
+
+          // Duyuruyu çek
+          const { data: announcement, error: annError } = await supabase
+            .from('announcements')
+            .select('*')
+            .eq('id', announcementId)
+            .single();
+
+          if (annError || !announcement) {
+            return res.status(404).json({ status: 'error', reason: 'Duyuru bulunamadı' });
+          }
+
+          // Async olarak broadcast yap (response'u hemen dön)
+          res.json({ status: 'started', message: 'Broadcast başlatıldı' });
+
+          await broadcastAnnouncement(activeSock, announcement);
+        } catch (error) {
+          console.error('⚠️ Broadcast webhook hatası:', error.message);
+          if (!res.headersSent) {
+            res.status(500).json({ status: 'error', reason: error.message });
+          }
+        }
       });
 
       app.post('/webhook/resolved', async (req, res) => {
