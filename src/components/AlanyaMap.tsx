@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, CheckCircle2, AlertTriangle, MapPin, Layers } from "lucide-react";
+import { MessageSquare, CheckCircle2, AlertTriangle, MapPin, Layers, Maximize2, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 const MAP_PROVIDERS = {
@@ -283,7 +283,7 @@ const ALANYA_NEIGHBORHOODS = [
   {
     "id": "gullerpinari",
     "name": "Güllerpınarı",
-    "lat": 36.542,
+    "lat": 36.544,
     "lng": 32.012,
     "desc": "Güllerpınarı Mahallesi ve Doğu Sahili"
   },
@@ -753,6 +753,7 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [mapType, setMapType] = useState<keyof typeof MAP_PROVIDERS>("satellite");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const olMapRef = useRef<any>(null);
   const tileSourceRef = useRef<any>(null);
@@ -817,10 +818,26 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
           center: ol.proj.fromLonLat([32.0004, 36.5438]),
           zoom: 12,
         }),
+        controls: ol.control.defaults.defaults({ attribution: false }),
       });
 
       olMapRef.current = map;
       drawHtmlOverlays(ol, map);
+
+      // Zoom seviyesine göre marker boyutlarını dinamik ölçeklendir
+      const updateMarkerScale = () => {
+        const zoom = map.getView().getZoom() || 12;
+        // Zoom 10'da scale 0.7, zoom 12'de scale 1.0, zoom 15'de scale 1.6, zoom 18'de scale 2.2
+        const scale = Math.max(0.5, 0.25 + (zoom - 10) * 0.2);
+        const allMarkers = mapContainerRef.current?.querySelectorAll(".map-marker-el") as NodeListOf<HTMLElement>;
+        allMarkers?.forEach((el) => {
+          el.style.transform = `scale(${scale})`;
+          el.style.transformOrigin = "center center";
+        });
+      };
+
+      map.getView().on('change:resolution', updateMarkerScale);
+      updateMarkerScale(); // İlk yükleme
     };
 
     if (!(window as any).ol) {
@@ -1005,8 +1022,29 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
     }
   }, []);
 
+  // Tam ekran geçişinde haritayı yeniden boyutlandır
+  useEffect(() => {
+    if (olMapRef.current) {
+      setTimeout(() => {
+        olMapRef.current?.updateSize();
+      }, 100);
+    }
+  }, [isFullscreen]);
+
   return (
-    <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 text-slate-100 border-0 shadow-xl">
+    <>
+      {/* Fullscreen overlay backdrop */}
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
+          onClick={() => setIsFullscreen(false)}
+        />
+      )}
+      <Card className={`p-6 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 text-slate-100 border-0 shadow-xl transition-all duration-300 ${
+        isFullscreen
+          ? "fixed inset-4 z-50 flex flex-col"
+          : ""
+      }`}>
       <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h3 className="font-display font-semibold text-lg text-white">Alanya İnteraktif Coğrafi Şikayet Haritası</h3>
@@ -1030,11 +1068,20 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
             </button>
           ))}
         </div>
+
+        {/* Tam Ekran / Küçült Butonu */}
+        <button
+          onClick={() => setIsFullscreen((prev) => !prev)}
+          className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-800/60 border border-slate-700/60 text-slate-400 hover:text-white hover:bg-slate-700 transition-all z-10"
+          title={isFullscreen ? "Küçült" : "Tam Ekran"}
+        >
+          {isFullscreen ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 lg:grid-cols-4 gap-6 ${isFullscreen ? "flex-1 min-h-0" : ""}`}>
         {/* OpenLayers Harita Konteyneri */}
-        <div className="lg:col-span-3 rounded-xl overflow-hidden border border-slate-800 h-[420px] relative z-0">
+        <div className={`lg:col-span-3 rounded-xl overflow-hidden border border-slate-800 relative z-0 ${isFullscreen ? "h-full" : "h-[420px]"}`}>
           <div ref={mapContainerRef} className="w-full h-full" />
         </div>
 
@@ -1110,5 +1157,6 @@ export function AlanyaMap({ complaints }: AlanyaMapProps) {
         </div>
       </div>
     </Card>
+    </>
   );
 }
