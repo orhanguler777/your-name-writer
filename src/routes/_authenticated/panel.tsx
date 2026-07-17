@@ -175,32 +175,32 @@ function Panel() {
       {(isBaskanOrAdmin || isMudurluk) && (activeCrises.length > 0 || escalatedComplaints.length > 0) && (
         <div className="space-y-3">
           {activeCrises.map((crisis, i) => (
-            <div key={`crisis-${i}`} className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5">
+            <div key={`crisis-${i}`} className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5">
               <div className="bg-red-500/20 p-2 rounded-full shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500" />
               </div>
               <div>
-                <h4 className="font-bold text-red-400">BÖLGESEL KRİZ UYARISI</h4>
-                <p className="text-sm mt-1 text-red-200">
+                <h4 className="font-bold text-red-800 dark:text-red-400">BÖLGESEL KRİZ UYARISI</h4>
+                <p className="text-sm mt-1 text-red-950 dark:text-red-200">
                   {crisis.neighborhood} mahallesinde son {crisisLimitHours} saat içinde {crisis.count} adet açık <strong>{crisis.category}</strong> şikayeti tespit edildi. Bu şikayetlerin önceliği otomatik olarak "Yüksek" yapıldı.
                 </p>
               </div>
             </div>
           ))}
           {escalatedComplaints.map((esc: any) => (
-            <div key={`esc-${esc.id}`} className="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-orange-500/5">
+            <div key={`esc-${esc.id}`} className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-orange-500/5">
               <div className="flex items-start gap-3">
                 <div className="bg-orange-500/20 p-2 rounded-full shrink-0">
-                  <Clock className="h-5 w-5 text-orange-500" />
+                  <Clock className="h-5 w-5 text-orange-600 dark:text-orange-500" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-orange-400">SLA İHLALİ (ESKALASYON)</h4>
-                  <p className="text-sm mt-1 text-orange-200">
+                  <h4 className="font-bold text-orange-800 dark:text-orange-400">SLA İHLALİ (ESKALASYON)</h4>
+                  <p className="text-sm mt-1 text-orange-950 dark:text-orange-200">
                     <strong>{esc.id.substring(0,8).toUpperCase()}</strong> takip numaralı Yüksek Öncelikli şikayet ({esc.category}) {slaLimitHours >= 24 ? `${Math.round(slaLimitHours / 24)} günü` : `${slaLimitHours} saati`} aştı ve halen çözülemedi.
                   </p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="border-orange-500/30 hover:bg-orange-500/20 hover:text-orange-400 shrink-0" asChild>
+              <Button size="sm" variant="outline" className="border-orange-500/30 text-orange-900 dark:text-orange-400 hover:bg-orange-500/20 hover:text-orange-800 dark:hover:text-orange-300 shrink-0" asChild>
                 <Link to="/sikayetler/$id" params={{ id: esc.id }}>İncele</Link>
               </Button>
             </div>

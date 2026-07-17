@@ -19,6 +19,7 @@ import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMudurlukRouteImport } from './routes/_authenticated/mudurluk'
 import { Route as AuthenticatedMemnuniyetRouteImport } from './routes/_authenticated/memnuniyet'
 import { Route as AuthenticatedGunlukMesajlarRouteImport } from './routes/_authenticated/gunluk-mesajlar'
+import { Route as AuthenticatedDuyurularRouteImport } from './routes/_authenticated/duyurular'
 import { Route as AuthenticatedCozumMasasiRouteImport } from './routes/_authenticated/cozum-masasi'
 import { Route as AuthenticatedBilgiTalepleriRouteImport } from './routes/_authenticated/bilgi-talepleri'
 import { Route as AuthenticatedBaskanAiBotRouteImport } from './routes/_authenticated/baskan-ai-bot'
@@ -80,6 +81,11 @@ const AuthenticatedGunlukMesajlarRoute =
     path: '/gunluk-mesajlar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDuyurularRoute = AuthenticatedDuyurularRouteImport.update({
+  id: '/duyurular',
+  path: '/duyurular',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCozumMasasiRoute =
   AuthenticatedCozumMasasiRouteImport.update({
     id: '/cozum-masasi',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
   '/bilgi-talepleri': typeof AuthenticatedBilgiTalepleriRoute
   '/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/duyurular': typeof AuthenticatedDuyurularRoute
   '/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
   '/memnuniyet': typeof AuthenticatedMemnuniyetRoute
   '/mudurluk': typeof AuthenticatedMudurlukRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
   '/bilgi-talepleri': typeof AuthenticatedBilgiTalepleriRoute
   '/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/duyurular': typeof AuthenticatedDuyurularRoute
   '/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
   '/memnuniyet': typeof AuthenticatedMemnuniyetRoute
   '/mudurluk': typeof AuthenticatedMudurlukRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_authenticated/baskan-ai-bot': typeof AuthenticatedBaskanAiBotRoute
   '/_authenticated/bilgi-talepleri': typeof AuthenticatedBilgiTalepleriRoute
   '/_authenticated/cozum-masasi': typeof AuthenticatedCozumMasasiRoute
+  '/_authenticated/duyurular': typeof AuthenticatedDuyurularRoute
   '/_authenticated/gunluk-mesajlar': typeof AuthenticatedGunlukMesajlarRoute
   '/_authenticated/memnuniyet': typeof AuthenticatedMemnuniyetRoute
   '/_authenticated/mudurluk': typeof AuthenticatedMudurlukRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/baskan-ai-bot'
     | '/bilgi-talepleri'
     | '/cozum-masasi'
+    | '/duyurular'
     | '/gunluk-mesajlar'
     | '/memnuniyet'
     | '/mudurluk'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/baskan-ai-bot'
     | '/bilgi-talepleri'
     | '/cozum-masasi'
+    | '/duyurular'
     | '/gunluk-mesajlar'
     | '/memnuniyet'
     | '/mudurluk'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/_authenticated/baskan-ai-bot'
     | '/_authenticated/bilgi-talepleri'
     | '/_authenticated/cozum-masasi'
+    | '/_authenticated/duyurular'
     | '/_authenticated/gunluk-mesajlar'
     | '/_authenticated/memnuniyet'
     | '/_authenticated/mudurluk'
@@ -324,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGunlukMesajlarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/duyurular': {
+      id: '/_authenticated/duyurular'
+      path: '/duyurular'
+      fullPath: '/duyurular'
+      preLoaderRoute: typeof AuthenticatedDuyurularRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cozum-masasi': {
       id: '/_authenticated/cozum-masasi'
       path: '/cozum-masasi'
@@ -390,6 +409,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBaskanAiBotRoute: typeof AuthenticatedBaskanAiBotRoute
   AuthenticatedBilgiTalepleriRoute: typeof AuthenticatedBilgiTalepleriRoute
   AuthenticatedCozumMasasiRoute: typeof AuthenticatedCozumMasasiRoute
+  AuthenticatedDuyurularRoute: typeof AuthenticatedDuyurularRoute
   AuthenticatedGunlukMesajlarRoute: typeof AuthenticatedGunlukMesajlarRoute
   AuthenticatedMemnuniyetRoute: typeof AuthenticatedMemnuniyetRoute
   AuthenticatedMudurlukRoute: typeof AuthenticatedMudurlukRoute
@@ -408,6 +428,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBaskanAiBotRoute: AuthenticatedBaskanAiBotRoute,
   AuthenticatedBilgiTalepleriRoute: AuthenticatedBilgiTalepleriRoute,
   AuthenticatedCozumMasasiRoute: AuthenticatedCozumMasasiRoute,
+  AuthenticatedDuyurularRoute: AuthenticatedDuyurularRoute,
   AuthenticatedGunlukMesajlarRoute: AuthenticatedGunlukMesajlarRoute,
   AuthenticatedMemnuniyetRoute: AuthenticatedMemnuniyetRoute,
   AuthenticatedMudurlukRoute: AuthenticatedMudurlukRoute,

@@ -6,7 +6,7 @@ import type { AppRole } from "@/hooks/useAuth";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile,
+  HelpCircle, Smile, Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ const MENU: MenuItem[] = [
   { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },
   { to: "/arac-bakim", label: "Araç Bakım", icon: Truck, roles: ["baskan", "admin", "mudurluk"] },
   { to: "/personel-analizi", label: "Personel Analizi", icon: UserCheck, roles: ["baskan", "admin", "mudurluk"] },
+  { to: "/duyurular", label: "Duyurular & Reklamlar", icon: Megaphone },
   { to: "/ayarlar", label: "Ayarlar", icon: Settings },
 ];
 
