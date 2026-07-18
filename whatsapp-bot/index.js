@@ -119,6 +119,103 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// ─── Reverse Geocoding (Koordinat → Detaylı Adres) ─────────────────
+// Konum atıldığında sokak/cadde/mevki bilgisini otomatik çıkarır.
+// GOOGLE_MAPS_API_KEY tanımlıysa Google, değilse ücretsiz OpenStreetMap Nominatim kullanılır.
+async function reverseGeocode(lat, lng) {
+  if (lat === null || lng === null || lat === undefined || lng === undefined) return null;
+  try {
+    // 1) Google Maps (anahtar varsa — daha doğru sonuç)
+    if (process.env.GOOGLE_MAPS_API_KEY) {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=tr&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const best = data.results && data.results[0];
+        if (best) {
+          const get = (type) => {
+            const c = best.address_components.find((x) => x.types.includes(type));
+            return c ? c.long_name : null;
+          };
+          const road = get('route');
+          const mahalle = get('neighborhood') || get('administrative_area_level_4') || get('sublocality');
+          const semt = get('administrative_area_level_2') || get('locality');
+          const short = [road, mahalle, semt].filter(Boolean).join(', ');
+          return { full: best.formatted_address, short: short || best.formatted_address };
+        }
+      }
+    }
+
+    // 2) OpenStreetMap Nominatim (ücretsiz, anahtar gerektirmez)
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=tr&zoom=18`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'AlanyaBelediyeBot/1.0 (belediye sikayet sistemi)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.address) return data && data.display_name ? { full: data.display_name, short: data.display_name } : null;
+    const a = data.address;
+    const road = a.road || a.pedestrian || a.footway || a.residential;
+    const mahalle = a.neighbourhood || a.quarter || a.suburb || a.city_district;
+    const semt = a.town || a.city || a.municipality || a.county;
+    const short = [road, mahalle, semt].filter(Boolean).join(', ');
+    return { full: data.display_name, short: short || data.display_name };
+  } catch (e) {
+    console.error('   ⚠️ Reverse geocode hatası:', e.message);
+    return null;
+  }
+}
+
+// ─── Türkçe metin normalizasyonu (mahalle eşleştirme için) ─────────
+function normalizeTr(s) {
+  return (s || '')
+    .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+    .replace(/Ş/g, 's').replace(/ş/g, 's')
+    .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+    .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+    .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+    .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+    .toLowerCase()
+    .replace(/mahallesi|mahalle|mah\./g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Müdürlük adını toleranslı eşleştir (birebir olmasa da normalize edilmiş karşılaştırma)
+function matchDepartment(aiName) {
+  if (!aiName) return null;
+  const target = normalizeTr(aiName).replace(/mudurlugu|müdürlüğü|birimi/g, '').trim();
+  if (!target) return null;
+  // 1) Tam (normalize) eşleşme
+  let found = departmentsCache.find((d) => normalizeTr(d.name).replace(/mudurlugu|müdürlüğü|birimi/g, '').trim() === target);
+  // 2) İçeren eşleşme
+  if (!found) found = departmentsCache.find((d) => {
+    const dn = normalizeTr(d.name).replace(/mudurlugu|müdürlüğü|birimi/g, '').trim();
+    return dn.includes(target) || target.includes(dn);
+  });
+  return found || null;
+}
+
+// Verilen metin içinde bilinen bir mahalle adı geçiyor mu? (kelime bazlı, en uzun eşleşme öncelikli)
+function matchNeighborhood(rawText) {
+  if (!rawText) return null;
+  const norm = normalizeTr(rawText);
+  if (!norm) return null;
+  let best = null;
+  let bestLen = 0;
+  for (const n of neighborhoodsCache) {
+    const nm = normalizeTr(n.name);
+    if (!nm) continue;
+    // "oba" gibi kısa adların başka kelimenin içinde yanlış eşleşmesini önlemek için kelime sınırı
+    const re = new RegExp(`(^|[^a-z0-9])${nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`);
+    if (re.test(norm) && nm.length > bestLen) {
+      best = n;
+      bestLen = nm.length;
+    }
+  }
+  return best;
+}
+
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
 const pendingComplaints = new Map();
 const pendingSurveys = new Map(); // key: phone, value: complaintId
@@ -1180,7 +1277,21 @@ async function startBot() {
           if (locationNbr) {
             console.log(`   📍 En yakın mahalle: ${locationNbr.name}`);
           }
-          
+
+          // Koordinattan detaylı adresi (sokak, cadde, mevki) otomatik çıkar
+          const geo = await reverseGeocode(locLat, locLng);
+          const locAddress = geo ? geo.full : null;
+          if (locAddress) {
+            console.log(`   🗺️ Detaylı adres: ${locAddress}`);
+          }
+
+          // Adres metnindeki mahalle adı, en yakın merkez (centroid) tahmininden daha doğrudur.
+          const geoNbr = geo ? (matchNeighborhood(geo.full) || matchNeighborhood(geo.short)) : null;
+          if (geoNbr) {
+            locationNbr = geoNbr;
+            console.log(`   📍 Adresten eşleşen mahalle: ${geoNbr.name}`);
+          }
+
           if (pending && pending.text) {
             // Önce şikayet metnini yazmıştı, şimdi konumu yolladı
             console.log(`   🗂️ Bekleyen şikayet metni ile konum birleştiriliyor: "${pending.text}"`);
@@ -1191,7 +1302,7 @@ async function startBot() {
             
             let departmentId = null;
             if (analysis.department) {
-              const foundDept = departmentsCache.find((d) => d.name === analysis.department);
+              const foundDept = matchDepartment(analysis.department);
               if (foundDept) departmentId = foundDept.id;
             }
             
@@ -1206,6 +1317,7 @@ async function startBot() {
                   source: 'whatsapp_qr',
                   language: analysis.language || 'tr',
                   neighborhood_id: locationNbr ? locationNbr.id : null,
+                  address: locAddress,
                   latitude: locLat,
                   longitude: locLng
                 },
@@ -1231,6 +1343,7 @@ async function startBot() {
             const reply = `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${locationNbr ? locationNbr.name + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.\n\n` +
               `📋 Kategori: ${analysis.category}\n` +
               `🏢 Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
+              (geo && geo.short ? `📍 Adres: ${geo.short}\n` : '') +
               `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}\n\n` +
               `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\n` +
               `https://wa.me/905362206204?text=temsilci`;
@@ -1247,10 +1360,12 @@ async function startBot() {
               lng: locLng,
               neighborhoodId: locationNbr ? locationNbr.id : null,
               neighborhoodName: locationNbr ? locationNbr.name : null,
+              address: locAddress,
               timestamp: Date.now()
             });
-            
+
             const reply = `📍 Gönderdiğiniz konuma göre ${locationNbr ? locationNbr.name + ' Mahallesi' : 'Alanya'} sınırlarında olduğunuzu tespit ettik.\n\n` +
+              (geo && geo.short ? `🗺️ Tespit edilen adres: ${geo.short}\n\n` : '') +
               `Lütfen bu bölgedeki şikayetinizin/talebinizin detaylarını yazar mısınız?`;
               
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
@@ -1282,6 +1397,7 @@ async function startBot() {
             category: 'Diğer',
             department: '',
             neighborhood: null,
+            address: null,
             priority: 'orta',
             auto_response: '',
             send_pdfs: [],
@@ -1347,26 +1463,24 @@ async function startBot() {
           // AI Sonuçlarına göre Müdürlük bul
           let departmentId = null;
           if (analysis.department) {
-            const foundDept = departmentsCache.find((d) => d.name === analysis.department);
+            const foundDept = matchDepartment(analysis.department);
             if (foundDept) departmentId = foundDept.id;
           }
 
-          // AI Sonuçlarına göre Mahalle bul
+          // Mahalle bul: 1) konumdan gelen, 2) AI'ın bulduğu ad, 3) kullanıcının yazdığı ham metin
           let neighborhoodId = null;
+          let matchedNbr = null;
+          let manualLocationText = null;
           if (pending && pending.neighborhoodId) {
             neighborhoodId = pending.neighborhoodId;
-          } else if (analysis.neighborhood) {
-            const cleanedInput = analysis.neighborhood.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-            const foundNbr = neighborhoodsCache.find((n) => {
-              const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-              return cleanedName === cleanedInput;
-            }) || neighborhoodsCache.find((n) => {
-              const cleanedName = n.name.trim().toLowerCase().replace(' mahallesi', '').replace(' mah.', '');
-              // "oba" kelimesinin "obaalacami" içinde geçip hatalı eşleşmesini önlemek için kelime bazlı sınır kontrolü
-              const regex = new RegExp(`\\b${cleanedInput}\\b`, 'i');
-              return regex.test(cleanedName) || cleanedName.includes(cleanedInput);
-            });
-            if (foundNbr) neighborhoodId = foundNbr.id;
+          } else {
+            if (analysis.neighborhood) matchedNbr = matchNeighborhood(analysis.neighborhood);
+            // AI mahalleyi yakalayamadıysa, kullanıcının yazdığı mesajda mahalle adını doğrudan ara
+            if (!matchedNbr && text) matchedNbr = matchNeighborhood(text);
+            if (matchedNbr) neighborhoodId = matchedNbr.id;
+            // Kullanıcı bir şikayet metni bekleniyorken konum/mahalle bilgisini yazdıysa,
+            // yazdığı metni (örn. "Saray Mahallesi Barbaros Caddesi No:5") adres detayı olarak sakla.
+            if (matchedNbr && pending && pending.text && text) manualLocationText = text.trim();
           }
 
           // Mahalle bulunamadıysa veritabanına ekleme, kullanıcıya sor
@@ -1385,7 +1499,9 @@ async function startBot() {
               `Sayın ${name}, şikayetinizi doğru mahalle ile eşleştirebilmemiz için lütfen mahalle adını yazınız.`;
             // "102 mahalle" ifadelerini temizle
             askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, '').trim();
-            const askReply = askBase + `\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`;
+            const askReply = askBase +
+              `\n\n🏠 Dilerseniz mahalleyle birlikte *sokak/cadde ve bina no* gibi detayları da yazabilirsiniz (örn: _Saray Mahallesi, Barbaros Caddesi No:5_).` +
+              `\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`;
             
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
             if (sent?.key?.id) {
@@ -1395,6 +1511,23 @@ async function startBot() {
           }
 
           console.log('   🗂️ Şikayet tespit edildi, kayıt oluşturuluyor.');
+
+          // ── Adresi çöz: en az mahalle adı garanti; varsa detay (konum pini / kullanıcı metni) ──
+          const nbrObj = matchedNbr
+            || (neighborhoodId ? neighborhoodsCache.find((n) => n.id === neighborhoodId) : null);
+          const nbrName = nbrObj ? nbrObj.name : (pending && pending.neighborhoodName) || null;
+          const aiAddr = (analysis.address && String(analysis.address).trim() && String(analysis.address).toLowerCase() !== 'null')
+            ? String(analysis.address).trim() : null;
+          let resolvedAddress = (pending && pending.address)   // konum pininden gelen tam adres
+            ? pending.address
+            : (manualLocationText || aiAddr || null);          // kullanıcı metni ya da AI'ın çıkardığı sokak/cadde detayı
+          // Detay yoksa en azından mahalle adını yaz
+          if (!resolvedAddress && nbrName) resolvedAddress = `${nbrName} Mahallesi`;
+          // Kullanıcının yazdığı metin mahalle adını içermiyorsa başına ekle (örn. sadece "Barbaros Caddesi No:5")
+          if (resolvedAddress && nbrName && !normalizeTr(resolvedAddress).includes(normalizeTr(nbrName))) {
+            resolvedAddress = `${nbrName} Mahallesi, ${resolvedAddress}`;
+          }
+          if (resolvedAddress) console.log(`   🏠 Kaydedilen adres: ${resolvedAddress}`);
 
           const complaintTextToSave = (pending && pending.text) ? pending.text : (text || '(Sadece Medya İçeren Mesaj)');
           const { data: complaint, error: dbError } = await supabase
@@ -1407,6 +1540,7 @@ async function startBot() {
                 status: 'yeni',
                 source: 'whatsapp_qr',
                 language: analysis.language || 'tr',
+                address: resolvedAddress,
                 latitude: (pending && pending.lat !== undefined) ? pending.lat : null,
                 longitude: (pending && pending.lng !== undefined) ? pending.lng : null,
               },
@@ -1535,6 +1669,7 @@ async function analyzeWithAI(text) {
     category: 'Diğer',
     department: '',
     neighborhood: null,
+    address: null,
     priority: 'orta',
     auto_response: '',
     send_pdfs: [],
@@ -1571,7 +1706,7 @@ async function analyzeWithAI(text) {
           content: `Sen Alanya Belediyesi yapay zeka şikayet ve bilgi asistanısın. Antalya'nın Alanya ilçesinde görev yapıyorsun. Belediye Başkanı Osman Tarık Özçelik'tir.
 
 Vatandaştan gelen şikayeti veya bilgi talebini analiz et ve SADECE JSON döndür:
-{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Şikayette geçen mahalle adı (Örn: Fığla, Mahmutlar, Oba, Konaklı vb.) veya null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet|bilgi","language":"tr|en|ru|de|... (mesajın dili)","send_pdfs":["dosya-adi.pdf"],"auto_response":"Vatandaşa kısa, nazik, profesyonel cevap (3-4 cümle, emoji kullanabilirsin. Alanya Belediyesi olarak hitap et. DİL KURALI: Gelen mesaj hangi dilde yazılmışsa, auto_response cevabını da O DİLDE oluştur.)"}
+{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Şikayette geçen mahalle adı (Örn: Fığla, Mahmutlar, Oba, Konaklı vb.) veya null","address":"Şikayette geçen mahalle DIŞINDAKI adres detayı: sokak, cadde, bulvar, bina/kapı no, site adı, mevki vb. (Örn: 'Serap Sokak No:5', 'Barbaros Caddesi'). Böyle bir detay yoksa null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet|bilgi","language":"tr|en|ru|de|... (mesajın dili)","send_pdfs":["dosya-adi.pdf"],"auto_response":"Vatandaşa kısa, nazik, profesyonel cevap (3-4 cümle, emoji kullanabilirsin. Alanya Belediyesi olarak hitap et. DİL KURALI: Gelen mesaj hangi dilde yazılmışsa, auto_response cevabını da O DİLDE oluştur.)"}
 
 Kategoriler: Yol / Altyapı, Temizlik / Atık, Park ve Bahçeler, İmar / Yapı, Çevre / Sıfır Atık, Zabıta / Düzen, Hayvan Hakları, Kültür / Sosyal, Kırsal Hizmetler, Kentsel Dönüşüm, Afet / Acil, Diğer.
 
@@ -1636,6 +1771,7 @@ KURALLAR:
       category: parsed.category || fallback.category,
       department: parsed.department || fallback.department,
       neighborhood: parsed.neighborhood || null,
+      address: parsed.address || null,
       priority: parsed.priority || fallback.priority,
       auto_response: parsed.auto_response || fallback.auto_response,
       send_pdfs: sendPdfs,
