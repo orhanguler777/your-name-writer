@@ -216,6 +216,76 @@ function matchNeighborhood(rawText) {
   return best;
 }
 
+// ─── Dil (Localization) yardımcıları ──────────────────────────────
+// Şikayet akışındaki sabit sistem mesajlarını vatandaşın diline göre üretir.
+function normLang(lang) {
+  const l = (lang || 'tr').toLowerCase().trim();
+  if (l.startsWith('en')) return 'en';
+  if (l.startsWith('de') || l.includes('deutsch') || l.includes('german')) return 'de';
+  if (l.startsWith('ru') || l.includes('russ') || l.includes('рус')) return 'ru';
+  return 'tr';
+}
+
+// Mahalle sorarken eklenen "detaylı adres / konum" ipucu
+function msgLocationHint(lang) {
+  return {
+    tr: `\n\n🏠 Dilerseniz mahalleyle birlikte *sokak/cadde ve bina no* gibi detayları da yazabilirsiniz (örn: _Saray Mahallesi, Barbaros Caddesi No:5_).\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`,
+    en: `\n\n🏠 You may also add *street/avenue and building no* along with the neighbourhood (e.g. _Saray District, Barbaros Avenue No:5_).\n\n📍 _You can also share your location to report where you are._`,
+    de: `\n\n🏠 Sie können neben dem Viertel auch *Straße und Hausnummer* angeben (z.B. _Saray Viertel, Barbaros Straße Nr:5_).\n\n📍 _Sie können auch Ihren Standort teilen, um Ihre Position mitzuteilen._`,
+    ru: `\n\n🏠 Вы также можете указать *улицу и номер дома* вместе с районом (напр. _район Сарай, ул. Барбарос №5_).\n\n📍 _Вы также можете отправить свою геолокацию._`,
+  }[normLang(lang)];
+}
+
+// Mahalle sorma varsayılan metni (AI auto_response boşsa)
+function msgAskNeighborhood(lang, name) {
+  return {
+    tr: `Sayın ${name}, şikayetinizi doğru mahalle ile eşleştirebilmemiz için lütfen mahalle adını yazınız.`,
+    en: `Dear ${name}, please write the neighbourhood name so we can match your complaint to the correct area.`,
+    de: `Sehr geehrte(r) ${name}, bitte geben Sie den Namen des Viertels an, damit wir Ihr Anliegen dem richtigen Gebiet zuordnen können.`,
+    ru: `Уважаемый(ая) ${name}, пожалуйста, укажите название района, чтобы мы направили вашу жалобу в нужный участок.`,
+  }[normLang(lang)];
+}
+
+// Konum alındıktan sonra şikayet detayı isteme
+function msgAskDetailsAfterLocation(lang, nbrName) {
+  const area = nbrName ? `${nbrName}` : null;
+  return {
+    tr: `📍 Gönderdiğiniz konuma göre ${area ? area + ' Mahallesi' : 'Alanya'} sınırlarında olduğunuzu tespit ettik.\n\nLütfen bu bölgedeki şikayetinizin/talebinizin detaylarını yazar mısınız?`,
+    en: `📍 Based on your location, we detected that you are within ${area ? area + ' District' : 'Alanya'}.\n\nCould you please describe the details of your complaint/request in this area?`,
+    de: `📍 Anhand Ihres Standorts haben wir festgestellt, dass Sie sich in ${area ? area + ' Viertel' : 'Alanya'} befinden.\n\nKönnten Sie bitte die Einzelheiten Ihres Anliegens in diesem Gebiet beschreiben?`,
+    ru: `📍 По вашей геолокации мы определили, что вы находитесь в районе ${area ? area : 'Аланья'}.\n\nПожалуйста, опишите детали вашей жалобы/обращения в этом районе.`,
+  }[normLang(lang)];
+}
+
+// Konum ile şikayet oluşturulduğunda gönderilen onay mesajı
+function msgLocationConfirmation(lang, { name, nbrName, category, department, addressShort, trackingNo }) {
+  const L = normLang(lang);
+  const rep = {
+    tr: `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\nhttps://wa.me/905362206204?text=temsilci`,
+    en: `💬 If you would like to speak with a real representative, you can click the link below:\nhttps://wa.me/905362206204?text=representative`,
+    de: `💬 Wenn Sie mit einem echten Mitarbeiter sprechen möchten, klicken Sie bitte auf den folgenden Link:\nhttps://wa.me/905362206204?text=vertreter`,
+    ru: `💬 Если хотите поговорить с реальным представителем, нажмите на ссылку ниже:\nhttps://wa.me/905362206204?text=representative`,
+  }[L];
+  const head = {
+    tr: `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${nbrName ? nbrName + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.`,
+    en: `✅ Dear ${name}, based on your location your complaint has been successfully received for ${nbrName ? nbrName + ' District' : 'the relevant area'}.`,
+    de: `✅ Sehr geehrte(r) ${name}, anhand Ihres Standorts wurde Ihr Anliegen für ${nbrName ? nbrName + ' Viertel' : 'das betreffende Gebiet'} erfolgreich entgegengenommen.`,
+    ru: `✅ Уважаемый(ая) ${name}, по вашей геолокации ваша жалоба успешно принята для района ${nbrName ? nbrName : 'соответствующего'}.`,
+  }[L];
+  const labels = {
+    tr: { cat: 'Kategori', dep: 'Birim', addr: 'Adres', track: 'Takip numaranız' },
+    en: { cat: 'Category', dep: 'Department', addr: 'Address', track: 'Tracking number' },
+    de: { cat: 'Kategorie', dep: 'Abteilung', addr: 'Adresse', track: 'Auftragsnummer' },
+    ru: { cat: 'Категория', dep: 'Отдел', addr: 'Адрес', track: 'Номер обращения' },
+  }[L];
+  return `${head}\n\n` +
+    `📋 ${labels.cat}: ${category}\n` +
+    `🏢 ${labels.dep}: ${department}\n` +
+    (addressShort ? `📍 ${labels.addr}: ${addressShort}\n` : '') +
+    `${labels.track}: ${trackingNo}\n\n` +
+    rep;
+}
+
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
 const pendingComplaints = new Map();
 const pendingSurveys = new Map(); // key: phone, value: complaintId
@@ -1362,14 +1432,17 @@ async function startBot() {
 
             pendingComplaints.delete(phone);
 
-            const reply = `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${locationNbr ? locationNbr.name + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.\n\n` +
-              `📋 Kategori: ${analysis.category}\n` +
-              `🏢 Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
-              (geo && geo.short ? `📍 Adres: ${geo.short}\n` : '') +
-              `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}\n\n` +
-              `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\n` +
-              `https://wa.me/905362206204?text=temsilci`;
-              
+            // Dil: önce şikayet metninin dili (pending), yoksa mevcut analiz
+            const replyLang = (pending && pending.language) || analysis.language || 'tr';
+            const reply = msgLocationConfirmation(replyLang, {
+              name,
+              nbrName: locationNbr ? locationNbr.name : null,
+              category: analysis.category,
+              department: analysis.department || (normLang(replyLang) === 'tr' ? 'İlgili Müdürlük' : 'Relevant Department'),
+              addressShort: geo && geo.short ? geo.short : null,
+              trackingNo: complaint.id.substring(0, 8).toUpperCase(),
+            });
+
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
             if (sent?.key?.id) {
               addBotMessageId(sent.key.id);
@@ -1532,6 +1605,8 @@ async function startBot() {
           if (!neighborhoodId) {
             console.log('   ⚠️ Mahalle belirlenemedi veya bulunamadı, şikayet kaydı veritabanına OLUŞTURULMUYOR.');
             
+            // Şikayetin dilini bekleyen kayda taşı (konum adımında da aynı dilde cevap verebilmek için)
+            const askLang = analysis.language || 'tr';
             // Eğer henüz bekleyen bir şikayet yoksa, bu orijinal şikayet metnini (ve varsa fotoğrafı) hafızaya alalım
             if (!pending) {
               pendingComplaints.set(phone, {
@@ -1541,11 +1616,13 @@ async function startBot() {
                 visionAnalysis: visionAnalysis || null,
                 imageBuffer: curImageBuffer || null,
                 imageContentType: curImageMime || null,
+                language: askLang,
                 timestamp: Date.now(),
               });
             } else {
               // Süreyi yenile ve bu mesajda fotoğraf/analiz geldiyse pending'e ekle
               pending.timestamp = Date.now();
+              if (!pending.language) pending.language = askLang;
               if (curImageBuffer) { pending.imageBuffer = curImageBuffer; pending.imageContentType = curImageMime; }
               if (visionAnalysis) {
                 pending.visionAnalysis = visionAnalysis;
@@ -1553,13 +1630,10 @@ async function startBot() {
               }
             }
 
-            let askBase = analysis.auto_response ||
-              `Sayın ${name}, şikayetinizi doğru mahalle ile eşleştirebilmemiz için lütfen mahalle adını yazınız.`;
+            let askBase = analysis.auto_response || msgAskNeighborhood(askLang, name);
             // "102 mahalle" ifadelerini temizle
             askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, '').trim();
-            const askReply = askBase +
-              `\n\n🏠 Dilerseniz mahalleyle birlikte *sokak/cadde ve bina no* gibi detayları da yazabilirsiniz (örn: _Saray Mahallesi, Barbaros Caddesi No:5_).` +
-              `\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`;
+            const askReply = askBase + msgLocationHint(askLang);
             
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
             if (sent?.key?.id) {
@@ -1665,7 +1739,7 @@ async function startBot() {
           pendingComplaints.delete(phone);
 
           // Kullanıcıya Cevap Gönder
-          const lang = (analysis.language || 'tr').toLowerCase().trim();
+          const lang = ((pending && pending.language) || analysis.language || 'tr').toLowerCase().trim();
           
           let confirmationText = `✅ Sayın ${name}, şikayetiniz başarıyla alınmıştır.`;
           let categoryText = `📋 Kategori: ${analysis.category}`;
@@ -1879,13 +1953,13 @@ async function analyzeImageWithAI(buffer, mimetype, captionText) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o', // Görsel/plaka okuma (OCR) için mini'den çok daha güçlü
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
           content: `Sen Alanya Belediyesi yapay zeka şikayet asistanısın. Vatandaşın gönderdiği FOTOĞRAFI incele ve belediyeyi ilgilendiren sorunu tespit et. SADECE JSON döndür:
-{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Fotoğrafta/başlıkta açık bir mahalle/sokak tabelası görünüyorsa adı, yoksa null","address":"Fotoğrafta/başlıkta görünen sokak/cadde/bina no gibi adres detayı veya null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet","language":"tr","complaint_text":"Fotoğrafta görünen sorunu 1-2 cümleyle, memur bakış açısıyla, nesnel olarak Türkçe tarif et (Örn: 'Yol kenarında toplanmamış çöp/atık yığını var.', 'Kaldırımda kırık zemin ve çukur mevcut.')","auto_response":"Vatandaşa kısa, nazik, profesyonel Türkçe cevap (2-3 cümle, emoji olabilir, Alanya Belediyesi olarak hitap et)."}
+{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Fotoğrafta/başlıkta açık bir mahalle/sokak tabelası görünüyorsa adı, yoksa null","address":"Fotoğrafta/başlıkta görünen sokak/cadde/bina no gibi adres detayı veya null","license_plate":"Fotoğrafta NET okunabilen Türk araç plakası (Örn: 07 ABC 123). Okunamıyorsa veya araç yoksa null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet","language":"tr","complaint_text":"Fotoğrafta görünen sorunu 1-2 cümleyle, memur bakış açısıyla, nesnel olarak Türkçe tarif et (Örn: 'Yol kenarında toplanmamış çöp/atık yığını var.', 'Kaldırımda kırık zemin ve çukur mevcut.')","auto_response":"Vatandaşa kısa, nazik, profesyonel Türkçe cevap (2-3 cümle, emoji olabilir, Alanya Belediyesi olarak hitap et)."}
 
 Kategoriler: Yol / Altyapı, Temizlik / Atık, Park ve Bahçeler, İmar / Yapı, Çevre / Sıfır Atık, Zabıta / Düzen, Hayvan Hakları, Kültür / Sosyal, Kırsal Hizmetler, Kentsel Dönüşüm, Afet / Acil, Diğer.
 Mevcut Müdürlükler: ${deptList}
@@ -1893,13 +1967,14 @@ KURALLAR:
 - Müdürlük adını yukarıdaki listeden BİREBİR AYNI yazımla seç.
 - Tehlikeli/acil durumlar (patlak trafo, su baskını, çökme, yangın vb.) priority = "yuksek".
 - Fotoğrafta belediyeyle ilgili bir sorun yoksa category "Diğer" ve complaint_text'te durumu belirt.
+- ARAÇ/PARK İHLALİ: Fotoğrafta bir araç kural dışı park etmişse (kaldırım/yaya yolu/yaya geçidi/engelli rampası üzeri vb.) category "Zabıta / Düzen" seç. Eğer aracın plakası NET okunuyorsa "license_plate" alanına yaz VE complaint_text'i şu biçimde, plakayı **çift yıldız** ile kalın yazarak oluştur: "**07 ABC 123** plakalı araç yaya yolu üzerine park etmiştir. Bu durum yaya geçişini engellemektedir." (Plakayı okuyamıyorsan license_plate null bırak ve plakadan bahsetme.)
 - Başlık (caption) varsa onu da dikkate al: "${(captionText || '').replace(/"/g, "'").slice(0, 400)}"`,
         },
         {
           role: 'user',
           content: [
             { type: 'text', text: (captionText && captionText.trim()) ? `Vatandaşın notu: ${captionText.trim()}` : 'Bu fotoğraftaki belediye sorununu analiz et.' },
-            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}`, detail: 'high' } },
           ],
         },
       ],
@@ -1917,6 +1992,7 @@ KURALLAR:
       interaction_type: 'sikayet',
       language: parsed.language || 'tr',
       complaint_text: parsed.complaint_text || fallback.complaint_text,
+      license_plate: parsed.license_plate || null,
     };
   } catch (err) {
     console.error('⚠️ Görsel analiz hatası:', err.message);

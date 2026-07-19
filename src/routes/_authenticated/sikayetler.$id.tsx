@@ -18,6 +18,16 @@ export const Route = createFileRoute("/_authenticated/sikayetler/$id")({
   head: () => ({ meta: [{ title: "Şikayet Detayı — Belediye AI" }] }),
 });
 
+// **kalın** markdown parçalarını <strong> olarak gösterir (örn. araç plakası)
+function renderBold(text: string) {
+  if (!text) return text;
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**")
+      ? <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+      : <span key={i}>{part}</span>
+  );
+}
+
 function Detail() {
   const { id } = useParams({ from: "/_authenticated/sikayetler/$id" });
   const qc = useQueryClient();
@@ -160,7 +170,7 @@ function Detail() {
         <div className="space-y-4 lg:col-span-2">
           <Card className="p-5">
             <h3 className="mb-2 font-semibold">Şikayet Metni</h3>
-            <p className="whitespace-pre-wrap text-sm">{c.complaint_text}</p>
+            <p className="whitespace-pre-wrap text-sm">{renderBold(c.complaint_text as string)}</p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
               <span className="rounded bg-muted px-2 py-1">Kategori: {c.category}</span>
               <span className="rounded bg-muted px-2 py-1">Kaynak: {c.source}</span>
