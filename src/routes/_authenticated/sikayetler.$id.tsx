@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { STATUS_LABELS, LANGUAGES } from "@/lib/turkish";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Bot, MapPin, Phone, Mail, User, Check, ArrowRightLeft, Send, MessageSquare, Clock } from "lucide-react";
+import { ArrowLeft, Bot, MapPin, Phone, Mail, User, Check, ArrowRightLeft, Send, MessageSquare, Clock, Paperclip } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_authenticated/sikayetler/$id")({
@@ -44,6 +44,11 @@ function Detail() {
   const { data: responses } = useQuery({
     queryKey: ["responses", id],
     queryFn: async () => (await supabase.from("complaint_responses").select("*").eq("complaint_id", id).order("created_at")).data ?? [],
+  });
+
+  const { data: attachments } = useQuery({
+    queryKey: ["attachments", id],
+    queryFn: async () => (await supabase.from("complaint_attachments").select("*").eq("complaint_id", id).order("created_at")).data ?? [],
   });
 
   const [response, setResponse] = useState("");
@@ -162,6 +167,47 @@ function Detail() {
               <span className="rounded bg-muted px-2 py-1">Dil: {LANGUAGES[c.language as string] ?? c.language}</span>
             </div>
           </Card>
+
+          {/* Ekler / Fotoğraflar */}
+          {attachments && attachments.length > 0 && (
+            <Card className="p-5">
+              <h3 className="mb-3 font-semibold flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                Ekler ({attachments.length})
+              </h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {attachments.map((a: any) =>
+                  a.file_type === "image" ? (
+                    <a
+                      key={a.id}
+                      href={a.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block overflow-hidden rounded-lg border bg-muted"
+                    >
+                      <img
+                        src={a.file_url}
+                        alt="Şikayet fotoğrafı"
+                        loading="lazy"
+                        className="h-40 w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      key={a.id}
+                      href={a.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      <Paperclip className="h-6 w-6" />
+                      Belgeyi aç
+                    </a>
+                  )
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* AI Classification & Actions Card */}
           <Card className="p-5">

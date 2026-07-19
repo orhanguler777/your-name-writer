@@ -1090,7 +1090,12 @@ async function startBot() {
           continue;
         }
 
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        const text = msg.message.conversation
+          || msg.message.extendedTextMessage?.text
+          || msg.message.imageMessage?.caption
+          || msg.message.videoMessage?.caption
+          || msg.message.documentMessage?.caption
+          || '';
         const lowerText = text.toLowerCase();
 
         // Grup mesajlarını yoksay
@@ -1296,10 +1301,16 @@ async function startBot() {
             // Önce şikayet metnini yazmıştı, şimdi konumu yolladı
             console.log(`   🗂️ Bekleyen şikayet metni ile konum birleştiriliyor: "${pending.text}"`);
             
-            const textToAnalyze = `Önceki şikayet konusu: "${pending.text}". Şikayetin gerçekleştiği mahalle bilgisi: "${locationNbr ? locationNbr.name : ''}".`;
-            console.log('   🤖 Yapay zeka analizi yapılıyor (Konum birleşimi)...');
-            const analysis = await analyzeWithAI(textToAnalyze);
-            
+            let analysis;
+            if (pending.visionAnalysis) {
+              analysis = pending.visionAnalysis;   // foto daha önce gelmişti → görsel analizini kullan
+              console.log('   📊 Analiz kaynağı: önceki fotoğraf (saklı vision) + konum');
+            } else {
+              const textToAnalyze = `Önceki şikayet konusu: "${pending.text}". Şikayetin gerçekleştiği mahalle bilgisi: "${locationNbr ? locationNbr.name : ''}".`;
+              console.log('   🤖 Yapay zeka analizi yapılıyor (Konum birleşimi)...');
+              analysis = await analyzeWithAI(textToAnalyze);
+            }
+
             let departmentId = null;
             if (analysis.department) {
               const foundDept = matchDepartment(analysis.department);
@@ -1337,9 +1348,20 @@ async function startBot() {
                 priority: analysis.priority,
               })
               .eq('id', complaint.id);
-              
+
+            // Foto daha önce gelmişse şikayete ekle
+            if (pending.imageBuffer) {
+              const fileUrl = await uploadMediaToSupabase(pending.imageBuffer, phone, pending.imageContentType || 'image/jpeg');
+              if (fileUrl) {
+                await supabase.from('complaint_attachments').insert([
+                  { complaint_id: complaint.id, file_url: fileUrl, file_type: 'image' },
+                ]);
+                console.log('   ✅ Önceki fotoğraf şikayete eklendi.');
+              }
+            }
+
             pendingComplaints.delete(phone);
-            
+
             const reply = `✅ Sayın ${name}, gönderdiğiniz konuma göre şikayetiniz ${locationNbr ? locationNbr.name + ' Mahallesi' : 'ilgili mahalle'} olarak başarıyla alınmıştır.\n\n` +
               `📋 Kategori: ${analysis.category}\n` +
               `🏢 Birim: ${analysis.department || 'İlgili Müdürlük'}\n` +
@@ -1376,6 +1398,21 @@ async function startBot() {
           }
         }
 
+        // ── 0) Fotoğraf varsa AI Vision ile analiz et ──────────────
+        const _curMsgType = Object.keys(msg.message)[0];
+        let curImageBuffer = null, curImageMime = null, visionAnalysis = null;
+        if (_curMsgType === 'imageMessage') {
+          try {
+            curImageBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+            curImageMime = msg.message.imageMessage.mimetype || 'image/jpeg';
+            console.log('   🖼️ Fotoğraf AI (vision) ile analiz ediliyor...');
+            visionAnalysis = await analyzeImageWithAI(curImageBuffer, curImageMime, text);
+            console.log('   📊 Görsel analizi:', JSON.stringify(visionAnalysis));
+          } catch (e) {
+            console.error('   ⚠️ Fotoğraf indirme/analiz hatası:', e.message);
+          }
+        }
+
         let textToAnalyze = text;
         if (pending && (Date.now() - pending.timestamp < 5 * 60 * 1000)) {
           if (pending.text) {
@@ -1388,7 +1425,15 @@ async function startBot() {
 
         // ── 1) AI ile Önce Analiz Et ──────────────────────────────
         let analysis;
-        if (textToAnalyze && textToAnalyze.trim().length > 3) {
+        if (visionAnalysis) {
+          // Bu mesajda fotoğraf var → görsel analizini kullan
+          analysis = visionAnalysis;
+          console.log('   📊 Analiz kaynağı: FOTOĞRAF (vision)');
+        } else if (pending && pending.visionAnalysis) {
+          // Fotoğraf daha önce gelmişti, şimdi mahalle/konum yazıldı → saklı görsel analizini kullan
+          analysis = pending.visionAnalysis;
+          console.log('   📊 Analiz kaynağı: önceki fotoğraf (saklı vision)');
+        } else if (textToAnalyze && textToAnalyze.trim().length > 3) {
           console.log('   🤖 Yapay zeka analizi yapılıyor...');
           analysis = await analyzeWithAI(textToAnalyze);
           console.log('   📊 Analiz Sonucu:', JSON.stringify(analysis, null, 2));
@@ -1487,12 +1532,25 @@ async function startBot() {
           if (!neighborhoodId) {
             console.log('   ⚠️ Mahalle belirlenemedi veya bulunamadı, şikayet kaydı veritabanına OLUŞTURULMUYOR.');
             
-            // Eğer henüz bekleyen bir şikayet yoksa, bu orijinal şikayet metnini hafızaya alalım
+            // Eğer henüz bekleyen bir şikayet yoksa, bu orijinal şikayet metnini (ve varsa fotoğrafı) hafızaya alalım
             if (!pending) {
-              pendingComplaints.set(phone, { text: text || '(Medya İçeren Şikayet)', timestamp: Date.now() });
+              pendingComplaints.set(phone, {
+                text: (text && text.trim())
+                  ? text.trim()
+                  : (visionAnalysis ? visionAnalysis.complaint_text : (curImageBuffer ? '(Fotoğraflı şikayet)' : '(Medya İçeren Şikayet)')),
+                visionAnalysis: visionAnalysis || null,
+                imageBuffer: curImageBuffer || null,
+                imageContentType: curImageMime || null,
+                timestamp: Date.now(),
+              });
             } else {
-              // Süreyi yenile
+              // Süreyi yenile ve bu mesajda fotoğraf/analiz geldiyse pending'e ekle
               pending.timestamp = Date.now();
+              if (curImageBuffer) { pending.imageBuffer = curImageBuffer; pending.imageContentType = curImageMime; }
+              if (visionAnalysis) {
+                pending.visionAnalysis = visionAnalysis;
+                if (!pending.text || /^\(/.test(pending.text)) pending.text = visionAnalysis.complaint_text;
+              }
             }
 
             let askBase = analysis.auto_response ||
@@ -1529,7 +1587,19 @@ async function startBot() {
           }
           if (resolvedAddress) console.log(`   🏠 Kaydedilen adres: ${resolvedAddress}`);
 
-          const complaintTextToSave = (pending && pending.text) ? pending.text : (text || '(Sadece Medya İçeren Mesaj)');
+          // Şikayet metni: gerçek metin > bu mesajdaki caption/yazı > vision açıklaması > yer tutucu
+          let complaintTextToSave;
+          if (pending && pending.text && !/^\(/.test(pending.text)) {
+            complaintTextToSave = pending.text;
+          } else if (text && text.trim()) {
+            complaintTextToSave = text.trim();
+          } else if (analysis && analysis.complaint_text) {
+            complaintTextToSave = analysis.complaint_text;
+          } else if (pending && pending.text) {
+            complaintTextToSave = pending.text;
+          } else {
+            complaintTextToSave = '(Fotoğraflı/Medya şikayeti)';
+          }
           const { data: complaint, error: dbError } = await supabase
             .from('complaints')
             .insert([
@@ -1550,22 +1620,30 @@ async function startBot() {
 
           if (dbError) throw dbError;
 
-          // Medya/Fotoğraf Kontrolü ve İndirme
+          // Medya/Fotoğraf Ekle — bu mesajdaki fotoğraf, önceki mesajda gelen (pending) fotoğraf, veya belge
           const messageType = Object.keys(msg.message)[0];
-          if (messageType === 'imageMessage' || messageType === 'documentMessage') {
-            console.log('   📷 Medya algılandı, indiriliyor...');
-            const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
-            const contentType = msg.message[messageType].mimetype;
-            const fileUrl = await uploadMediaToSupabase(buffer, phone, contentType);
-
+          let attachBuffer = curImageBuffer || (pending && pending.imageBuffer) || null;
+          let attachMime = curImageMime || (pending && pending.imageContentType) || null;
+          let attachType = 'image';
+          if (!attachBuffer && messageType === 'documentMessage') {
+            // Belge (PDF vb.) — indir
+            console.log('   📎 Belge algılandı, indiriliyor...');
+            attachBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+            attachMime = msg.message.documentMessage.mimetype || 'application/octet-stream';
+            attachType = 'document';
+          }
+          if (attachBuffer) {
+            console.log('   📷 Medya şikayete ekleniyor...');
+            const fileUrl = await uploadMediaToSupabase(attachBuffer, phone, attachMime || 'image/jpeg');
             if (fileUrl) {
               await supabase.from('complaint_attachments').insert([
                 {
                   complaint_id: complaint.id,
                   file_url: fileUrl,
-                  file_type: contentType.startsWith('image') ? 'image' : 'document',
+                  file_type: (attachMime && attachMime.startsWith('image')) ? 'image' : attachType,
                 },
               ]);
+              console.log('   ✅ Medya eklendi.');
             }
           }
 
@@ -1781,6 +1859,68 @@ KURALLAR:
   } catch (err) {
     console.error('⚠️ AI analiz hatası:', err.message);
     return { ...fallback, ...classifyByKeyword(text) };
+  }
+}
+
+// ─── Fotoğraf/Görsel Analizi (AI Vision) ─────────────────────────
+// Vatandaşın gönderdiği fotoğrafı gpt-4o-mini vision ile inceler:
+// kategori, müdürlük, öncelik ve şikayet açıklamasını otomatik üretir.
+async function analyzeImageWithAI(buffer, mimetype, captionText) {
+  const fallback = {
+    category: 'Diğer', department: '', neighborhood: null, address: null,
+    priority: 'orta', auto_response: '', send_pdfs: [], interaction_type: 'sikayet',
+    language: 'tr', complaint_text: (captionText && captionText.trim()) ? captionText.trim() : 'Vatandaş tarafından gönderilen fotoğraflı şikayet.',
+  };
+  if (!openai || !buffer) return fallback;
+
+  const deptList = departmentsCache.map((d) => d.name).join(', ');
+  const b64 = buffer.toString('base64');
+  const mime = mimetype || 'image/jpeg';
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `Sen Alanya Belediyesi yapay zeka şikayet asistanısın. Vatandaşın gönderdiği FOTOĞRAFI incele ve belediyeyi ilgilendiren sorunu tespit et. SADECE JSON döndür:
+{"category":"Kategori Adı","department":"Müdürlük Adı","neighborhood":"Fotoğrafta/başlıkta açık bir mahalle/sokak tabelası görünüyorsa adı, yoksa null","address":"Fotoğrafta/başlıkta görünen sokak/cadde/bina no gibi adres detayı veya null","priority":"yuksek|orta|dusuk","interaction_type":"sikayet","language":"tr","complaint_text":"Fotoğrafta görünen sorunu 1-2 cümleyle, memur bakış açısıyla, nesnel olarak Türkçe tarif et (Örn: 'Yol kenarında toplanmamış çöp/atık yığını var.', 'Kaldırımda kırık zemin ve çukur mevcut.')","auto_response":"Vatandaşa kısa, nazik, profesyonel Türkçe cevap (2-3 cümle, emoji olabilir, Alanya Belediyesi olarak hitap et)."}
+
+Kategoriler: Yol / Altyapı, Temizlik / Atık, Park ve Bahçeler, İmar / Yapı, Çevre / Sıfır Atık, Zabıta / Düzen, Hayvan Hakları, Kültür / Sosyal, Kırsal Hizmetler, Kentsel Dönüşüm, Afet / Acil, Diğer.
+Mevcut Müdürlükler: ${deptList}
+KURALLAR:
+- Müdürlük adını yukarıdaki listeden BİREBİR AYNI yazımla seç.
+- Tehlikeli/acil durumlar (patlak trafo, su baskını, çökme, yangın vb.) priority = "yuksek".
+- Fotoğrafta belediyeyle ilgili bir sorun yoksa category "Diğer" ve complaint_text'te durumu belirt.
+- Başlık (caption) varsa onu da dikkate al: "${(captionText || '').replace(/"/g, "'").slice(0, 400)}"`,
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: (captionText && captionText.trim()) ? `Vatandaşın notu: ${captionText.trim()}` : 'Bu fotoğraftaki belediye sorununu analiz et.' },
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
+          ],
+        },
+      ],
+    });
+
+    const parsed = JSON.parse(response.choices[0].message.content);
+    return {
+      category: parsed.category || fallback.category,
+      department: parsed.department || fallback.department,
+      neighborhood: parsed.neighborhood || null,
+      address: parsed.address || null,
+      priority: parsed.priority || fallback.priority,
+      auto_response: parsed.auto_response || fallback.auto_response,
+      send_pdfs: [],
+      interaction_type: 'sikayet',
+      language: parsed.language || 'tr',
+      complaint_text: parsed.complaint_text || fallback.complaint_text,
+    };
+  } catch (err) {
+    console.error('⚠️ Görsel analiz hatası:', err.message);
+    return fallback;
   }
 }
 
