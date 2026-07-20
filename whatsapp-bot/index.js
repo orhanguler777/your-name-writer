@@ -773,6 +773,7 @@ async function startBot() {
     syncFullHistory: false, // Uzun süren senkronizasyonu kapatır (Timeout hatasını önler)
     markOnlineOnConnect: true,
     generateHighQualityLinkPreview: false,
+    shouldIgnoreJid: jid => jid?.includes('broadcast'), // Durum (status) mesajlarını ve broadcast'leri yoksayarak kilitlenmeyi önler
   });
 
   // Global referans: Webhook ve Realtime handler'lar her zaman güncel sock'u kullansın
@@ -1781,7 +1782,7 @@ async function startBot() {
         }
 
         // ── 0) Fotoğraf varsa AI Vision ile analiz et ──────────────
-        const _curMsgType = Object.keys(msg.message)[0];
+        const _curMsgType = Object.keys(actualMessage || msg.message)[0];
         let curImageBuffer = null, curImageMime = null, visionAnalysis = null;
         if (_curMsgType === 'imageMessage') {
           try {
