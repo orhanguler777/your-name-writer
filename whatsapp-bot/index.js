@@ -1439,12 +1439,34 @@ async function startBot() {
           continue;
         }
 
-        const text = msg.message.conversation
+        let text = msg.message.conversation
           || msg.message.extendedTextMessage?.text
           || msg.message.imageMessage?.caption
           || msg.message.videoMessage?.caption
           || msg.message.documentMessage?.caption
           || '';
+
+        if (msg.message.audioMessage && openai) {
+          try {
+            console.log('   🎤 Ses kaydı alındı, metne dönüştürülüyor...');
+            const audioBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+            const tmpAudioPath = path.join(__dirname, `voice_${msg.key.id}.ogg`);
+            fs.writeFileSync(tmpAudioPath, audioBuffer);
+            
+            const transcription = await openai.audio.transcriptions.create({
+              file: fs.createReadStream(tmpAudioPath),
+              model: 'whisper-1',
+            });
+            text = transcription.text;
+            console.log(`   📝 Sesten metne dönüştürüldü: "${text}"`);
+            
+            try { fs.unlinkSync(tmpAudioPath); } catch(e){}
+          } catch (err) {
+            console.error('   ❌ Ses kaydı dönüştürme hatası:', err.message);
+            text = "(Ses kaydı anlaşılamadı, lütfen şikayetinizi yazarak iletiniz.)";
+          }
+        }
+
         const lowerText = text.toLowerCase();
 
         // Grup mesajlarını yoksay
