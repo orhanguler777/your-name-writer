@@ -1439,14 +1439,23 @@ async function startBot() {
           continue;
         }
 
-        let text = msg.message.conversation
-          || msg.message.extendedTextMessage?.text
-          || msg.message.imageMessage?.caption
-          || msg.message.videoMessage?.caption
-          || msg.message.documentMessage?.caption
+        let actualMessage = msg.message;
+        if (actualMessage?.ephemeralMessage?.message) {
+          actualMessage = actualMessage.ephemeralMessage.message;
+        } else if (actualMessage?.viewOnceMessage?.message) {
+          actualMessage = actualMessage.viewOnceMessage.message;
+        } else if (actualMessage?.viewOnceMessageV2?.message) {
+          actualMessage = actualMessage.viewOnceMessageV2.message;
+        }
+
+        let text = actualMessage?.conversation
+          || actualMessage?.extendedTextMessage?.text
+          || actualMessage?.imageMessage?.caption
+          || actualMessage?.videoMessage?.caption
+          || actualMessage?.documentMessage?.caption
           || '';
 
-        if (msg.message.audioMessage && openai) {
+        if ((actualMessage?.audioMessage || actualMessage?.ptvMessage) && openai) {
           try {
             console.log('   🎤 Ses kaydı alındı, metne dönüştürülüyor...');
             const audioBuffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
