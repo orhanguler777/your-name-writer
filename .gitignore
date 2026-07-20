@@ -3,6 +3,12 @@
 .env.*
 !.env.example
 
+# Bot secrets & session (WhatsApp)
+poll_secrets.json
+**/poll_secrets.json
+.baileys_auth/
+**/.baileys_auth/
+
 # Logs
 logs
 *.log
