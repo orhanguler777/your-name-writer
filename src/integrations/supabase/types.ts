@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      polls: {
+        Row: {
+          id: string
+          title: string
+          question: string
+          image_url: string | null
+          status: string
+          sent_to_whatsapp: boolean
+          sent_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          question: string
+          image_url?: string | null
+          status?: string
+          sent_to_whatsapp?: boolean
+          sent_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          question?: string
+          image_url?: string | null
+          status?: string
+          sent_to_whatsapp?: boolean
+          sent_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      poll_options: {
+        Row: {
+          id: string
+          poll_id: string
+          option_text: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          option_text: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          option_text?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_options_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      poll_votes: {
+        Row: {
+          id: string
+          poll_id: string
+          option_id: string
+          phone_number: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          option_id: string
+          phone_number: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          option_id?: string
+          phone_number?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poll_votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       ai_bot_logs: {
         Row: {
           answer: string
