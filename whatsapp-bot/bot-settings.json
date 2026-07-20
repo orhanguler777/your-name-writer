@@ -2,5 +2,7 @@
   "selfChatOnly": true,
   "slaLimitHours": 240,
   "crisisLimitHours": 1,
-  "crisisLimitCount": 3
+  "crisisLimitCount": 3,
+  "dedupEnabled": true,
+  "dedupWindowHours": 72
 }

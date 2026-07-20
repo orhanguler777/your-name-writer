@@ -254,13 +254,19 @@ function normLang(lang) {
   return 'tr';
 }
 
+// WhatsApp monospace (kod) biçimi: üç ters tırnak. Takip numaralarını bu biçimde
+// göstermek, vatandaşın numarayı kolayca seçip kopyalayabilmesi için standart yöntemdir.
+function mono(s) {
+  return '```' + s + '```';
+}
+
 // Mahalle sorarken eklenen "detaylı adres / konum" ipucu
 function msgLocationHint(lang) {
   return {
-    tr: `\n\n🏠 Dilerseniz mahalleyle birlikte *sokak/cadde ve bina no* gibi detayları da yazabilirsiniz (örn: _Saray Mahallesi, Barbaros Caddesi No:5_).\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._`,
-    en: `\n\n🏠 You may also add *street/avenue and building no* along with the neighbourhood (e.g. _Saray District, Barbaros Avenue No:5_).\n\n📍 _You can also share your location to report where you are._`,
-    de: `\n\n🏠 Sie können neben dem Viertel auch *Straße und Hausnummer* angeben (z.B. _Saray Viertel, Barbaros Straße Nr:5_).\n\n📍 _Sie können auch Ihren Standort teilen, um Ihre Position mitzuteilen._`,
-    ru: `\n\n🏠 Вы также можете указать *улицу и номер дома* вместе с районом (напр. _район Сарай, ул. Барбарос №5_).\n\n📍 _Вы также можете отправить свою геолокацию._`,
+    tr: `\n\n🏠 Dilerseniz mahalleyle birlikte *sokak/cadde ve bina no* gibi detayları da yazabilirsiniz (örn: _Saray Mahallesi, Barbaros Caddesi No:5_).\n\n📍 _Konum bilginizi paylaşarak da yerinizi bildirebilirsiniz._\n\n↩️ _Bu şikayetten vazgeçmek isterseniz *iptal* yazabilirsiniz._`,
+    en: `\n\n🏠 You may also add *street/avenue and building no* along with the neighbourhood (e.g. _Saray District, Barbaros Avenue No:5_).\n\n📍 _You can also share your location to report where you are._\n\n↩️ _If you want to cancel this complaint, you can type *iptal*._`,
+    de: `\n\n🏠 Sie können neben dem Viertel auch *Straße und Hausnummer* angeben (z.B. _Saray Viertel, Barbaros Straße Nr:5_).\n\n📍 _Sie können auch Ihren Standort teilen, um Ihre Position mitzuteilen._\n\n↩️ _Wenn Sie dieses Anliegen abbrechen möchten, schreiben Sie *iptal*._`,
+    ru: `\n\n🏠 Вы также можете указать *улицу и номер дома* вместе с районом (напр. _район Сарай, ул. Барбарос №5_).\n\n📍 _Вы также можете отправить свою геолокацию._\n\n↩️ _Если хотите отменить эту жалобу, напишите *iptal*._`,
   }[normLang(lang)];
 }
 
@@ -271,6 +277,21 @@ function msgAskNeighborhood(lang, name) {
     en: `Dear ${name}, please write the neighbourhood name so we can match your complaint to the correct area.`,
     de: `Sehr geehrte(r) ${name}, bitte geben Sie den Namen des Viertels an, damit wir Ihr Anliegen dem richtigen Gebiet zuordnen können.`,
     ru: `Уважаемый(ая) ${name}, пожалуйста, укажите название района, чтобы мы направили вашу жалобу в нужный участок.`,
+  }[normLang(lang)];
+}
+
+// Bekleyen bir şikayet konum/mahalle beklerken vatandaş konum yerine
+// yeni bir şey (çoğunlukla yeni bir şikayet) yazarsa gösterilecek yönlendirme.
+function msgPendingLocationGuard(lang, pendingText) {
+  const short = pendingText && pendingText.length > 60
+    ? pendingText.slice(0, 60).trim() + '…'
+    : (pendingText || '');
+  const q = short ? ` (“${short}”)` : '';
+  return {
+    tr: `⚠️ Sayın vatandaşımız, tamamlanmayı bekleyen bir şikayetiniz var${q} ve bunu kaydedebilmemiz için *mahalle/konum* bilgisi gerekiyor.\n\nLütfen önce bu şikayetin *mahalle adını yazın* veya 📍 *konumunuzu paylaşın*.\n\nBu şikayetten vazgeçip başka bir konuya geçmek isterseniz *iptal* yazmanız yeterlidir.`,
+    en: `⚠️ You have a complaint waiting to be completed${q} and we still need its *neighbourhood/location* to save it.\n\nPlease first *type the neighbourhood name* or 📍 *share your location*.\n\nIf you want to drop this complaint and move on to something else, simply type *iptal* (cancel).`,
+    de: `⚠️ Sie haben ein noch offenes Anliegen${q}, und wir benötigen dafür das *Viertel/den Standort*.\n\nBitte geben Sie zuerst den *Namen des Viertels* an oder 📍 *teilen Sie Ihren Standort*.\n\nWenn Sie dieses Anliegen verwerfen und etwas anderes beginnen möchten, schreiben Sie einfach *iptal* (abbrechen).`,
+    ru: `⚠️ У вас есть незавершённая жалоба${q}, и для её сохранения нам нужен *район/геолокация*.\n\nПожалуйста, сначала *укажите название района* или 📍 *отправьте свою геолокацию*.\n\nЕсли хотите отказаться от этой жалобы и перейти к другому вопросу, просто напишите *iptal* (отмена).`,
   }[normLang(lang)];
 }
 
@@ -310,8 +331,115 @@ function msgLocationConfirmation(lang, { name, nbrName, category, department, ad
     `📋 ${labels.cat}: ${category}\n` +
     `🏢 ${labels.dep}: ${department}\n` +
     (addressShort ? `📍 ${labels.addr}: ${addressShort}\n` : '') +
-    `${labels.track}: ${trackingNo}\n\n` +
+    `${labels.track}: ${mono(trackingNo)}\n\n` +
     rep;
+}
+
+// Bir tarihten bu yana geçen süreyi dile göre "X önce" biçiminde döndürür.
+function formatAgo(createdAtIso, lang) {
+  const L = normLang(lang);
+  const diffMs = Math.max(0, Date.now() - new Date(createdAtIso).getTime());
+  const mins = Math.round(diffMs / 60000);
+  const hours = Math.round(diffMs / 3600000);
+  const days = Math.round(diffMs / 86400000);
+  let n, unit;
+  if (days >= 1) { n = days; unit = 'day'; }
+  else if (hours >= 1) { n = hours; unit = 'hour'; }
+  else { n = Math.max(1, mins); unit = 'min'; }
+  const T = {
+    tr: { min: 'dakika', hour: 'saat', day: 'gün', fmt: (v, u) => `${v} ${u} önce` },
+    en: { min: n === 1 ? 'minute' : 'minutes', hour: n === 1 ? 'hour' : 'hours', day: n === 1 ? 'day' : 'days', fmt: (v, u) => `${v} ${u} ago` },
+    de: { min: n === 1 ? 'Minute' : 'Minuten', hour: n === 1 ? 'Stunde' : 'Stunden', day: n === 1 ? 'Tag' : 'Tagen', fmt: (v, u) => `vor ${v} ${u}` },
+    ru: { min: 'мин.', hour: 'ч.', day: 'дн.', fmt: (v, u) => `${v} ${u} назад` },
+  }[L] || null;
+  const t = T || { min: 'dakika', hour: 'saat', day: 'gün', fmt: (v, u) => `${v} ${u} önce` };
+  return t.fmt(n, t[unit]);
+}
+
+// Aynı mahalle + kategoride, kısa süre önce açılmış benzer bir şikayet varsa
+// vatandaşa "zaten bildirilmiş / çalışılıyor" bilgisini veren mesaj.
+function msgDuplicateComplaint(lang, { nbrName, category, agoText, trackingNo }) {
+  const area = nbrName ? nbrName : null;
+  return {
+    tr: `ℹ️ Sayın vatandaşımız, ${area ? `*${area} Mahallesi* için ` : ''}bu konu (*${category}*) *${agoText}* başka bir başvuru ile tarafımıza zaten iletilmiş ve ilgili birim tarafından *üzerinde çalışılmaktadır*.\n\n📌 Mevcut kaydın takip numarası: ${mono(trackingNo)}\n\nBu nedenle mükerrer bir kayıt oluşturulmadı. Bildiriminiz için teşekkür eder, sorunu en kısa sürede çözmek için çalıştığımızı belirtmek isteriz. 🙏`,
+    en: `ℹ️ Dear citizen, ${area ? `for *${area} District* ` : ''}this matter (*${category}*) was already reported to us *${agoText}* by another request and the relevant department is *already working on it*.\n\n📌 Tracking number of the existing record: ${mono(trackingNo)}\n\nTherefore no duplicate record was created. Thank you for reporting; we are working to resolve it as soon as possible. 🙏`,
+    de: `ℹ️ Sehr geehrte(r) Bürger(in), ${area ? `für *${area}* ` : ''}dieses Anliegen (*${category}*) wurde uns bereits *${agoText}* durch eine andere Meldung mitgeteilt und die zuständige Abteilung *arbeitet bereits daran*.\n\n📌 Vorgangsnummer des bestehenden Eintrags: ${mono(trackingNo)}\n\nDaher wurde kein doppelter Eintrag erstellt. Vielen Dank für Ihre Meldung; wir arbeiten an einer schnellstmöglichen Lösung. 🙏`,
+    ru: `ℹ️ Уважаемый(ая) гражданин(ка), ${area ? `по району *${area}* ` : ''}это обращение (*${category}*) уже поступило к нам *${agoText}* от другого заявителя, и соответствующий отдел *уже работает над ним*.\n\n📌 Номер существующего обращения: ${mono(trackingNo)}\n\nПоэтому повторная запись не создавалась. Благодарим за обращение; мы работаем над скорейшим решением. 🙏`,
+  }[normLang(lang)];
+}
+
+// Tarih/saati vatandaşın diline ve Alanya (Europe/Istanbul) saatine göre biçimlendir.
+function formatDateTimeLocal(iso, lang) {
+  try {
+    const locale = { tr: 'tr-TR', en: 'en-GB', de: 'de-DE', ru: 'ru-RU' }[normLang(lang)] || 'tr-TR';
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Istanbul' }).format(new Date(iso));
+  } catch (e) {
+    return new Date(iso).toISOString().slice(0, 16).replace('T', ' ');
+  }
+}
+
+// Şikayet durumunun vatandaşa gösterilecek, dile göre etiketi.
+function statusLabelML(status, lang) {
+  const L = normLang(lang);
+  const map = {
+    yeni: { tr: 'Yeni (Alındı)', en: 'New (Received)', de: 'Neu (Eingegangen)', ru: 'Новая (принята)' },
+    incelemede: { tr: 'İncelemede', en: 'Under Review', de: 'In Prüfung', ru: 'На рассмотрении' },
+    personele_atandi: { tr: 'Personele Atandı', en: 'Assigned to Staff', de: 'Mitarbeiter zugewiesen', ru: 'Назначена сотруднику' },
+    devam_ediyor: { tr: 'Çözüm Sürüyor', en: 'In Progress', de: 'In Bearbeitung', ru: 'В работе' },
+    vatandas_yaniti_bekleniyor: { tr: 'Sizden Yanıt Bekleniyor', en: 'Awaiting Your Response', de: 'Ihre Antwort erforderlich', ru: 'Ожидается ваш ответ' },
+    cozuldu: { tr: 'Çözüldü', en: 'Resolved', de: 'Gelöst', ru: 'Решена' },
+    reddedildi: { tr: 'Reddedildi', en: 'Rejected', de: 'Abgelehnt', ru: 'Отклонена' },
+  };
+  const row = map[status] || { tr: status, en: status, de: status, ru: status };
+  return row[L] || row.tr;
+}
+
+// Durum sorgusunda takip numarası verilmediğinde numara isteyen mesaj.
+function msgAskTrackingNo(lang) {
+  return {
+    tr: `🔎 Şikayetinizin durumunu sorgulamak için lütfen *takip numaranızı* yazınız.\n\nÖrnek: _durum 1A2B3C4D_\n(Takip numaranız, şikayetinizi aldığımızda gönderdiğimiz mesajda yer alır.)`,
+    en: `🔎 To check your complaint status, please send your *tracking number*.\n\nExample: _status 1A2B3C4D_\n(Your tracking number is in the confirmation message we sent when your complaint was received.)`,
+    de: `🔎 Um den Status Ihres Anliegens abzufragen, senden Sie bitte Ihre *Vorgangsnummer*.\n\nBeispiel: _durum 1A2B3C4D_\n(Ihre Vorgangsnummer steht in der Bestätigung, die wir beim Eingang gesendet haben.)`,
+    ru: `🔎 Чтобы узнать статус обращения, отправьте, пожалуйста, ваш *номер обращения*.\n\nПример: _durum 1A2B3C4D_\n(Номер указан в сообщении-подтверждении, отправленном при приёме обращения.)`,
+  }[normLang(lang)];
+}
+
+// Verilen takip numarasıyla kayıt bulunamadığında gösterilecek mesaj.
+function msgStatusNotFound(lang, code) {
+  return {
+    tr: `❓ *${code}* numaralı bir şikayet kaydı bu numaranıza ait olarak bulunamadı.\n\nLütfen takip numaranızı kontrol edip tekrar deneyin. Yardıma ihtiyacınız olursa *temsilci* yazarak bir yetkiliyle görüşebilirsiniz.`,
+    en: `❓ No complaint with tracking number *${code}* was found for your phone.\n\nPlease check the number and try again. If you need help, type *temsilci* to reach a representative.`,
+    de: `❓ Kein Anliegen mit der Vorgangsnummer *${code}* für Ihre Nummer gefunden.\n\nBitte prüfen Sie die Nummer und versuchen Sie es erneut. Für Hilfe schreiben Sie *temsilci*.`,
+    ru: `❓ Обращение с номером *${code}* для вашего телефона не найдено.\n\nПроверьте номер и попробуйте снова. Если нужна помощь, напишите *temsilci*.`,
+  }[normLang(lang)];
+}
+
+// Şikayet durum sorgusuna verilecek ayrıntılı yanıt.
+function msgComplaintStatus(lang, { trackingNo, statusLabel, category, createdText, resolvedText, nbrName, deptName, subject, resolved }) {
+  const L = normLang(lang);
+  const emoji = resolved ? '✅' : '🔎';
+  const t = {
+    tr: { head: `${emoji} *Şikayet Durum Bilgisi*`, track: 'Takip No', st: 'Durum', subj: 'Konu', cat: 'Kategori', nbr: 'Mahalle', dep: 'İlgili Birim', crt: 'Kayıt Tarihi', rsv: 'Çözülme Tarihi',
+      foot: resolved ? 'Bu şikayet çözüme kavuşturulmuştur. İlginiz için teşekkür ederiz. 🙏' : 'Şikayetiniz ilgili birim tarafından takip edilmektedir. En kısa sürede tarafınıza dönüş yapılacaktır. 🙏' },
+    en: { head: `${emoji} *Complaint Status*`, track: 'Tracking No', st: 'Status', subj: 'Subject', cat: 'Category', nbr: 'District', dep: 'Department', crt: 'Created', rsv: 'Resolved on',
+      foot: resolved ? 'This complaint has been resolved. Thank you. 🙏' : 'Your complaint is being followed up by the relevant department. We will get back to you as soon as possible. 🙏' },
+    de: { head: `${emoji} *Status des Anliegens*`, track: 'Vorgangsnr.', st: 'Status', subj: 'Betreff', cat: 'Kategorie', nbr: 'Viertel', dep: 'Abteilung', crt: 'Erstellt', rsv: 'Gelöst am',
+      foot: resolved ? 'Dieses Anliegen wurde gelöst. Vielen Dank. 🙏' : 'Ihr Anliegen wird von der zuständigen Abteilung bearbeitet. Wir melden uns schnellstmöglich. 🙏' },
+    ru: { head: `${emoji} *Статус обращения*`, track: 'Номер', st: 'Статус', subj: 'Тема', cat: 'Категория', nbr: 'Район', dep: 'Отдел', crt: 'Создано', rsv: 'Решено',
+      foot: resolved ? 'Обращение решено. Благодарим вас. 🙏' : 'Ваше обращение обрабатывается соответствующим отделом. Мы свяжемся с вами как можно скорее. 🙏' },
+  }[L] || null;
+  const lbl = t || { head: '🔎 Şikayet Durum Bilgisi', track: 'Takip No', st: 'Durum', subj: 'Konu', cat: 'Kategori', nbr: 'Mahalle', dep: 'İlgili Birim', crt: 'Kayıt Tarihi', rsv: 'Çözülme Tarihi', foot: '' };
+  let out = `${lbl.head}\n\n`;
+  out += `📌 ${lbl.track}: ${mono(trackingNo)}\n`;
+  out += `📊 ${lbl.st}: *${statusLabel}*\n`;
+  if (subject) out += `📝 ${lbl.subj}: ${subject}\n`;
+  if (category) out += `🏷️ ${lbl.cat}: ${category}\n`;
+  if (nbrName) out += `📍 ${lbl.nbr}: ${nbrName}\n`;
+  if (deptName) out += `🏢 ${lbl.dep}: ${deptName}\n`;
+  if (createdText) out += `🕒 ${lbl.crt}: ${createdText}\n`;
+  if (resolved && resolvedText) out += `✅ ${lbl.rsv}: ${resolvedText}\n`;
+  out += `\n${lbl.foot}`;
+  return out;
 }
 
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
@@ -536,9 +664,160 @@ async function checkSLAsAndCrises(sock) {
   }
 }
 
+// Metinde Türk plakası ara (07 APN 117 / 07APN117 / **07 APN 117** vb.).
+// Döner: { normalized: '07APN117', pattern: '%07%APN%117%' } veya null.
+function extractLicensePlate(text) {
+  if (!text) return null;
+  const up = String(text).toUpperCase().replace(/İ/g, 'I').replace(/[^0-9A-Z\s]/g, ' ');
+  const m = up.match(/\b(\d{2})\s*([A-Z]{1,4})\s*(\d{2,5})\b/);
+  if (!m) return null;
+  return { normalized: `${m[1]}${m[2]}${m[3]}`, pattern: `%${m[1]}%${m[2]}%${m[3]}%` };
+}
+
+// ─── Mükerrer / Benzer Şikayet Tespiti ─────────────────────────────
+// Son `dedupWindowHours` içinde açılmış (çözülmemiş) bir şikayet, yeni gelenle
+// AYNI somut sorunu bildiriyorsa onu döndürür; yoksa null.
+// Aday havuzu BİÇİMDEN ve KATEGORİDEN bağımsızdır: aynı mahalledeki tüm açık
+// şikayetler + (varsa) aynı plakayı içeren açık şikayetler birlikte değerlendirilir.
+// Böylece "biri fotoğraf / biri yazı" ya da farklı kategoriye düşmüş aynı sorun da yakalanır.
+async function findDuplicateComplaint({ neighborhoodId, category, text }) {
+  try {
+    const settings = getBotSettings();
+    if (settings.dedupEnabled === false) return null;      // ayarla kapatılabilir
+    if (!text || !text.trim()) return null;
+
+    const windowHours = settings.dedupWindowHours || 72;   // varsayılan 3 gün
+    const sinceIso = new Date(Date.now() - windowHours * 3600000).toISOString();
+    const cols = 'id, complaint_text, category, status, created_at, citizen_phone';
+
+    // Aday havuzunu id'ye göre tekilleştirerek topla
+    const byId = new Map();
+
+    // (a) Aynı mahalledeki açık şikayetler (KATEGORİ FİLTRESİ YOK — foto/yazı ve
+    //     farklı kategoriye düşmüş aynı sorun da havuza girsin).
+    if (neighborhoodId) {
+      const { data, error } = await supabase
+        .from('complaints').select(cols)
+        .eq('neighborhood_id', neighborhoodId)
+        .gte('created_at', sinceIso)
+        .not('status', 'in', '(cozuldu,reddedildi)')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) console.error('   ⚠️ Mükerrer (mahalle) sorgu hatası:', error.message);
+      else (data || []).forEach((c) => byId.set(c.id, c));
+    }
+
+    // (b) Yeni metinde plaka varsa: mahalle/kategori fark etmeksizin aynı plakayı
+    //     içeren açık şikayetleri de havuza ekle (plaka güçlü bir eşleşme sinyalidir).
+    const plate = extractLicensePlate(text);
+    if (plate) {
+      const { data, error } = await supabase
+        .from('complaints').select(cols)
+        .gte('created_at', sinceIso)
+        .not('status', 'in', '(cozuldu,reddedildi)')
+        .ilike('complaint_text', plate.pattern)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) console.error('   ⚠️ Mükerrer (plaka) sorgu hatası:', error.message);
+      else (data || []).forEach((c) => byId.set(c.id, c));
+    }
+
+    const candidates = Array.from(byId.values());
+    if (candidates.length === 0) return null;
+
+    // 1) AI varsa: gerçekten AYNI somut sorun mu diye akıllı karşılaştır.
+    if (openai) {
+      try {
+        const list = candidates
+          .map((c, i) => `${i + 1}. [${c.id}] (${c.category || 'Diğer'}) ${String(c.complaint_text || '').slice(0, 300)}`)
+          .join('\n');
+        const resp = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content: `Aşağıda halihazırda AÇIK olan belediye şikayetleri var (başında köşeli parantezde kategori yazar). Yeni gelen şikayetin, listedekilerden biriyle AYNI SOMUT SORUNU (aynı olay/aynı araç/aynı yer/aynı konu) bildirip bildirmediğine karar ver.
+
+ÖNEMLİ:
+- Şikayetler FARKLI BİÇİMLERDE gelebilir: biri fotoğraftan üretilmiş metin, diğeri vatandaşın yazdığı düz metin olabilir. Biçim ve kategori farkı önemli DEĞİLDİR; önemli olan aynı somut sorunun anlatılmasıdır.
+- Aynı araç PLAKASI + aynı/benzer ihlal (ör. kaldırıma/yaya yoluna park) + aynı bölge → AYNI sorundur (plaka yazımındaki boşluk/işaret farklarını yok say).
+- Sadece aynı kategoride olmak YETERLİ DEĞİLDİR (farklı sokaklardaki iki ayrı çukur ya da farklı araçlar farklı sorunlardır).
+- Emin değilsen eşleştirme.
+
+SADECE JSON döndür: {"duplicate_of": "<eşleşen şikayet id>" | null, "confidence": 0.0-1.0}`,
+            },
+            {
+              role: 'user',
+              content: `MEVCUT AÇIK ŞİKAYETLER:\n${list}\n\nYENİ ŞİKAYET (kategori: ${category || 'Diğer'}):\n"${text.slice(0, 500)}"`,
+            },
+          ],
+        });
+        const parsed = JSON.parse(resp.choices[0].message.content || '{}');
+        const conf = typeof parsed.confidence === 'number' ? parsed.confidence : 1;
+        if (parsed.duplicate_of && conf >= 0.6) {
+          const matched = candidates.find((c) => c.id === parsed.duplicate_of);
+          if (matched) {
+            console.log(`   ♻️ Mükerrer şikayet tespit edildi (AI, güven: ${conf}): ${matched.id.substring(0, 8).toUpperCase()}`);
+            return matched;
+          }
+        }
+        return null;
+      } catch (e) {
+        console.error('   ⚠️ Mükerrer AI kontrol hatası (kayıt engellenmeyecek):', e.message);
+        return null; // AI hatasında güvenli taraf: kaydı engelleme
+      }
+    }
+
+    // 2) AI yoksa: önce plaka birebir eşleşmesi, sonra kelime bazlı benzerlik (Jaccard).
+    if (plate) {
+      const hit = candidates.find((c) => {
+        const p = extractLicensePlate(c.complaint_text);
+        return p && p.normalized === plate.normalized;
+      });
+      if (hit) {
+        console.log(`   ♻️ Mükerrer şikayet tespit edildi (plaka: ${plate.normalized}): ${hit.id.substring(0, 8).toUpperCase()}`);
+        return hit;
+      }
+    }
+    const toks = (s) => new Set(normalizeTr(String(s || '')).split(/\s+/).filter((w) => w.length > 3));
+    const newTokens = toks(text);
+    if (newTokens.size === 0) return null;
+    for (const c of candidates) {
+      const cTokens = toks(c.complaint_text);
+      if (cTokens.size === 0) continue;
+      let inter = 0;
+      for (const t of newTokens) if (cTokens.has(t)) inter++;
+      const jaccard = inter / (newTokens.size + cTokens.size - inter);
+      if (jaccard >= 0.5) {
+        console.log(`   ♻️ Mükerrer şikayet tespit edildi (kelime benzerliği: ${jaccard.toFixed(2)}): ${c.id.substring(0, 8).toUpperCase()}`);
+        return c;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error('   ⚠️ findDuplicateComplaint hatası:', e.message);
+    return null;
+  }
+}
+
 // ─── Duyuru Broadcast ──────────────────────────────────────────
 async function broadcastAnnouncement(sock, announcement) {
   try {
+    // ── Mükerrer gönderim koruması ──
+    // Panel bir duyuruyu yayınlarken hem `sent_at`'i günceller (Realtime tetikler)
+    // hem de webhook'u çağırır (fallback). İki yol da aynı anda ateşlenince duyuru
+    // 2 kez gidiyordu. Aynı duyuru kısa süre içinde tekrar tetiklenirse atla.
+    // (Zaman pencereli olduğu için ileride bilinçli "Tekrar Gönder" çalışmaya devam eder.)
+    const DEDUP_WINDOW_MS = 60 * 1000;
+    if (!global.recentAnnouncementBroadcasts) global.recentAnnouncementBroadcasts = new Map();
+    const lastAt = global.recentAnnouncementBroadcasts.get(announcement.id);
+    if (lastAt && (Date.now() - lastAt) < DEDUP_WINDOW_MS) {
+      console.log(`   ⏭️ Duyuru az önce gönderildi/gönderiliyor, mükerrer tetikleme atlanıyor: "${announcement.title}"`);
+      return;
+    }
+    global.recentAnnouncementBroadcasts.set(announcement.id, Date.now());
+
     console.log(`\n📢 Duyuru Broadcast başlatılıyor: "${announcement.title}"`);
 
     // Daha önce bot ile iletişime geçmiş benzersiz vatandaş telefonlarını çek
@@ -864,7 +1143,7 @@ async function startBot() {
                 responseText =
                   `${loc.statusTitle}\n\n` +
                   `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-                  `📋 ${loc.trackingNo}: *${trackingNo}*\n` +
+                  `📋 ${loc.trackingNo}: ${mono(trackingNo)}\n` +
                   (neighborhoodName ? `📍 ${loc.neighborhood}: *${neighborhoodName}*\n` : '') +
                   `📌 ${loc.complaint}: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
                   `🔄 Durum: *${loc.statusResolved}*\n` +
@@ -875,7 +1154,7 @@ async function startBot() {
                 responseText =
                   `${loc.infoTitle}\n\n` +
                   `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-                  `📋 ${loc.trackingNo}: *${trackingNo}*\n\n` +
+                  `📋 ${loc.trackingNo}: ${mono(trackingNo)}\n\n` +
                   `${loc.infoBody}\n"${newResponse.response_text}"\n\n` +
                   `${loc.infoFooter}`;
               } else {
@@ -1112,7 +1391,7 @@ async function startBot() {
           const responseText =
             `${loc.statusTitle}\n\n` +
             `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-            `📋 ${loc.trackingNo}: *${trackingNo}*\n` +
+            `📋 ${loc.trackingNo}: ${mono(trackingNo)}\n` +
             (neighborhoodName ? `📍 ${loc.neighborhood}: *${neighborhoodName}*\n` : '') +
             `📌 ${loc.complaint}: "${(complaint.complaint_text || '').substring(0, 80)}${(complaint.complaint_text || '').length > 80 ? '...' : ''}"\n\n` +
             `🔄 Durum: *${loc.statusResolved}*\n` +
@@ -1220,7 +1499,7 @@ async function startBot() {
             msgText =
               `${loc.infoTitle}\n\n` +
               `${loc.dear} *${complaint.citizen_name || 'Vatandaş'}*,\n\n` +
-              `📋 ${loc.trackingNo}: *${trackingNo}*\n\n` +
+              `📋 ${loc.trackingNo}: ${mono(trackingNo)}\n\n` +
               `${loc.infoBody}\n"${manualText}"\n\n` +
               `${loc.infoFooter}`;
           } else {
@@ -1572,6 +1851,76 @@ async function startBot() {
           continue;
         }
 
+        // ── Şikayet Durum Sorgusu (takip numarası ile) ──
+        // Vatandaş "durum 1A2B3C4D", "sorgu 1A2B3C4D" ya da sadece takip numarasını
+        // yazarak şikayetinin son durumunu öğrenebilir. Takip no = UUID'nin ilk 8 hanesi.
+        {
+          const codeM = (text || '').toUpperCase().match(/\b([0-9A-F]{8})\b/);
+          const trackCode = codeM ? codeM[1] : null;
+          const statusKw = /(durum|sorgu|sorgula|takip|nerede kald|ne oldu|ne durumda|hangi a[sş]ama|ak[iı]bet|status|track)/i.test(lowerTextTrim);
+          // Mesaj neredeyse yalnızca koddan mı ibaret? (etiket kelimeleri temizlenir)
+          // Not: Türkçe "ş" gibi harflerde \b güvenilmez olduğundan word-boundary kullanılmaz.
+          const cleaned = lowerTextTrim
+            .replace(/[#:.\-]/g, ' ')
+            .replace(/(takip\s*no|takip|numaras[iı]|numara|[sş]ikayet\s*no|[sş]ikayet|no)/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toUpperCase();
+          const codeOnly = trackCode && cleaned === trackCode;
+          // Anahtar kelime + kod yolu YALNIZCA kısa mesajlarda geçerli; böylece içinde
+          // "durum" gibi bir kelime + kod benzeri bir dizi geçen UZUN şikayetler
+          // yanlışlıkla durum sorgusu sayılmaz. (codeOnly zaten kısa mesajdır.)
+          const shortMsg = lowerTextTrim.length <= 40;
+          // Numara verilmeden, kısa ve açık bir durum-sorgu ifadesiyle gelinmişse numara iste.
+          const askStatusNoCode = !trackCode
+            && lowerTextTrim.length <= 40
+            && /^(durum|sorgu|takip|[sş]ikayet durumu|[sş]ikayetim ne durumda|durumu ne|[sş]ikayet sorgula|status|track)\b/i.test(lowerTextTrim);
+
+          if (trackCode && ((statusKw && shortMsg) || codeOnly)) {
+            console.log(`   🔎 Durum sorgusu [${phone}]: ${trackCode}`);
+            const { data: myComplaints, error: qErr } = await supabase
+              .from('complaints')
+              .select('id, status, category, created_at, resolved_at, neighborhood_id, assigned_department_id, language, complaint_text')
+              .eq('citizen_phone', phone)
+              .order('created_at', { ascending: false })
+              .limit(50);
+            if (qErr) console.error('   ⚠️ Durum sorgusu DB hatası:', qErr.message);
+            const found = (myComplaints || []).find((c) => c.id.substring(0, 8).toUpperCase() === trackCode);
+            const qLang = found?.language || (/status|track/i.test(lowerTextTrim) ? 'en' : 'tr');
+
+            let statusMsg;
+            if (found) {
+              const nbr = found.neighborhood_id ? neighborhoodsCache.find((n) => n.id === found.neighborhood_id) : null;
+              const dept = found.assigned_department_id ? departmentsCache.find((d) => d.id === found.assigned_department_id) : null;
+              const subjectRaw = (found.complaint_text || '').replace(/\s+/g, ' ').trim();
+              const subject = subjectRaw ? (subjectRaw.length > 80 ? subjectRaw.slice(0, 80) + '…' : subjectRaw) : null;
+              statusMsg = msgComplaintStatus(qLang, {
+                trackingNo: trackCode,
+                statusLabel: statusLabelML(found.status, qLang),
+                category: found.category || null,
+                createdText: formatDateTimeLocal(found.created_at, qLang),
+                resolvedText: found.resolved_at ? formatDateTimeLocal(found.resolved_at, qLang) : null,
+                nbrName: nbr ? nbr.name : null,
+                deptName: dept ? dept.name : null,
+                subject,
+                resolved: found.status === 'cozuldu',
+              });
+            } else {
+              statusMsg = msgStatusNotFound(qLang, trackCode);
+            }
+            const sentStatus = await sock.sendMessage(msg.key.remoteJid, { text: statusMsg });
+            if (sentStatus?.key?.id) addBotMessageId(sentStatus.key.id);
+            continue;
+          }
+
+          if (askStatusNoCode) {
+            console.log(`   🔎 Durum sorgusu (numara yok) [${phone}]`);
+            const sentAsk = await sock.sendMessage(msg.key.remoteJid, { text: msgAskTrackingNo(/status|track/i.test(lowerTextTrim) ? 'en' : 'tr') });
+            if (sentAsk?.key?.id) addBotMessageId(sentAsk.key.id);
+            continue;
+          }
+        }
+
         const wantsNewComplaint = lowerTextTrim === 'yeni şikayet' || lowerTextTrim === 'yeni sikayet';
 
         if (wantsNewComplaint) {
@@ -1696,7 +2045,29 @@ async function startBot() {
               const foundDept = matchDepartment(analysis.department);
               if (foundDept) departmentId = foundDept.id;
             }
-            
+
+            // ── Mükerrer / benzer şikayet kontrolü ──
+            const dupLoc = await findDuplicateComplaint({
+              neighborhoodId: locationNbr ? locationNbr.id : null,
+              category: analysis.category,
+              text: pending.text,
+            });
+            if (dupLoc) {
+              pendingComplaints.delete(phone);
+              const dupLang = (pending && pending.language) || analysis.language || 'tr';
+              const dupMsg = msgDuplicateComplaint(dupLang, {
+                nbrName: locationNbr ? locationNbr.name : null,
+                category: analysis.category || 'Diğer',
+                agoText: formatAgo(dupLoc.created_at, dupLang),
+                trackingNo: dupLoc.id.substring(0, 8).toUpperCase(),
+              });
+              const sentDup = await sock.sendMessage(msg.key.remoteJid, { text: dupMsg });
+              if (sentDup?.key?.id) {
+                addBotMessageId(sentDup.key.id);
+              }
+              continue;
+            }
+
             const { data: complaint, error: dbError } = await supabase
               .from('complaints')
               .insert([
@@ -1778,6 +2149,39 @@ async function startBot() {
               addBotMessageId(sent.key.id);
             }
             continue;
+          }
+        }
+
+        // ── Bekleyen (konum/mahalle bekleyen) şikayet koruması ─────
+        // Vatandaş, önceki şikayetinin konumunu vermeden yeni bir şikayet YAZARSA,
+        // ikinci mesajı sessizce birincinin "mahalle bilgisi" sanıp akışı kilitleme.
+        // Bunun yerine açıkça: önce konum/mahalle iste ya da "iptal" yönlendirmesi yap.
+        // (İptal / "yeni şikayet" / konum paylaşımı / mahalle adı yazma yukarıda işlenir.)
+        if (pending && pending.text && !isLocation) {
+          const pendingFresh = (Date.now() - (pending.timestamp || 0)) < 5 * 60 * 1000;
+          if (!pendingFresh) {
+            // Bekleme süresi dolmuş → eski şikayeti düşür, bu mesaj yeni şikayet gibi işlensin.
+            console.log('   ⌛ Bekleyen şikayet zaman aşımına uğradı, düşürülüyor.');
+            pendingComplaints.delete(phone);
+          } else {
+            const _guardMsgType = Object.keys(actualMessage || msg.message)[0];
+            const _isMediaMsg = _guardMsgType === 'imageMessage'
+              || _guardMsgType === 'documentMessage'
+              || _guardMsgType === 'videoMessage';
+            // Mesaj bir mahalle adı içeriyorsa (geçerli konum yanıtı) engelleme; normal akış işlesin.
+            const _providesLocation = !!(text && text.trim() && matchNeighborhood(text));
+            // Konum da değil, mahalle adı da içermeyen düz metin → muhtemelen YENİ bir şikayet.
+            // (Fotoğraf/belge önceki şikayete delil olarak eklenebildiği için onları engellemiyoruz.)
+            if (text && text.trim().length > 0 && !_providesLocation && !_isMediaMsg) {
+              console.log('   🚧 Bekleyen şikayet varken konum yerine yeni metin geldi → yönlendirme yapılıyor.');
+              pending.timestamp = Date.now(); // bekleme süresini tazele
+              const guardMsg = msgPendingLocationGuard(pending.language || 'tr', pending.text);
+              const sent = await sock.sendMessage(msg.key.remoteJid, { text: guardMsg });
+              if (sent?.key?.id) {
+                addBotMessageId(sent.key.id);
+              }
+              continue;
+            }
           }
         }
 
@@ -1984,6 +2388,31 @@ async function startBot() {
           } else {
             complaintTextToSave = '(Fotoğraflı/Medya şikayeti)';
           }
+
+          // ── Mükerrer / benzer şikayet kontrolü ──
+          // Aynı mahalle+kategoride, kısa süre önce açılmış aynı sorun varsa
+          // yeni kayıt AÇMA; vatandaşa zaten bildirildiğini ve çalışıldığını söyle.
+          const dupExisting = await findDuplicateComplaint({
+            neighborhoodId,
+            category: analysis.category,
+            text: complaintTextToSave,
+          });
+          if (dupExisting) {
+            pendingComplaints.delete(phone);
+            const dupLang = ((pending && pending.language) || analysis.language || 'tr');
+            const dupMsg = msgDuplicateComplaint(dupLang, {
+              nbrName: nbrName || null,
+              category: analysis.category || 'Diğer',
+              agoText: formatAgo(dupExisting.created_at, dupLang),
+              trackingNo: dupExisting.id.substring(0, 8).toUpperCase(),
+            });
+            const sentDup = await sock.sendMessage(msg.key.remoteJid, { text: dupMsg });
+            if (sentDup?.key?.id) {
+              addBotMessageId(sentDup.key.id);
+            }
+            continue;
+          }
+
           const { data: complaint, error: dbError } = await supabase
             .from('complaints')
             .insert([
@@ -2054,7 +2483,7 @@ async function startBot() {
           let confirmationText = `✅ Sayın ${name}, şikayetiniz başarıyla alınmıştır.`;
           let categoryText = `📋 Kategori: ${analysis.category}`;
           let departmentText = `🏢 Yönlendirilen Birim: ${analysis.department || 'İlgili Müdürlük'}`;
-          let trackingText = `Takip numaranız: ${complaint.id.substring(0, 8).toUpperCase()}`;
+          let trackingText = `Takip numaranız: ${mono(complaint.id.substring(0, 8).toUpperCase())}`;
           let footerText = `Alanya Belediyesi olarak en kısa sürede dönüş yapacağız.`;
           let representativeText = `💬 Gerçek bir temsilci ile görüşmek isterseniz aşağıdaki linke tıklayabilirsiniz:\nhttps://wa.me/905362206204?text=temsilci`;
 
@@ -2062,21 +2491,21 @@ async function startBot() {
             confirmationText = `✅ Dear ${name}, your request has been successfully received.`;
             categoryText = `📋 Category: ${analysis.category}`;
             departmentText = `🏢 Assigned Department: ${analysis.department || 'Relevant Department'}`;
-            trackingText = `Tracking number: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            trackingText = `Tracking number: ${mono(complaint.id.substring(0, 8).toUpperCase())}`;
             footerText = `As Alanya Municipality, we will get back to you as soon as possible.`;
             representativeText = `💬 If you want to speak with a real representative, you can click the link below:\nhttps://wa.me/905362206204?text=representative`;
           } else if (lang === 'de' || lang === 'german' || lang === 'deutsch') {
             confirmationText = `✅ Sehr geehrte(r) ${name}, Ihr Anliegen wurde erfolgreich entgegengenommen.`;
             categoryText = `📋 Kategorie: ${analysis.category}`;
             departmentText = `🏢 Zuständige Abteilung: ${analysis.department || 'Zuständige Abteilung'}`;
-            trackingText = `Auftragsnummer: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            trackingText = `Auftragsnummer: ${mono(complaint.id.substring(0, 8).toUpperCase())}`;
             footerText = `Als Stadtverwaltung Alanya werden wir uns so schnell wie möglich bei Ihnen melden.`;
             representativeText = `💬 Wenn Sie mit einem echten Vertreter sprechen möchten, klicken Sie bitte auf den folgenden Link:\nhttps://wa.me/905362206204?text=vertreter`;
           } else if (lang === 'ru' || lang === 'russian' || lang === 'русский') {
             confirmationText = `✅ Уважаемый(ая) ${name}, ваш запрос успешно получен.`;
             categoryText = `📋 Категория: ${analysis.category}`;
             departmentText = `🏢 Назначенный отдел: ${analysis.department || 'Соответствующий отдел'}`;
-            trackingText = `Номер отслеживания: ${complaint.id.substring(0, 8).toUpperCase()}`;
+            trackingText = `Номер отслеживания: ${mono(complaint.id.substring(0, 8).toUpperCase())}`;
             footerText = `Муниципалитет Алании свяжется с вами в кратчайшие сроки.`;
             representativeText = `💬 Если вы хотите поговорить с настоящим представителем, нажмите на ссылку ниже:\nhttps://wa.me/905362206204?text=представитель`;
           }
@@ -2487,7 +2916,7 @@ async function handleCitizenReplyToAwaitingComplaint({
 
   const trackingNo = awaiting.id.substring(0, 8).toUpperCase();
   const ackReply =
-    `✅ Sayın ${name}, yanıtınız *${trackingNo}* takip numaralı şikayetinize kaydedilmiştir.\n\n` +
+    `✅ Sayın ${name}, yanıtınız ${mono(trackingNo)} takip numaralı şikayetinize kaydedilmiştir.\n\n` +
     `Müdürlüğümüz en kısa sürede değerlendirecektir. Teşekkür ederiz. 🙏`;
 
   const sent = await sock.sendMessage(msg.key.remoteJid, { text: ackReply });

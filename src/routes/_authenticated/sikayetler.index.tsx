@@ -172,6 +172,7 @@ function List() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Şikayet No</TableHead>
                 <TableHead>Vatandaş</TableHead>
                 <TableHead>Şikayet</TableHead>
                 <TableHead>Kategori</TableHead>
@@ -193,6 +194,9 @@ function List() {
                     navigate({ to: "/sikayetler/$id", params: { id: String(c.id) } });
                   }}
                 >
+                  <TableCell className="font-mono text-xs font-semibold whitespace-nowrap uppercase">
+                    {String(c.id).substring(0, 8).toUpperCase()}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link to="/sikayetler/$id" params={{ id: String(c.id) }} className="hover:underline text-primary font-semibold">
                       {c.citizen_name}
