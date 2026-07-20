@@ -27,7 +27,9 @@ import { Route as AuthenticatedBaskanRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAyarlarRouteImport } from './routes/_authenticated/ayarlar'
 import { Route as AuthenticatedAracBakimRouteImport } from './routes/_authenticated/arac-bakim'
 import { Route as AuthenticatedSikayetlerIndexRouteImport } from './routes/_authenticated/sikayetler.index'
+import { Route as AuthenticatedAnketlerIndexRouteImport } from './routes/_authenticated/anketler.index'
 import { Route as AuthenticatedSikayetlerIdRouteImport } from './routes/_authenticated/sikayetler.$id'
+import { Route as AuthenticatedAnketlerIdRouteImport } from './routes/_authenticated/anketler.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -125,12 +127,23 @@ const AuthenticatedSikayetlerIndexRoute =
     path: '/sikayetler/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAnketlerIndexRoute =
+  AuthenticatedAnketlerIndexRouteImport.update({
+    id: '/anketler/',
+    path: '/anketler/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSikayetlerIdRoute =
   AuthenticatedSikayetlerIdRouteImport.update({
     id: '/sikayetler/$id',
     path: '/sikayetler/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAnketlerIdRoute = AuthenticatedAnketlerIdRouteImport.update({
+  id: '/anketler/$id',
+  path: '/anketler/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -149,7 +162,9 @@ export interface FileRoutesByFullPath {
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
+  '/anketler/': typeof AuthenticatedAnketlerIndexRoute
   '/sikayetler/': typeof AuthenticatedSikayetlerIndexRoute
 }
 export interface FileRoutesByTo {
@@ -169,7 +184,9 @@ export interface FileRoutesByTo {
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
+  '/anketler': typeof AuthenticatedAnketlerIndexRoute
   '/sikayetler': typeof AuthenticatedSikayetlerIndexRoute
 }
 export interface FileRoutesById {
@@ -191,7 +208,9 @@ export interface FileRoutesById {
   '/_authenticated/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/_authenticated/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/_authenticated/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/_authenticated/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
+  '/_authenticated/anketler/': typeof AuthenticatedAnketlerIndexRoute
   '/_authenticated/sikayetler/': typeof AuthenticatedSikayetlerIndexRoute
 }
 export interface FileRouteTypes {
@@ -213,7 +232,9 @@ export interface FileRouteTypes {
     | '/personel-analizi'
     | '/sikayet-olustur'
     | '/whatsapp'
+    | '/anketler/$id'
     | '/sikayetler/$id'
+    | '/anketler/'
     | '/sikayetler/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -233,7 +254,9 @@ export interface FileRouteTypes {
     | '/personel-analizi'
     | '/sikayet-olustur'
     | '/whatsapp'
+    | '/anketler/$id'
     | '/sikayetler/$id'
+    | '/anketler'
     | '/sikayetler'
   id:
     | '__root__'
@@ -254,7 +277,9 @@ export interface FileRouteTypes {
     | '/_authenticated/personel-analizi'
     | '/_authenticated/sikayet-olustur'
     | '/_authenticated/whatsapp'
+    | '/_authenticated/anketler/$id'
     | '/_authenticated/sikayetler/$id'
+    | '/_authenticated/anketler/'
     | '/_authenticated/sikayetler/'
   fileRoutesById: FileRoutesById
 }
@@ -392,11 +417,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSikayetlerIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/anketler/': {
+      id: '/_authenticated/anketler/'
+      path: '/anketler'
+      fullPath: '/anketler/'
+      preLoaderRoute: typeof AuthenticatedAnketlerIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/sikayetler/$id': {
       id: '/_authenticated/sikayetler/$id'
       path: '/sikayetler/$id'
       fullPath: '/sikayetler/$id'
       preLoaderRoute: typeof AuthenticatedSikayetlerIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/anketler/$id': {
+      id: '/_authenticated/anketler/$id'
+      path: '/anketler/$id'
+      fullPath: '/anketler/$id'
+      preLoaderRoute: typeof AuthenticatedAnketlerIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }
@@ -417,7 +456,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPersonelAnaliziRoute: typeof AuthenticatedPersonelAnaliziRoute
   AuthenticatedSikayetOlusturRoute: typeof AuthenticatedSikayetOlusturRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+  AuthenticatedAnketlerIdRoute: typeof AuthenticatedAnketlerIdRoute
   AuthenticatedSikayetlerIdRoute: typeof AuthenticatedSikayetlerIdRoute
+  AuthenticatedAnketlerIndexRoute: typeof AuthenticatedAnketlerIndexRoute
   AuthenticatedSikayetlerIndexRoute: typeof AuthenticatedSikayetlerIndexRoute
 }
 
@@ -436,7 +477,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPersonelAnaliziRoute: AuthenticatedPersonelAnaliziRoute,
   AuthenticatedSikayetOlusturRoute: AuthenticatedSikayetOlusturRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+  AuthenticatedAnketlerIdRoute: AuthenticatedAnketlerIdRoute,
   AuthenticatedSikayetlerIdRoute: AuthenticatedSikayetlerIdRoute,
+  AuthenticatedAnketlerIndexRoute: AuthenticatedAnketlerIndexRoute,
   AuthenticatedSikayetlerIndexRoute: AuthenticatedSikayetlerIndexRoute,
 }
 

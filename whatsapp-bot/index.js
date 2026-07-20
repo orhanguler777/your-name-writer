@@ -4,7 +4,11 @@ import makeWASocket, {
   DisconnectReason,
   downloadMediaMessage,
   fetchLatestBaileysVersion,
+  getAggregateVotesInPollMessage,
+  jidNormalizedUser,
 } from '@whiskeysockets/baileys';
+import { decryptPollVote } from '@whiskeysockets/baileys/lib/Utils/process-message.js';
+import { getKeyAuthor } from '@whiskeysockets/baileys/lib/Utils/generics.js';
 import qrcode from 'qrcode-terminal';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
@@ -22,6 +26,30 @@ const __dirname = path.dirname(__filename);
 const nikahDocsPath = path.join(__dirname, 'knowledge', 'nikah-evraklari.md');
 const eventsDocsPath = path.join(__dirname, 'knowledge', 'alanya-etkinlikleri-2026.md');
 const pdfConfigPath = path.join(__dirname, 'knowledge', 'pdf-rehberi.json');
+const pollSecretsPath = path.join(__dirname, 'poll_secrets.json');
+
+function savePollSecret(msgId, secret, pollId) {
+  try {
+    let secrets = {};
+    if (fs.existsSync(pollSecretsPath)) {
+      secrets = JSON.parse(fs.readFileSync(pollSecretsPath, 'utf8'));
+    }
+    secrets[msgId] = { secret: Buffer.from(secret).toString('base64'), pollId };
+    fs.writeFileSync(pollSecretsPath, JSON.stringify(secrets));
+  } catch (e) {
+    console.error('⚠️ savePollSecret hatası:', e.message);
+  }
+}
+
+function getPollSecret(msgId) {
+  try {
+    if (fs.existsSync(pollSecretsPath)) {
+      const secrets = JSON.parse(fs.readFileSync(pollSecretsPath, 'utf8'));
+      return secrets[msgId];
+    }
+  } catch (e) {}
+  return null;
+}
 
 let nikahDocsText = '';
 try {
@@ -642,6 +670,87 @@ async function broadcastAnnouncement(sock, announcement) {
   }
 }
 
+async function broadcastPoll(sock, poll) {
+  try {
+    console.log(`\n📢 ANKET BROADCAST BAŞLADI: "${poll.title}" (Şık: ${poll.poll_options.length})`);
+    
+    // Aktif sohbet etmiş numaraları veya known users listesini çek
+    const { data: users, error } = await supabase
+      .from('complaints')
+      .select('citizen_phone')
+      .not('citizen_phone', 'is', null);
+
+    if (error) throw error;
+
+    let phones = [...new Set(users.map(u => u.citizen_phone))];
+    
+    if (isSelfChatOnly()) {
+      const myJid = sock.user?.id;
+      const myBareId = myJid ? myJid.split(':')[0].split('@')[0] : null;
+      if (myBareId) {
+        phones = [myBareId];
+        console.log(`   🧪 Geliştirici modu (selfChatOnly=true) aktif. Sadece ${myBareId} numarasına anket gönderilecek.`);
+      } else {
+        console.log('   ⚠️ Geliştirici numarası alınamadı.');
+        return;
+      }
+    }
+
+    // Şıkları formatla
+    const sortedOptions = poll.poll_options.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const optionTexts = sortedOptions.map(opt => opt.option_text);
+    
+    const introText = `📊 *${poll.title}*\n\n${poll.question}`;
+
+    let successCount = 0;
+    for (const phone of phones) {
+      if (!phone) continue;
+      const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
+
+      try {
+        if (poll.image_url) {
+          await sock.sendMessage(jid, { 
+            image: { url: poll.image_url }, 
+            caption: introText
+          });
+        }
+        
+        // Native Poll Gönder
+        const sentMsg = await sock.sendMessage(jid, { 
+          poll: {
+            name: poll.image_url ? "Lütfen şıklardan birini seçiniz:" : introText,
+            values: optionTexts,
+            selectableCount: 1
+          }
+        });
+        
+        // Şifrelemeyi çözmek için secret'i kaydet
+        if (sentMsg?.key?.id) {
+          const secret = sentMsg?.message?.messageContextInfo?.messageSecret;
+          if (secret) {
+            savePollSecret(sentMsg.key.id, secret, poll.id);
+          } else {
+            console.log('⚠️ sentMsg içerisinde messageSecret bulunamadı! SentMsg içeriği:', JSON.stringify(sentMsg, null, 2));
+            // Baileys bazen poll msg yapısında farklı yerde saklar.
+          }
+        }
+
+        successCount++;
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (err) {
+        console.error(`   ❌ Anket gönderilemedi (${phone}):`, err.message);
+      }
+    }
+    
+    // DB Güncelle
+    await supabase.from('polls').update({ sent_to_whatsapp: true, sent_at: new Date().toISOString() }).eq('id', poll.id);
+    
+    console.log(`📢 ANKET BROADCAST BİTTİ. Başarılı: ${successCount}/${phones.length}`);
+  } catch (e) {
+    console.error('⚠️ broadcastPoll Hatası:', e.message);
+  }
+}
+
 // ─── WhatsApp Bağlantısı (Baileys) ──────────────────────────────
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./.baileys_auth');
@@ -888,6 +997,37 @@ async function startBot() {
           if (!res.headersSent) {
             res.status(500).json({ status: 'error', reason: error.message });
           }
+        }
+      });
+
+      // Anket Broadcast Webhook Endpoint
+      app.post('/send-poll', async (req, res) => {
+        try {
+          const { pollId } = req.body;
+          if (!pollId) {
+            return res.status(400).json({ status: 'error', reason: 'pollId gerekli' });
+          }
+
+          const activeSock = global.currentSock;
+          if (!activeSock) {
+            return res.status(503).json({ status: 'error', reason: 'WhatsApp bağlantısı aktif değil' });
+          }
+
+          const { data: poll, error: pollErr } = await supabase
+            .from('polls')
+            .select('*, poll_options(*)')
+            .eq('id', pollId)
+            .single();
+
+          if (pollErr || !poll) {
+            return res.status(404).json({ status: 'error', reason: 'Anket bulunamadı' });
+          }
+
+          res.json({ status: 'started', message: 'Anket gönderimi başlatıldı' });
+
+          await broadcastPoll(activeSock, poll);
+        } catch (error) {
+          console.error('⚠️ Anket broadcast webhook hatası:', error.message);
         }
       });
 
@@ -1144,9 +1284,12 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  // ─── Mesaj Dinleyici ──────────────────────────────────────────
+  // (messages.update iptal edildi, anket oyları upsert içinde pollUpdateMessage olarak geliyor)
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return;
+    console.log('>>> MESSAGES.UPSERT TETIKLENDI, type:', type);
+    // 'append' tipinde sadece anket oylarını işle, şikayet akışını tetikleme
+    const isNotify = (type === 'notify');
 
     for (const msg of messages) {
       try {
@@ -1155,7 +1298,143 @@ async function startBot() {
         // Protokol mesajlarını yoksay
         if (msg.message.protocolMessage) continue;
 
-        // Botun kendi gönderdiği bir mesaja tekrar yanıt vermesini engelle
+        // Anket Yanıtı (Native Poll) Kontrolü - hem notify hem append'te işle
+        if (msg.message.pollUpdateMessage) {
+          console.log('>>> POLL UPDATE MESSAGE GELDİ!');
+          try {
+            const pollUpdateMsg = msg.message.pollUpdateMessage;
+            const creationMsgKey = pollUpdateMsg.pollCreationMessageKey;
+            const msgKeyId = creationMsgKey?.id;
+            const meIdNorm = jidNormalizedUser(sock.user?.id);
+            const pollCreatorJid = getKeyAuthor(creationMsgKey, meIdNorm);
+            const voterJid = getKeyAuthor(msg.key, meIdNorm);
+            const voterPhone = (msg.key.remoteJid || voterJid || '').split('@')[0];
+            
+            console.log(`>>> Oylanan Mesaj ID: ${msgKeyId}, Oy Veren: ${voterPhone}, pollCreatorJid: ${pollCreatorJid}, voterJid: ${voterJid}`);
+
+            const secretData = getPollSecret(msgKeyId);
+            if (secretData && secretData.secret) {
+              console.log(`>>> Secret bulundu! Poll ID: ${secretData.pollId}`);
+              
+              const pollEncKey = Buffer.from(secretData.secret, 'base64');
+
+              // WhatsApp LID ve normal JID kullanabiliyor, tüm kombinasyonları dene
+              const meIdLid = sock.user?.lid ? jidNormalizedUser(sock.user.lid) : null;
+              const creationRemoteJid = creationMsgKey?.remoteJid || null;
+              
+              // Olası creator ve voter JID kombinasyonları
+              const jidCombinations = [];
+              // 1) Normal JID'ler
+              jidCombinations.push({ creator: pollCreatorJid, voter: voterJid });
+              // 2) LID JID'ler
+              if (meIdLid) {
+                jidCombinations.push({ creator: meIdLid, voter: meIdLid });
+              }
+              // 3) creationMsgKey.remoteJid ile
+              if (creationRemoteJid) {
+                jidCombinations.push({ creator: creationRemoteJid, voter: creationRemoteJid });
+              }
+              // 4) LID creator + normal voter
+              if (meIdLid) {
+                jidCombinations.push({ creator: meIdLid, voter: voterJid });
+                jidCombinations.push({ creator: pollCreatorJid, voter: meIdLid });
+              }
+              
+              console.log(`>>> ${jidCombinations.length} JID kombinasyonu denenecek...`);
+
+              let decryptedVote = null;
+              for (const combo of jidCombinations) {
+                try {
+                  decryptedVote = decryptPollVote(
+                    pollUpdateMsg.vote,
+                    {
+                      pollEncKey,
+                      pollCreatorJid: combo.creator,
+                      pollMsgId: msgKeyId,
+                      voterJid: combo.voter,
+                    }
+                  );
+                  console.log(`>>> Şifre çözüldü! Creator: ${combo.creator}, Voter: ${combo.voter}`);
+                  break;
+                } catch (decErr) {
+                  console.log(`>>> Kombinasyon başarısız (${combo.creator} / ${combo.voter}): ${decErr.message}`);
+                }
+              }
+
+              if (!decryptedVote) {
+                console.error('>>> Tüm JID kombinasyonları başarısız oldu!');
+                continue;
+              }
+
+              console.log('>>> Çözülen Oy:', JSON.stringify(decryptedVote));
+
+              // Seçilen şıkların hash'leri
+              const selectedHashes = (decryptedVote?.selectedOptions || []).map(h => h.toString());
+              console.log('>>> Seçilen hash\'ler:', selectedHashes);
+
+              if (selectedHashes.length > 0) {
+                // DB'den anket şıklarını çek
+                const { data: pollData, error: dbErr } = await supabase
+                  .from('polls')
+                  .select('id, title, question, poll_options(id, option_text, created_at)')
+                  .eq('id', secretData.pollId)
+                  .single();
+
+                if (dbErr) {
+                  console.error('>>> DB Poll çekme hatası:', dbErr.message);
+                }
+
+                if (pollData && pollData.poll_options) {
+                  const { createHash } = await import('crypto');
+                  const sortedOpts = pollData.poll_options.sort((a, b) => a.created_at.localeCompare(b.created_at));
+                  
+                  // Her şık için SHA-256 hash oluştur
+                  const optionHashMap = {};
+                  for (const opt of sortedOpts) {
+                    const hash = createHash('sha256').update(Buffer.from(opt.option_text)).digest().toString();
+                    optionHashMap[hash] = opt;
+                  }
+                  console.log('>>> Option Hash Map keys:', Object.keys(optionHashMap));
+
+                  // Seçilen hash ile eşleştir
+                  const matchedOpt = optionHashMap[selectedHashes[0]];
+                  if (matchedOpt) {
+                    console.log(`   🗳️ Native Anket oyu alındı [${voterPhone}]: Poll ${pollData.id}, Şık: ${matchedOpt.option_text}`);
+                    
+                    const { error: voteErr } = await supabase
+                      .from('poll_votes')
+                      .upsert(
+                        { poll_id: pollData.id, option_id: matchedOpt.id, phone_number: voterPhone },
+                        { onConflict: 'poll_id, phone_number' }
+                      );
+
+                    if (voteErr) {
+                      console.error('⚠️ Native Oy kaydedilemedi:', voteErr.message);
+                    } else {
+                      const ackMsg = `✅ *${pollData.title}* anketine oyunuz (*${matchedOpt.option_text}*) kaydedilmiştir. Görüşleriniz bizim için değerlidir!`;
+                      const sent = await sock.sendMessage(msg.key.remoteJid, { text: ackMsg });
+                      if (sent?.key?.id) addBotMessageId(sent.key.id);
+                    }
+                  } else {
+                    console.log('>>> Eşleşen şık bulunamadı! Seçilen hash:', selectedHashes[0]);
+                  }
+                }
+              } else {
+                console.log('>>> Çözülen oyda selectedOptions boş!');
+              }
+            } else {
+              console.log(`>>> Secret BULUNAMADI! msgKeyId: ${msgKeyId}`);
+            }
+          } catch (e) {
+            console.error('⚠️ PollUpdate işlenirken hata:', e.message, e.stack);
+          }
+          continue;
+        }
+
+        // Eğer mesaj notify değilse (örn. append geçmiş mesajları), şikayet/anket akışını çalıştırma
+        if (!isNotify) continue;
+
+        const phone = (msg.key.remoteJid ? msg.key.remoteJid.split('@')[0] : null);
         if (botMessageIds.has(msg.key.id)) {
           continue;
         }
@@ -1195,9 +1474,8 @@ async function startBot() {
           }
         }
 
-        const phone = remoteBareId || msg.key.remoteJid.split('@')[0];
-        global.activeJids.set(phone, msg.key.remoteJid);
         const name = msg.pushName || 'Vatandaş';
+        global.activeJids.set(phone, msg.key.remoteJid);
         const lowerTextTrim = text ? text.toLowerCase().trim() : '';
 
         // ── Memnuniyet Anketi Kontrolü ──
