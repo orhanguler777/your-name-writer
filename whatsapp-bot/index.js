@@ -51,6 +51,48 @@ function getPollSecret(msgId) {
   return null;
 }
 
+// Sesli başlayan şikayetleri kalıcı işaretle (çözüm/anket sonradan, hatta bot yeniden
+// başladıktan sonra olduğu için hafıza yetmez; dosyaya yazıyoruz).
+const voiceComplaintsPath = path.join(__dirname, 'voice_complaints.json');
+function markVoiceComplaint(complaintId) {
+  try {
+    if (!complaintId) return;
+    let m = {};
+    if (fs.existsSync(voiceComplaintsPath)) m = JSON.parse(fs.readFileSync(voiceComplaintsPath, 'utf8'));
+    m[complaintId] = true;
+    fs.writeFileSync(voiceComplaintsPath, JSON.stringify(m));
+  } catch (e) { console.error('⚠️ markVoiceComplaint hatası:', e.message); }
+}
+function isVoiceComplaint(complaintId) {
+  try {
+    if (!complaintId) return false;
+    if (fs.existsSync(voiceComplaintsPath)) {
+      const m = JSON.parse(fs.readFileSync(voiceComplaintsPath, 'utf8'));
+      return !!m[complaintId];
+    }
+  } catch (e) {}
+  return false;
+}
+
+// Türkçe/İngilizce vb. sayı sözcüklerini veya rakamı 1-5 puana çevir (sesli anket için).
+function parseSurveyScore(raw) {
+  if (!raw) return null;
+  const t = String(raw).toLowerCase().replace(/[^\wçğıöşü ]/gi, ' ').replace(/\s+/g, ' ').trim();
+  const digit = t.match(/\b([1-5])\b/);
+  if (digit) return parseInt(digit[1]);
+  // Sözcükle puan (bir–beş / one–five): yalnızca KISA yanıtlarda (yanlış eşleşmeyi önler).
+  // \b Türkçe karakterlerde (ş/ö/ü) çalışmadığından token eşitliği kullanılır.
+  const toks = t.split(' ');
+  if (toks.length <= 3) {
+    const words = {
+      'bir': 1, 'iki': 2, 'üç': 3, 'uc': 3, 'dört': 4, 'dort': 4, 'beş': 5, 'bes': 5,
+      'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    };
+    for (const tok of toks) if (words[tok] !== undefined) return words[tok];
+  }
+  return null;
+}
+
 let nikahDocsText = '';
 try {
   nikahDocsText = fs.readFileSync(nikahDocsPath, 'utf-8');
@@ -258,6 +300,92 @@ function normLang(lang) {
 // göstermek, vatandaşın numarayı kolayca seçip kopyalayabilmesi için standart yöntemdir.
 function mono(s) {
   return '```' + s + '```';
+}
+
+// Sesli gelen vatandaşa gösterilecek metinde "yazınız" ifadelerini "ses kaydı gönderin"e çevir.
+// (Yazamayan/görme engelli kişi için doğru yönlendirme.)
+function voiceify(text, lang) {
+  if (!text) return text;
+  const L = normLang(lang);
+  let t = text;
+  if (L === 'tr') {
+    t = t
+      .replace(/rakam olarak yaz[ıi]p g[öo]nderebilirsiniz/gi, 'rakamı sesli olarak söyleyebilirsiniz')
+      .replace(/yaz[ıi]p g[öo]nderebilirsiniz/gi, 'sesli olarak söyleyebilirsiniz')
+      .replace(/rakam yaz[ıi]n[ıi]z/gi, 'bir rakamı sesli söyleyiniz')
+      .replace(/yazar mısınız/gi, 'ses kaydıyla anlatır mısınız')
+      .replace(/yazabilirsiniz/gi, 'ses kaydı olarak gönderebilirsiniz')
+      .replace(/yazman[ıi]z yeterli(dir)?/gi, 'ses kaydı göndermeniz yeterli')
+      .replace(/yazarak/gi, 'ses kaydı göndererek')
+      .replace(/yaz[ıi]n[ıi]z/gi, 'ses kaydı olarak gönderiniz')
+      .replace(/\byaz[ıi]n\b/gi, 'ses kaydı olarak gönderin');
+  } else if (L === 'en') {
+    t = t.replace(/you can type/gi, 'you can send a voice message')
+         .replace(/\btype\b/gi, 'send by voice message')
+         .replace(/\bwrite\b/gi, 'send by voice message');
+  } else if (L === 'de') {
+    t = t.replace(/schreiben Sie/gi, 'senden Sie eine Sprachnachricht')
+         .replace(/\bschreiben\b/gi, 'per Sprachnachricht senden');
+  } else if (L === 'ru') {
+    t = t.replace(/напишите/gi, 'отправьте голосовое сообщение')
+         .replace(/введите/gi, 'отправьте голосовое сообщение');
+  }
+  return t;
+}
+
+// Metni sesli cevap için sadeleştir (link/işaret temizle, kısalt) ve OpenAI TTS ile
+// WhatsApp sesli mesajı (OGG/Opus) üret. Hata olursa null döner (yazılı cevap yine gider).
+async function textToSpeech(text, lang) {
+  try {
+    if (!openai || !text) return null;
+    const settings = getBotSettings();
+    const voice = settings.voiceReplyVoice || 'nova';
+    let t = String(text)
+      .replace(/https?:\/\/\S+/g, '')          // linkleri okuma
+      .replace(/[*_`~#>]/g, '')                  // markdown işaretleri
+      .replace(/\p{Extended_Pictographic}/gu, '') // TÜM emojiler (Unicode-güvenli)
+      .replace(/[️⃣‍]/g, '')       // varyasyon seçici / keycap / ZWJ
+      .replace(/[\uD800-\uDFFF]/g, '')           // yarım surrogate (JSON'u bozardı)
+      .replace(/\n{2,}/g, '. ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!t) return null;
+    if (t.length > 800) t = t.slice(0, 800);
+    const resp = await openai.audio.speech.create({
+      model: 'gpt-4o-mini-tts',
+      voice,
+      input: t,
+      response_format: 'opus',
+    });
+    return Buffer.from(await resp.arrayBuffer());
+  } catch (e) {
+    console.error('   ⚠️ TTS (metinden ses) hatası:', e.message);
+    return null;
+  }
+}
+
+// Verilen metni bir JID'ye sesli mesaj (voice note) olarak gönder.
+async function sendVoiceNote(sock, jid, text, lang) {
+  try {
+    if (getBotSettings().voiceReplyEnabled === false) return;
+    const buf = await textToSpeech(text, lang);
+    if (!buf) return;
+    const v = await sock.sendMessage(jid, {
+      audio: buf,
+      mimetype: 'audio/ogg; codecs=opus',
+      ptt: true,
+    });
+    if (v?.key?.id) addBotMessageId(v.key.id);
+    console.log('   🔊 Sesli mesaj gönderildi.');
+  } catch (e) {
+    console.error('   ⚠️ Sesli mesaj gönderilemedi:', e.message);
+  }
+}
+
+// Mesaj sesli geldiyse, verilen cevabı sesli mesaj olarak da gönder (yazılı zaten gitti).
+async function speakIfVoice(sock, msg, text, lang, cameFromVoice) {
+  if (!cameFromVoice) return;
+  await sendVoiceNote(sock, msg.key.remoteJid, text, lang);
 }
 
 // Mahalle sorarken eklenen "detaylı adres / konum" ipucu
@@ -1173,21 +1301,29 @@ async function startBot() {
               if (sent?.key?.id) {
                 addBotMessageId(sent.key.id);
               }
+              // Şikayet sesli başladıysa, çözüm/cevap bildirimini de sesli gönder
+              console.log(`   🎙️ [Realtime] Sesli-köken mi? ${isVoiceComplaint(newResponse.complaint_id)} — ${newResponse.complaint_id?.substring(0,8)}`);
+              if (isVoiceComplaint(newResponse.complaint_id)) {
+                await sendVoiceNote(sock, jid, responseText, complaint.language);
+              }
               console.log(`   💬 ${newResponse.response_type === 'durum_bildirimi' ? 'Durum bildirimi' : 'Cevap'} WhatsApp üzerinden vatandaşa iletildi (${complaint.citizen_phone})`);
 
               // Eğer bu bir durum bildirimi ise ve şikayet çözüldüyse anket gönder
               if (newResponse.response_type === 'durum_bildirimi') {
                 const phoneClean = complaint.citizen_phone;
                 pendingSurveys.set(phoneClean, newResponse.complaint_id);
-                const surveyText = 
-                  `${loc.surveyTitle}\n\n` +
-                  `${loc.surveyBody}`;
-                
+                const surveyVoice = isVoiceComplaint(newResponse.complaint_id);
+                let surveyText = `${loc.surveyTitle}\n\n${loc.surveyBody}`;
+                if (surveyVoice) surveyText = voiceify(surveyText, complaint.language);
+
                 setTimeout(async () => {
                   try {
                     const sentSurvey = await sock.sendMessage(jid, { text: surveyText });
                     if (sentSurvey?.key?.id) {
                       addBotMessageId(sentSurvey.key.id);
+                    }
+                    if (surveyVoice) {
+                      await sendVoiceNote(sock, jid, surveyText, complaint.language);
                     }
                     console.log(`   📊 Memnuniyet anketi vatandaşa gönderildi (${phoneClean})`);
                   } catch (e) {
@@ -1413,9 +1549,13 @@ async function startBot() {
 
           const sent = await activeSock.sendMessage(jid, { text: responseText });
           console.log(`   📬 sendMessage sonucu:`, JSON.stringify(sent?.key || 'BOŞ'));
-          
+
           if (sent?.key?.id) {
             addBotMessageId(sent.key.id);
+          }
+          console.log(`   🎙️ [Webhook] Sesli-köken mi? ${isVoiceComplaint(complaintId)} — ${complaintId?.substring(0,8)}`);
+          if (isVoiceComplaint(complaintId)) {
+            await sendVoiceNote(activeSock, jid, responseText, complaint.language);
           }
 
           console.log(`   💬 Çözüldü bildirimi Webhook aracılığıyla vatandaşa iletildi (${complaint.citizen_phone})`);
@@ -1423,15 +1563,18 @@ async function startBot() {
           // Anket Gönderimi
           const phoneClean = complaint.citizen_phone;
           pendingSurveys.set(phoneClean, complaintId);
-          const surveyText = 
-            `${loc.surveyTitle}\n\n` +
-            `${loc.surveyBody}`;
-          
+          const surveyVoice = isVoiceComplaint(complaintId);
+          let surveyText = `${loc.surveyTitle}\n\n${loc.surveyBody}`;
+          if (surveyVoice) surveyText = voiceify(surveyText, complaint.language);
+
           setTimeout(async () => {
             try {
               const sentSurvey = await activeSock.sendMessage(jid, { text: surveyText });
               if (sentSurvey?.key?.id) {
                 addBotMessageId(sentSurvey.key.id);
+              }
+              if (surveyVoice) {
+                await sendVoiceNote(activeSock, jid, surveyText, complaint.language);
               }
               console.log(`   📊 Memnuniyet anketi vatandaşa gönderildi (${phoneClean})`);
             } catch (e) {
@@ -1735,6 +1878,9 @@ async function startBot() {
           || actualMessage?.documentMessage?.caption
           || '';
 
+        // Mesaj sesli mi geldi? (görme engelli/yazamayan vatandaş için cevap da sesli gitsin)
+        const cameFromVoice = !!(actualMessage?.audioMessage || actualMessage?.ptvMessage);
+
         if ((actualMessage?.audioMessage || actualMessage?.ptvMessage) && openai) {
           try {
             console.log('   🎤 Ses kaydı alındı, metne dönüştürülüyor...');
@@ -1800,15 +1946,40 @@ async function startBot() {
             .eq('id', complaintId)
             .single();
           const loc = getLocalizedMessages(survComp?.language);
-          
-          const score = parseInt(lowerTextTrim);
-          if (!isNaN(score) && score >= 1 && score <= 5) {
+          const voiceComp = isVoiceComplaint(complaintId);
+
+          // Puanı rakamdan VEYA sözcükten (bir–beş / one–five) çöz — sesle de girilebilsin
+          let score = parseSurveyScore(lowerTextTrim);
+          console.log(`   🔢 Anket puanı çözümü: giriş="${lowerTextTrim}" → ${score}`);
+
+          // Sesli yanıtta çözülemezse: kısa klip Whisper'ı yanıltmış olabilir; rakam odaklı
+          // prompt + dil ipucuyla SESİ YENİDEN çözümleyip tekrar dene.
+          if (!score && openai && (actualMessage?.audioMessage || actualMessage?.ptvMessage)) {
+            try {
+              const ab = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+              const tp = path.join(__dirname, `sv_${msg.key.id}.ogg`);
+              fs.writeFileSync(tp, ab);
+              const tr = await openai.audio.transcriptions.create({
+                file: fs.createReadStream(tp),
+                model: 'whisper-1',
+                language: normLang(survComp?.language) === 'tr' ? 'tr' : undefined,
+                prompt: 'Vatandaş memnuniyet anketine tek bir rakam söylüyor: bir, iki, üç, dört veya beş.',
+              });
+              try { fs.unlinkSync(tp); } catch (e) {}
+              console.log(`   🔁 Anket için sesi yeniden çözümledim: "${tr.text}" → ${parseSurveyScore(tr.text)}`);
+              score = parseSurveyScore(tr.text);
+            } catch (e) {
+              console.error('   ⚠️ Anket sesi yeniden çözümleme hatası:', e.message);
+            }
+          }
+
+          if (score && score >= 1 && score <= 5) {
             console.log(`   📊 Anket yanıtı alındı [${phone}]: ${score} (Şikayet ID: ${complaintId})`);
             const { error: surveyError } = await supabase
               .from('complaints')
               .update({ satisfaction_score: score })
               .eq('id', complaintId);
-            
+
             if (surveyError) {
               console.error('⚠️ Anket puanı kaydedilemedi:', surveyError.message);
             }
@@ -1817,11 +1988,13 @@ async function startBot() {
             const thanksMsg = loc.surveyThanks;
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: thanksMsg });
             if (sent?.key?.id) addBotMessageId(sent.key.id);
+            if (voiceComp) await sendVoiceNote(sock, msg.key.remoteJid, thanksMsg, survComp?.language);
             continue;
           } else {
             const warnMsg = loc.surveyWarn;
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: warnMsg });
             if (sent?.key?.id) addBotMessageId(sent.key.id);
+            if (voiceComp) await sendVoiceNote(sock, msg.key.remoteJid, warnMsg, survComp?.language);
             continue;
           }
         }
@@ -1910,6 +2083,7 @@ async function startBot() {
             }
             const sentStatus = await sock.sendMessage(msg.key.remoteJid, { text: statusMsg });
             if (sentStatus?.key?.id) addBotMessageId(sentStatus.key.id);
+            await speakIfVoice(sock, msg, statusMsg, qLang, cameFromVoice);
             continue;
           }
 
@@ -2086,9 +2260,10 @@ async function startBot() {
               ])
               .select()
               .single();
-              
+
             if (dbError) throw dbError;
-            
+            if (cameFromVoice || (pending && pending.voice)) markVoiceComplaint(complaint.id);
+
             await supabase
               .from('complaints')
               .update({
@@ -2128,6 +2303,7 @@ async function startBot() {
             if (sent?.key?.id) {
               addBotMessageId(sent.key.id);
             }
+            await speakIfVoice(sock, msg, reply, replyLang, cameFromVoice || (pending && pending.voice));
             continue;
           } else {
             // Önce konumu yolladı, şikayet detayını sonra yazacak
@@ -2137,17 +2313,19 @@ async function startBot() {
               neighborhoodId: locationNbr ? locationNbr.id : null,
               neighborhoodName: locationNbr ? locationNbr.name : null,
               address: locAddress,
+              voice: cameFromVoice,
               timestamp: Date.now()
             });
 
             const reply = `📍 Gönderdiğiniz konuma göre ${locationNbr ? locationNbr.name + ' Mahallesi' : 'Alanya'} sınırlarında olduğunuzu tespit ettik.\n\n` +
               (geo && geo.short ? `🗺️ Tespit edilen adres: ${geo.short}\n\n` : '') +
               `Lütfen bu bölgedeki şikayetinizin/talebinizin detaylarını yazar mısınız?`;
-              
+
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
             if (sent?.key?.id) {
               addBotMessageId(sent.key.id);
             }
+            await speakIfVoice(sock, msg, reply, 'tr', cameFromVoice);
             continue;
           }
         }
@@ -2175,11 +2353,13 @@ async function startBot() {
             if (text && text.trim().length > 0 && !_providesLocation && !_isMediaMsg) {
               console.log('   🚧 Bekleyen şikayet varken konum yerine yeni metin geldi → yönlendirme yapılıyor.');
               pending.timestamp = Date.now(); // bekleme süresini tazele
-              const guardMsg = msgPendingLocationGuard(pending.language || 'tr', pending.text);
+              let guardMsg = msgPendingLocationGuard(pending.language || 'tr', pending.text);
+              if (cameFromVoice || pending.voice) guardMsg = voiceify(guardMsg, pending.language || 'tr');
               const sent = await sock.sendMessage(msg.key.remoteJid, { text: guardMsg });
               if (sent?.key?.id) {
                 addBotMessageId(sent.key.id);
               }
+              await speakIfVoice(sock, msg, guardMsg, pending.language || 'tr', cameFromVoice);
               continue;
             }
           }
@@ -2264,6 +2444,7 @@ async function startBot() {
           if (sent?.key?.id) {
             addBotMessageId(sent.key.id);
           }
+          await speakIfVoice(sock, msg, infoReply, analysis.language, cameFromVoice);
 
           // PDF gönder (birden fazla PDF destekli)
           const pdfsToSend = analysis.send_pdfs || (analysis.send_pdf ? ['nikah-evraklari.pdf'] : []);
@@ -2331,12 +2512,14 @@ async function startBot() {
                 imageBuffer: curImageBuffer || null,
                 imageContentType: curImageMime || null,
                 language: askLang,
+                voice: cameFromVoice,
                 timestamp: Date.now(),
               });
             } else {
               // Süreyi yenile ve bu mesajda fotoğraf/analiz geldiyse pending'e ekle
               pending.timestamp = Date.now();
               if (!pending.language) pending.language = askLang;
+              if (cameFromVoice) pending.voice = true;
               if (curImageBuffer) { pending.imageBuffer = curImageBuffer; pending.imageContentType = curImageMime; }
               if (visionAnalysis) {
                 pending.visionAnalysis = visionAnalysis;
@@ -2347,12 +2530,14 @@ async function startBot() {
             let askBase = analysis.auto_response || msgAskNeighborhood(askLang, name);
             // "102 mahalle" ifadelerini temizle
             askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, '').trim();
-            const askReply = askBase + msgLocationHint(askLang);
-            
+            let askReply = askBase + msgLocationHint(askLang);
+            if (cameFromVoice || (pending && pending.voice)) askReply = voiceify(askReply, askLang);
+
             const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
             if (sent?.key?.id) {
               addBotMessageId(sent.key.id);
             }
+            await speakIfVoice(sock, msg, askReply, askLang, cameFromVoice);
             continue; // döngüde sonraki mesaja geç
           }
 
@@ -2432,6 +2617,7 @@ async function startBot() {
             .single();
 
           if (dbError) throw dbError;
+          if (cameFromVoice || (pending && pending.voice)) markVoiceComplaint(complaint.id);
 
           // Medya/Fotoğraf Ekle — bu mesajdaki fotoğraf, önceki mesajda gelen (pending) fotoğraf, veya belge
           const messageType = Object.keys(msg.message)[0];
@@ -2523,6 +2709,7 @@ async function startBot() {
           if (sent?.key?.id) {
             addBotMessageId(sent.key.id);
           }
+          await speakIfVoice(sock, msg, reply, (analysis.language || 'tr'), cameFromVoice || (pending && pending.voice));
 
           // ŞİKAYET olsa bile eşleşen PDF'ler varsa gönder! (Örnek: Ruhsat sordu ama AI şikayet kategorisine attıysa)
           const pdfsToSend = analysis.send_pdfs || (analysis.send_pdf ? ['nikah-evraklari.pdf'] : []);
@@ -2552,6 +2739,22 @@ async function startBot() {
       }
     }
   });
+}
+
+// E-Belediye online işlem portalı adresi ve konu tespiti.
+const WEBPORTAL_URL = 'https://webportal.alanya.bel.tr';
+function looksLikePortalTopic(text) {
+  const t = String(text || '').toLowerCase();
+  const patterns = [
+    /emlak vergi/, /çtv/, /çevre temizlik/,
+    /vergi.{0,8}(borc|borç|öde|odeme)/, /(borc|borç)(um|umu|un| sorgu| öde| odeme| durum| bilg)/,
+    /tahakkuk/, /e-?bilet/, /etkinlik bilet/,
+    /evrak doğrula/, /evrak dogrula/, /belge doğrula/,
+    /sicil (arama|sorgu)/, /rayiç/, /rayic/, /inşaat maliyet/, /insaat maliyet/,
+    /aşınma oran/, /asinma oran/, /(meclis|encümen|encumen) karar/, /kararlar takip/,
+    /vergi(mi|mizi)? öde/, /vergi ödeme/, /online öde/, /borç öde/, /borcumu öde/,
+  ];
+  return patterns.some((p) => p.test(t));
 }
 
 // ─── AI Analiz ────────────────────────────────────────────────────
@@ -2617,13 +2820,22 @@ ${eventsList}
 
 GÖNDERİLEBİR PDF BELGELERİ:
 ${pdfCatalog}
- 
+
+E-BELEDİYE ONLİNE İŞLEMLER PORTALI (web adresi: https://webportal.alanya.bel.tr):
+Vatandaşlar şu işlemleri bu portaldan online yapabilir/sorgulayabilir:
+- Emlak vergisi, Çevre Temizlik Vergisi (ÇTV) ve diğer belediye borçlarının SORGULANMASI ve ONLİNE ÖDENMESİ (Hızlı Sicil Borcu Ödeme; Borç/Tahakkuk/Ödeme Bilgileri)
+- Etkinlik e-bilet işlemleri
+- Evrak doğrulama; Sicil arama (gerçek/tüzel kişi)
+- Arsa m² rayiç bedelleri, inşaat maliyet bedelleri, emlak aşınma oranları, ÇTV bedelleri sorgulama
+- Belediye meclis/encümen kararlarının takibi (Kararlar Takip Sistemi)
+
 KURALLAR:
 - Nikah, evlilik, evlenme belgeleri vb. sorular için "Müdürlük Adı" olarak "Yazı İşleri Müdürlüğü" seç.
 - İşyeri açma, ruhsat, sıhhi/gayrisıhhi müessese ruhsatı vb. sorular için "Müdürlük Adı" olarak "Ruhsat ve Denetim Müdürlüğü" seç.
 - Vatandaş bir mahallenin muhtarını, muhtar ismini veya muhtarlık iletişim/telefon numarasını sorarsa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (MAHALLE MUHTARLARI)" listesini kullanarak net, doğru ve doğrudan isim ile telefon numarasını içeren bir auto_response hazırla. Bu tür bilgi talepleri için "Müdürlük Adı" olarak "Muhtarlık İşleri Müdürlüğü" seç.
 - Vatandaş evlilik/nikah evrakları, yabancı evliliği, yaş sınırı, iddet müddeti gibi konuları sorursa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (EVLENDİRME İŞLEMLERİ)"ne göre akıl yürüterek tam, doğru ve detaylı bir auto_response hazırla.
 - Vatandaş ruhsat başvurusu, gerekli evraklar veya ruhsat onay süreçleri hakkında soru sorarsa, yukarıdaki "BELEDİYE BİLGİ REHBERİ (RUHSAT VE İŞYERİ AÇMA İŞLEMLERİ)" bilgilerine göre gerekli evrakları ve adımları açıklayan detaylı bir auto_response hazırla.
+- Vatandaş emlak vergisi, ÇTV, su veya belediyeye olan borcunu ÖDEMEK/SORGULAMAK, tahakkuk/ödeme bilgisi, e-bilet, evrak doğrulama, sicil arama, arsa rayiç/inşaat maliyet/aşınma oranı bedeli, ÇTV bedeli veya meclis/encümen kararı takibi gibi ONLİNE İŞLEM konularını sorarsa: "interaction_type" = "bilgi" seç ve "auto_response" içinde bu işlemi https://webportal.alanya.bel.tr E-Belediye portalından online yapabileceğini net şekilde belirt (mümkünse portaldaki ilgili bölümün adını da söyle). Bu tür sorular şikayet DEĞİLDİR.
 - Vatandaş belediyenin düzenlediği veya ev sahipliği yaptığı festivaller, konserler, fuarlar, etkinlikler, spor turnuvaları vb. hakkında soru sorarsa, yukarıdaki "BELEDİYE ETKİNLİK REHBERİ" bilgilerini kullanarak net, tarih ve detay içeren bir auto_response hazırla.
 - "send_pdfs": Vatandaşın sorusuyla ilgili GÖNDERİLEBİR PDF BELGELERİ listesindeki belgelerin dosya adlarını bir dizi (array) olarak ekle. Birden fazla PDF ilgiliyse hepsini ekle. Hiçbir PDF ilgili değilse boş dizi [] döndür. Sadece yukarıdaki listede bulunan dosya adlarını kullan.
 - "interaction_type": Vatandaş belediyeye bir sorun bildiriyorsa, belediyeden fiziksel bir işlem, denetim veya onarım yapmasını talep ediyorsa (örneğin çöpün alınması, yolun yapılması, gürültü yapılması, seyyar satıcı, kaçak yapı, sokak hayvanı vb.) "sikayet" seç. Vatandaş sadece bilgi almak istiyorsa, belge/evrak soruyorsa, evlilik yaş sınırı, ruhsat belgeleri, çalışma saatleri veya belediye etkinliklerinin/festivallerinin tarihleri gibi bilgi verici konuları soruyorsa "bilgi" seç.
@@ -2658,15 +2870,25 @@ KURALLAR:
         sendPdfs = ['nikah-evraklari.pdf']; // En son çare
       }
     }
+    let finalAuto = parsed.auto_response || fallback.auto_response;
+    let finalType = parsed.interaction_type || fallback.interaction_type;
+    // Online işlem (E-Belediye portalı) konusuysa: bilgi say + linki garanti et
+    if (looksLikePortalTopic(text)) {
+      finalType = 'bilgi';
+      if (!/webportal\.alanya\.bel\.tr/i.test(finalAuto)) {
+        finalAuto = (finalAuto ? finalAuto.trim() + '\n\n' : '') +
+          `🌐 Bu işlemi Alanya Belediyesi E-Belediye portalından online yapabilirsiniz:\n${WEBPORTAL_URL}`;
+      }
+    }
     return {
       category: parsed.category || fallback.category,
       department: parsed.department || fallback.department,
       neighborhood: parsed.neighborhood || null,
       address: parsed.address || null,
       priority: parsed.priority || fallback.priority,
-      auto_response: parsed.auto_response || fallback.auto_response,
+      auto_response: finalAuto,
       send_pdfs: sendPdfs,
-      interaction_type: parsed.interaction_type || fallback.interaction_type,
+      interaction_type: finalType,
       language: parsed.language || 'tr',
     };
   } catch (err) {

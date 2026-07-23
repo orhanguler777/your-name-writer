@@ -1,8 +1,10 @@
 {
   "selfChatOnly": true,
-  "slaLimitHours": 240,
+  "slaLimitHours": 360,
   "crisisLimitHours": 1,
   "crisisLimitCount": 3,
   "dedupEnabled": true,
-  "dedupWindowHours": 72
+  "dedupWindowHours": 72,
+  "voiceReplyEnabled": true,
+  "voiceReplyVoice": "nova"
 }

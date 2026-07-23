@@ -41,3 +41,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Bot sesli-şikayet izi
+voice_complaints.json
+**/voice_complaints.json
+
+# Doküman için çalışma ekran görüntüleri
+panel-caps/
