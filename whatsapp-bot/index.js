@@ -155,6 +155,7 @@ function addBotMessageId(id) {
 function getBotSettings() {
   const defaults = {
     selfChatOnly: true,
+    koksalChatOnly: false,
     slaLimitHours: 120,
     crisisLimitHours: 1,
     crisisLimitCount: 4,
@@ -296,9 +297,25 @@ function normLang(lang) {
   return 'tr';
 }
 
+function getBotPhone() {
+  const sock = global.currentSock;
+  if (sock?.user?.id) {
+    const id = sock.user.id.split(':')[0].split('@')[0];
+    if (!id.includes('lid') && id.length > 5) {
+      return id;
+    }
+  }
+  return null;
+}
+
 // WhatsApp monospace (kod) biçimi: üç ters tırnak. Takip numaralarını bu biçimde
 // göstermek, vatandaşın numarayı kolayca seçip kopyalayabilmesi için standart yöntemdir.
+// Ayrıca mobilde kopyalama zorluğunu gidermek için yanına doğrudan tıklanabilir wa.me sorgu linki ekler.
 function mono(s) {
+  const botPhone = getBotPhone();
+  if (botPhone) {
+    return '```' + s + '``` (Sorgula/Query: https://wa.me/' + botPhone + '?text=' + s + ')';
+  }
   return '```' + s + '```';
 }
 
@@ -573,13 +590,95 @@ function msgComplaintStatus(lang, { trackingNo, statusLabel, category, createdTe
 // ─── Departments, Neighborhoods & Events Cache ─────────────────────
 const pendingComplaints = new Map();
 const pendingSurveys = new Map(); // key: phone, value: complaintId
+const pendingNameRequests = new Map(); // key: phone, value: pending message state
 let departmentsCache = [];
 let neighborhoodsCache = [];
 let eventsCache = [];
 
+// İsim ve soyismin geçerli (en az iki kelime, örn: Orhan Güler) olup olmadığını kontrol et
+function isFullName(str) {
+  if (!str || typeof str !== 'string') return false;
+  const cleaned = str.trim();
+  if (cleaned.toLowerCase() === 'vatandaş' || cleaned.length < 3) return false;
+  const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
+  return words.length >= 2;
+}
+
+// LID (Gizlenmiş WhatsApp ID) değerini gerçek telefon numarasına eşle
+function resolveLidToPhone(lid) {
+  if (!lid) return lid;
+  const KNOWN_LID_MAP = {
+    '16690377154811': '905543662725', // Orhan Güler
+    '78902861029557': '905454597000', // Köksal Torgay
+  };
+  if (KNOWN_LID_MAP[lid]) {
+    return KNOWN_LID_MAP[lid];
+  }
+  try {
+    const filePath = path.join(__dirname, '.baileys_auth', `lid-mapping-${lid}_reverse.json`);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8').trim();
+      const parsed = content.replace(/['"]/g, '');
+      if (parsed && parsed.length >= 10 && parsed.length <= 15) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('⚠️ LID reverse mapping okuma hatası:', e.message);
+  }
+  return lid;
+}
+
+// Vatandaşın daha önceki kayıtlarında geçerli Ad-Soyad var mı kontrol et
+async function getKnownCitizenName(phone) {
+  try {
+    const { data } = await supabase
+      .from('complaints')
+      .select('citizen_name')
+      .eq('citizen_phone', phone)
+      .not('citizen_name', 'eq', 'Vatandaş')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (data && data.length > 0) {
+      for (const row of data) {
+        if (row?.citizen_name && isFullName(row.citizen_name)) {
+          return row.citizen_name.trim();
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+
 // Gerçek remoteJid'leri tutan bellek (Webhook 400 hatalarını önlemek için)
 global.activeJids = new Map();
-async function loadInitialData() {
+async function loadInitialData(sock) {
+  // Geriye dönük LID numarası güncelleyici (1669... -> Gerçek Telefon Numarası)
+  try {
+    const { data: oldRows } = await supabase
+      .from('complaints')
+      .select('id, citizen_phone');
+    
+    const lidRows = (oldRows || []).filter(r => r.citizen_phone && r.citizen_phone.length >= 13);
+    if (lidRows.length > 0) {
+      let updatedCount = 0;
+      for (const row of lidRows) {
+        const mapped = resolveLidToPhone(row.citizen_phone);
+        if (mapped && mapped !== row.citizen_phone) {
+          await supabase.from('complaints').update({ citizen_phone: mapped }).eq('id', row.id);
+          updatedCount++;
+        }
+      }
+      if (updatedCount > 0) {
+        console.log(`   🔄 Geriye dönük: ${updatedCount} adet LID kaydı gerçek telefon numaralarına güncellendi!`);
+      }
+    }
+  } catch (e) {
+    console.error('⚠️ LID güncelleme hatası:', e.message);
+  }
+
   // Müdürlükleri yükle
   const { data: depts, error: deptError } = await supabase.from('departments').select('id, name');
   if (deptError) {
@@ -1199,7 +1298,7 @@ async function startBot() {
     if (connection === 'open') {
       console.log('\n🟢 WhatsApp Bot (Baileys) başarıyla bağlandı!');
       console.log('   Gelen şikayetler dinleniyor...\n');
-      await loadInitialData();
+      await loadInitialData(sock);
 
       // SLA ve Kriz kontrolünü her 5 dakikada bir çalıştır
       if (!global.slaDaemonStarted) {
@@ -1857,7 +1956,45 @@ async function startBot() {
         // Eğer mesaj notify değilse (örn. append geçmiş mesajları), şikayet/anket akışını çalıştırma
         if (!isNotify) continue;
 
-        const phone = (msg.key.remoteJid ? msg.key.remoteJid.split('@')[0] : null);
+        const getBareId = (jid) => jid ? jid.split(':')[0].split('@')[0] : null;
+        const myJid = sock.user?.id;
+        const myLid = sock.user?.lid;
+        const myBareId = getBareId(myJid);
+        const myLidBareId = getBareId(myLid);
+
+        const remoteJid = msg.key.remoteJid || '';
+        const remoteBareId = getBareId(remoteJid);
+        const isSelfChat = !!remoteBareId && (remoteBareId === myBareId || remoteBareId === myLidBareId);
+
+        const KOKSAL_NUMBER = "905454597000";
+        const KOKSAL_LID = "78902861029557";  // Köksal'ın WhatsApp LID'si
+        const isKoksal = remoteBareId === KOKSAL_NUMBER || remoteBareId === KOKSAL_LID;
+
+        // Gerçek telefon numarasını belirle
+        let rawPhone = resolveLidToPhone(remoteBareId);
+        if (isSelfChat && myBareId) {
+          rawPhone = myBareId; // Self chat'te LID yerine giriş yapılan bot hesabının gerçek telefonunu kullan
+        } else if (isKoksal) {
+          rawPhone = KOKSAL_NUMBER;
+        } else if (remoteJid.endsWith('@lid')) {
+          const altJid = msg.key.remoteJidAlt || msg.key.participantAlt;
+          if (altJid && !altJid.includes('lid')) {
+            rawPhone = getBareId(altJid);
+          }
+        }
+
+        const basePhone = rawPhone ? rawPhone.split('-')[0] : '';
+        let cleanPhone = basePhone.replace(/\D/g, '');
+        if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+          cleanPhone = '90' + cleanPhone.substring(1);
+        }
+        if (cleanPhone.length === 10 && cleanPhone.startsWith('5')) {
+          cleanPhone = '90' + cleanPhone;
+        }
+        let phone = cleanPhone;
+
+        console.log('   ℹ️ Normalized cleanPhone:', cleanPhone, 'isSelfChat:', isSelfChat, 'isKoksal:', isKoksal);
+
         if (botMessageIds.has(msg.key.id)) {
           continue;
         }
@@ -1878,7 +2015,6 @@ async function startBot() {
           || actualMessage?.documentMessage?.caption
           || '';
 
-        // Mesaj sesli mi geldi? (görme engelli/yazamayan vatandaş için cevap da sesli gitsin)
         const cameFromVoice = !!(actualMessage?.audioMessage || actualMessage?.ptvMessage);
 
         if ((actualMessage?.audioMessage || actualMessage?.ptvMessage) && openai) {
@@ -1907,33 +2043,58 @@ async function startBot() {
         // Grup mesajlarını yoksay
         if (msg.key.remoteJid.endsWith('@g.us')) continue;
 
-        // Kendi kendine chat (self-chat) kontrolü
-        const myJid = sock.user?.id;
-        const myLid = sock.user?.lid;
-        const getBareId = (jid) => jid ? jid.split(':')[0].split('@')[0] : null;
-        
-        const remoteBareId = getBareId(msg.key.remoteJid);
-        const myBareId = getBareId(myJid);
-        const myLidBareId = getBareId(myLid);
-        const isSelfChat = !!remoteBareId && (remoteBareId === myBareId || remoteBareId === myLidBareId);
-
-        // Eğer sadece kendi chat'lerimize cevap verme modu aktifse ve kendi kendimize yazmıyorsak yoksay!
+        // Sadece kendi chat'lerimize cevap verme modu aktifse kontrol et
+        const koksalEnabled = getBotSettings().koksalChatOnly === true;
         if (isSelfChatOnly() && !isSelfChat) {
-          continue;
+          if (!(koksalEnabled && isKoksal)) {
+            console.log('   ℹ️ Blocking message from', cleanPhone, '(self‑chat only, Köksal disabled)');
+            continue;
+          }
+          console.log('   ✅ Köksal override aktif – mesaj işleniyor!');
         }
 
         // Eğer mesaj bizden gitmişse (fromMe = true)
         if (msg.key.fromMe) {
           // Sadece kendi kendimize (test amaçlı) yazdığımız mesajları şikayet olarak kabul et.
           // Vatandaşlara telefonumuzdan verdiğimiz cevapları (veya botun vatandaşlara attığı cevapları) yoksay!
-          if (!isSelfChat) {
+          // Ancak Köksal override aktifse ve mesaj Köksal'a gidiyorsa, bunu da işle.
+          console.log('   ℹ️ fromMe:', msg.key.fromMe, 'isSelfChat:', isSelfChat, 'isKoksal:', isKoksal);
+          if (!isSelfChat && !(koksalEnabled && isKoksal)) {
             continue;
           }
         }
 
-        const name = msg.pushName || 'Vatandaş';
+        let name = msg.pushName || 'Vatandaş';
+        const knownName = await getKnownCitizenName(phone);
+        if (knownName) {
+          name = knownName;
+        }
         global.activeJids.set(phone, msg.key.remoteJid);
         const lowerTextTrim = text ? text.toLowerCase().trim() : '';
+
+        // ── Ad-Soyad Kaydı Bekleniyorsa (KVKK & İsim Alma Akışı) ──
+        if (pendingNameRequests.has(phone)) {
+          const pendingReq = pendingNameRequests.get(phone);
+          const userProvidedName = text ? text.trim() : '';
+          
+          if (isFullName(userProvidedName) && !/^(iptal|durum|sorgu)/i.test(userProvidedName)) {
+            console.log(`   👤 Vatandaş tam ad-soyad bildirdi [${phone}]: "${userProvidedName}"`);
+            name = userProvidedName;
+            pendingNameRequests.delete(phone);
+            if (pendingReq && pendingReq.originalText) {
+              text = pendingReq.originalText;
+              if (pendingReq.curImageBuffer) curImageBuffer = pendingReq.curImageBuffer;
+              if (pendingReq.curImageMime) curImageMime = pendingReq.curImageMime;
+              if (pendingReq.visionAnalysis) visionAnalysis = pendingReq.visionAnalysis;
+            }
+          } else {
+            const askNameAgain = `Sayın vatandaşımız, başvurunuzu kaydedebilmemiz için lütfen **Adınızı ve Soyadınızı** (örnek: Ahmet Yılmaz) en az iki kelime olacak şekilde eksiksiz yazınız.\n\n📄 *KVKK Aydınlatma Metni: https://alanya.bel.tr/kvkk*\nℹ️ *Adınızı ve soyadınızı iletmeniz halinde KVKK Aydınlatma Metni'ni okuduğunuz ve kabul ettiğiniz varsayılmaktadır.*`;
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: askNameAgain });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+            await speakIfVoice(sock, msg, askNameAgain, 'tr', cameFromVoice);
+            continue;
+          }
+        }
 
         // ── Memnuniyet Anketi Kontrolü ──
         if (pendingSurveys.has(phone)) {
@@ -2041,13 +2202,23 @@ async function startBot() {
             .toUpperCase();
           const codeOnly = trackCode && cleaned === trackCode;
           // Anahtar kelime + kod yolu YALNIZCA kısa mesajlarda geçerli; böylece içinde
-          // "durum" gibi bir kelime + kod benzeri bir dizi geçen UZUN şikayetler
+          // "durum" ya da "takip" gibi bir kelime + kod benzeri bir dizi geçen UZUN şikayetler
           // yanlışlıkla durum sorgusu sayılmaz. (codeOnly zaten kısa mesajdır.)
-          const shortMsg = lowerTextTrim.length <= 40;
+          const shortMsg = lowerTextTrim.length <= 100;
           // Numara verilmeden, kısa ve açık bir durum-sorgu ifadesiyle gelinmişse numara iste.
           const askStatusNoCode = !trackCode
-            && lowerTextTrim.length <= 40
+            && lowerTextTrim.length <= 100
             && /^(durum|sorgu|takip|[sş]ikayet durumu|[sş]ikayetim ne durumda|durumu ne|[sş]ikayet sorgula|status|track)\b/i.test(lowerTextTrim);
+
+          console.log('   🔍 DEBUG STATUS CHECK:', {
+            text,
+            trackCode,
+            statusKw,
+            cleaned,
+            codeOnly,
+            shortMsg,
+            isMatch: !!(trackCode && ((statusKw && shortMsg) || codeOnly))
+          });
 
           if (trackCode && ((statusKw && shortMsg) || codeOnly)) {
             console.log(`   🔎 Durum sorgusu [${phone}]: ${trackCode}`);
@@ -2136,6 +2307,7 @@ async function startBot() {
           text.startsWith('✅') ||
           text.startsWith('⚠️')
         ) {
+          console.log(`   ℹ️ Mesaj döngü engeline takıldı (yoksayılıyor): "${text}"`);
           continue;
         }
 
@@ -2473,6 +2645,24 @@ async function startBot() {
         } else {
           // ─── ŞİKAYET: Şikayet tablosuna kaydet ───
           
+          // Vatandaşın daha önce kaydedilmiş tam ad-soyadı (en az 2 kelime) yoksa Ad ve Soyadını iste
+          if (!isFullName(name) && !pendingNameRequests.has(phone)) {
+            console.log(`   ⚠️ Vatandaşın kayıtlı geçerli Adı-Soyadı yok (${name}), isim ve KVKK bilgilendirmesi isteniyor...`);
+            pendingNameRequests.set(phone, {
+              originalText: text,
+              curImageBuffer,
+              curImageMime,
+              visionAnalysis,
+              timestamp: Date.now()
+            });
+
+            const askNameKvkk = `🏛️ *Alanya Belediyesi AI Asistanı*\n\nSayın vatandaşımız, başvurunuzun takibi ve KVKK (6698 Sayılı Kanun) bilgilendirmesi uyarınca tarafınıza dönüş yapılabilmesi için lütfen **Adınızı ve Soyadınızı** (örnek: Ahmet Yılmaz) yazınız.\n\n📄 *KVKK Aydınlatma Metni: https://alanya.bel.tr/kvkk*\nℹ️ *Adınızı ve soyadınızı iletmeniz halinde KVKK Aydınlatma Metni'ni okuduğunuz ve kabul ettiğiniz varsayılmaktadır.*`;
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: askNameKvkk });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+            await speakIfVoice(sock, msg, askNameKvkk, (analysis?.language || 'tr'), cameFromVoice);
+            continue;
+          }
+
           // AI Sonuçlarına göre Müdürlük bul
           let departmentId = null;
           if (analysis.department) {
@@ -2696,6 +2886,8 @@ async function startBot() {
             representativeText = `💬 Если вы хотите поговорить с настоящим представителем, нажмите на ссылку ниже:\nhttps://wa.me/905362206204?text=представитель`;
           }
 
+          const kvkkNotice = `\n\n----------------------------------\nℹ️ _Alanya Belediyesi olarak 6698 sayılı KVKK uyarınca verilerinizi başvuru takibi amacıyla işliyoruz. Detay: https://alanya.bel.tr/kvkk_`;
+
           const reply =
             (analysis.auto_response ? analysis.auto_response + '\n\n' : '') +
             `${confirmationText}\n\n` +
@@ -2703,7 +2895,8 @@ async function startBot() {
             `${departmentText}\n` +
             `${trackingText}\n` +
             `${footerText}\n\n` +
-            `${representativeText}`;
+            `${representativeText}` +
+            `${kvkkNotice}`;
 
           const sent = await sock.sendMessage(msg.key.remoteJid, { text: reply });
           if (sent?.key?.id) {

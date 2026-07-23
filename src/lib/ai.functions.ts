@@ -67,6 +67,7 @@ export const getBotSettings = createServerFn({ method: "GET" })
     const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
     const defaults = {
       selfChatOnly: true,
+      koksalChatOnly: false,
       slaLimitHours: 120,
       crisisLimitHours: 1,
       crisisLimitCount: 4,
@@ -86,6 +87,7 @@ export const updateBotSettings = createServerFn({ method: "POST" })
   .inputValidator((input: any) =>
     z.object({
       selfChatOnly: z.boolean().optional(),
+      koksalChatOnly: z.boolean().optional(),
       slaLimitHours: z.number().optional(),
       crisisLimitHours: z.number().optional(),
       crisisLimitCount: z.number().optional(),
@@ -270,7 +272,7 @@ PARAGRAF YAPISI:
 4) Somut yönetim önerileri (kaynak planlaması, saha müdahalesi, koordinasyon)`;
 
       const result = await generateText({
-        model: openai("gpt-4o-mini"),
+        model: gateway("google/gemini-3-flash-preview"),
         prompt,
       });
       return { insight: result.text.trim() || fallback };
@@ -279,3 +281,94 @@ PARAGRAF YAPISI:
       return { insight: fallback };
     }
   });
+
+export const fetchCitizensData = createServerFn({ method: "GET" })
+  .inputValidator((input: any) =>
+    z.object({
+      search: z.string().optional(),
+      language: z.string().optional(),
+      kvkkStatus: z.string().optional(),
+    }).parse(input)
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: complaints, error } = await supabaseAdmin
+      .from("complaints")
+      .select("id, citizen_phone, citizen_name, language, address, created_at, status, category, complaint_text")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
+    if (error) {
+      console.error("fetchCitizensData error:", error);
+      return [];
+    }
+
+    const isFullName = (str?: string | null) => {
+      if (!str || typeof str !== "string") return false;
+      const cleaned = str.trim();
+      if (cleaned.toLowerCase() === "vatandaş" || cleaned.length < 3) return false;
+      const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
+      return words.length >= 2;
+    };
+
+    const KNOWN_LID_MAP: Record<string, string> = {
+      "16690377154811": "905543662725",
+      "78902861029557": "905454597000",
+    };
+
+    const map = new Map<string, any>();
+
+    for (const c of complaints || []) {
+      let phone = c.citizen_phone || "bilinmiyor";
+      if (KNOWN_LID_MAP[phone]) phone = KNOWN_LID_MAP[phone];
+      if (!map.has(phone)) {
+        map.set(phone, {
+          phone,
+          name: c.citizen_name || "Vatandaş",
+          language: (c.language || "tr").toLowerCase(),
+          kvkkAccepted: isFullName(c.citizen_name),
+          complaintCount: 1,
+          lastActivity: c.created_at,
+          lastAddress: c.address,
+          categories: [c.category].filter(Boolean),
+          history: [{ id: c.id, text: c.complaint_text || "Şikayet", status: c.status, date: c.created_at }],
+        });
+      } else {
+        const item = map.get(phone);
+        item.complaintCount += 1;
+        if (c.category && !item.categories.includes(c.category)) {
+          item.categories.push(c.category);
+        }
+        if (!item.kvkkAccepted && isFullName(c.citizen_name)) {
+          item.name = c.citizen_name;
+          item.kvkkAccepted = true;
+        }
+        item.history.push({ id: c.id, text: c.complaint_text || "Şikayet", status: c.status, date: c.created_at });
+      }
+    }
+
+    let result = Array.from(map.values());
+
+    if (data.search) {
+      const s = data.search.toLowerCase();
+      result = result.filter(
+        (r) => r.phone.toLowerCase().includes(s) || r.name.toLowerCase().includes(s)
+      );
+    }
+
+    if (data.language && data.language !== "all") {
+      result = result.filter((r) => r.language === data.language);
+    }
+
+    if (data.kvkkStatus && data.kvkkStatus !== "all") {
+      if (data.kvkkStatus === "approved") {
+        result = result.filter((r) => r.kvkkAccepted);
+      } else if (data.kvkkStatus === "pending") {
+        result = result.filter((r) => !r.kvkkAccepted);
+      }
+    }
+
+    return result;
+  });
+

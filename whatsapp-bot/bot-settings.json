@@ -1,10 +1,11 @@
 {
-  "selfChatOnly": true,
-  "slaLimitHours": 360,
+  "selfChatOnly": false,
+  "slaLimitHours": 400,
   "crisisLimitHours": 1,
   "crisisLimitCount": 3,
   "dedupEnabled": true,
   "dedupWindowHours": 72,
   "voiceReplyEnabled": true,
-  "voiceReplyVoice": "nova"
+  "voiceReplyVoice": "nova",
+  "koksalChatOnly": false
 }

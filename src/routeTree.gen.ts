@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
+import { Route as AuthenticatedVatandaslarRouteImport } from './routes/_authenticated/vatandaslar'
 import { Route as AuthenticatedSikayetOlusturRouteImport } from './routes/_authenticated/sikayet-olustur'
 import { Route as AuthenticatedPersonelAnaliziRouteImport } from './routes/_authenticated/personel-analizi'
 import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
@@ -50,6 +51,12 @@ const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
   path: '/whatsapp',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVatandaslarRoute =
+  AuthenticatedVatandaslarRouteImport.update({
+    id: '/vatandaslar',
+    path: '/vatandaslar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSikayetOlusturRoute =
   AuthenticatedSikayetOlusturRouteImport.update({
     id: '/sikayet-olustur',
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/panel': typeof AuthenticatedPanelRoute
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
@@ -183,6 +191,7 @@ export interface FileRoutesByTo {
   '/panel': typeof AuthenticatedPanelRoute
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
@@ -207,6 +216,7 @@ export interface FileRoutesById {
   '/_authenticated/panel': typeof AuthenticatedPanelRoute
   '/_authenticated/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/_authenticated/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/_authenticated/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/_authenticated/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/_authenticated/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/panel'
     | '/personel-analizi'
     | '/sikayet-olustur'
+    | '/vatandaslar'
     | '/whatsapp'
     | '/anketler/$id'
     | '/sikayetler/$id'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/panel'
     | '/personel-analizi'
     | '/sikayet-olustur'
+    | '/vatandaslar'
     | '/whatsapp'
     | '/anketler/$id'
     | '/sikayetler/$id'
@@ -276,6 +288,7 @@ export interface FileRouteTypes {
     | '/_authenticated/panel'
     | '/_authenticated/personel-analizi'
     | '/_authenticated/sikayet-olustur'
+    | '/_authenticated/vatandaslar'
     | '/_authenticated/whatsapp'
     | '/_authenticated/anketler/$id'
     | '/_authenticated/sikayetler/$id'
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/whatsapp'
       fullPath: '/whatsapp'
       preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/vatandaslar': {
+      id: '/_authenticated/vatandaslar'
+      path: '/vatandaslar'
+      fullPath: '/vatandaslar'
+      preLoaderRoute: typeof AuthenticatedVatandaslarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/sikayet-olustur': {
@@ -455,6 +475,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPanelRoute: typeof AuthenticatedPanelRoute
   AuthenticatedPersonelAnaliziRoute: typeof AuthenticatedPersonelAnaliziRoute
   AuthenticatedSikayetOlusturRoute: typeof AuthenticatedSikayetOlusturRoute
+  AuthenticatedVatandaslarRoute: typeof AuthenticatedVatandaslarRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedAnketlerIdRoute: typeof AuthenticatedAnketlerIdRoute
   AuthenticatedSikayetlerIdRoute: typeof AuthenticatedSikayetlerIdRoute
@@ -476,6 +497,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPanelRoute: AuthenticatedPanelRoute,
   AuthenticatedPersonelAnaliziRoute: AuthenticatedPersonelAnaliziRoute,
   AuthenticatedSikayetOlusturRoute: AuthenticatedSikayetOlusturRoute,
+  AuthenticatedVatandaslarRoute: AuthenticatedVatandaslarRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedAnketlerIdRoute: AuthenticatedAnketlerIdRoute,
   AuthenticatedSikayetlerIdRoute: AuthenticatedSikayetlerIdRoute,

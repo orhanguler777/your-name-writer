@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          file_url: string | null
+          file_type: string | null
+          start_date: string | null
+          end_date: string | null
+          sent_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          file_url?: string | null
+          file_type?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          sent_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          file_url?: string | null
+          file_type?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          sent_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       polls: {
         Row: {
           id: string

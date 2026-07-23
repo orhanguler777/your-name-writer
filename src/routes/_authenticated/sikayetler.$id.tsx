@@ -347,7 +347,7 @@ function Detail() {
   );
 }
 
-function responseTypeLabel(type: string): string {
+function responseTypeLabel(type: string | null | undefined): string {
   switch (type) {
     case "otomatik": return "AI Otomatik Cevap";
     case "soru": return "Belediye Sorusu";

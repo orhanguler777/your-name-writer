@@ -292,7 +292,7 @@ function PollsList() {
                       >
                         {sendPollAgain.isPending ? "İşleniyor..." : (poll.sent_to_whatsapp ? "Tekrar Gönder" : "Gönder")}
                       </Button>
-                      <Link to={`/anketler/${poll.id}`}>
+                      <Link to="/anketler/$id" params={{ id: poll.id }}>
                         <Button variant="ghost" size="sm">
                           Sonuçları Gör
                         </Button>
