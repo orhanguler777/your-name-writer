@@ -31,6 +31,7 @@ function Page() {
   const [selfChatOnly, setSelfChatOnly] = useState(true);
   
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
+  const [koksalChatOnly, setKoksalChatOnly] = useState(false);
   const [slaLimitHours, setSlaLimitHours] = useState(120);
   const [crisisLimitHours, setCrisisLimitHours] = useState(1);
   const [crisisLimitCount, setCrisisLimitCount] = useState(4);
@@ -44,6 +45,7 @@ function Page() {
   useEffect(() => {
     if (botSettings) {
       setSelfChatOnly(botSettings.selfChatOnly ?? true);
+      setKoksalChatOnly(botSettings.koksalChatOnly ?? false);
       setSlaLimitHours(botSettings.slaLimitHours ?? 120);
       setCrisisLimitHours(botSettings.crisisLimitHours ?? 1);
       setCrisisLimitCount(botSettings.crisisLimitCount ?? 4);
@@ -77,6 +79,23 @@ function Page() {
     } catch (e: any) {
       toast.error("Bir hata oluştu: " + e.message);
       setSelfChatOnly(!checked);
+    }
+  };
+
+  const handleKoksalChange = async (checked: boolean) => {
+    setKoksalChatOnly(checked);
+    try {
+      const res = await updateSettings({ data: { koksalChatOnly: checked } });
+      if (res.success) {
+        toast.success(`Köksal ${checked ? "aktif" : "pasif"} edildi.`);
+        refetchSettings();
+      } else {
+        toast.error("Ayarlar kaydedilemedi: " + res.error);
+        setKoksalChatOnly(!checked);
+      }
+    } catch (e: any) {
+      toast.error("Bir hata oluştu: " + e.message);
+      setKoksalChatOnly(!checked);
     }
   };
 
@@ -202,6 +221,15 @@ function Page() {
                 </p>
               </div>
               <Switch checked={selfChatOnly} onCheckedChange={handleBotSettingsChange} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3 bg-muted/20 mt-4">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold">Köksal'a Cevap Ver</Label>
+                <p className="text-xs text-muted-foreground max-w-[280px]">
+                  Aktif olduğunda +90 545 459 70 00 numarasından gelen mesajlara bot yanıt verir.
+                </p>
+              </div>
+              <Switch checked={koksalChatOnly} onCheckedChange={handleKoksalChange} />
             </div>
           </Card>
         </div>
