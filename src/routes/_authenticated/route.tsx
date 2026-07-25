@@ -6,7 +6,7 @@ import type { AppRole } from "@/hooks/useAuth";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin,
+  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ const MENU: MenuItem[] = [
   { to: "/zabita-denetim", label: "İşyeri Denetimi", icon: ClipboardCheck, zabitaOnly: true },
   { to: "/zabita-isyerleri", label: "İşyeri Listesi", icon: Building2, zabitaOnly: true },
   { to: "/zabita-harita", label: "Saha Haritası", icon: MapPin, zabitaOnly: true },
+  { to: "/tutanak-arsivi", label: "Tutanak Arşivi", icon: Archive, zabitaOnly: true },
   { to: "/memnuniyet", label: "Memnuniyet Analizi", icon: Smile, roles: ["baskan", "admin", "cozum_masasi"] },
   { to: "/baskan-ai-bot", label: "Başkan AI Bot", icon: Bot, roles: ["baskan", "admin"] },
   { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },

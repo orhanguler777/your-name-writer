@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { ZABITA_CHECKLISTS, calculatePenalty } from "./ZabitaChecklists";
+import { ALANYA_LOGO_DATA_URL } from "./alanya-logo";
 
 export interface TutanakData {
   id?: string | null;
@@ -153,7 +154,8 @@ export async function buildInspectionReportHtml(
   body { font-family: "Segoe UI", Arial, sans-serif; color: #111; font-size: 11px; line-height: 1.4; background:#fff; }
   .doc { width: 190mm; margin: 0 auto; padding: 0; background:#fff; }
   .head { display: flex; align-items: center; gap: 14px; border-bottom: 3px double #1e3a5f; padding-bottom: 10px; }
-  .crest { width: 54px; height: 54px; border: 2px solid #1e3a5f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #1e3a5f; font-size: 19px; }
+  .crest { width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; }
+  .crest img { width: 100%; height: 100%; object-fit: contain; }
   .head .t { flex: 1; text-align: center; }
   .head .t .tc { font-size: 11px; letter-spacing: 2px; color: #555; }
   .head .t .m { font-size: 15px; font-weight: 800; color: #1e3a5f; }
@@ -209,7 +211,7 @@ export async function buildInspectionReportHtml(
 <body>
   <div class="doc">
     <div class="head">
-      <div class="crest">B</div>
+      <div class="crest"><img src="${ALANYA_LOGO_DATA_URL}" alt="Alanya Belediyesi" /></div>
       <div class="t">
         <div class="tc">T.C.</div>
         <div class="m">${esc(municipality)}</div>
