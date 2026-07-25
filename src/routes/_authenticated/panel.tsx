@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ROLE_LABELS, STATUS_LABELS } from "@/lib/turkish";
 import { generateDashboardInsight, getBotSettings } from "@/lib/ai.functions";
 import { AlanyaMap } from "@/components/AlanyaMap";
+import { ZabitaInspectionAnalytics } from "@/components/ZabitaInspectionAnalytics";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid, Legend, AreaChart, Area
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/panel")({
 const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
 
 function Panel() {
-  const { profile, primaryRole } = useAuth();
+  const { profile, primaryRole, isZabita } = useAuth();
   const deptId = profile?.department_id;
   const isMudurluk = primaryRole === "mudurluk";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
@@ -443,6 +444,9 @@ function Panel() {
           )}
         </div>
       )}
+
+          {/* Zabıta Ruhsat Denetim İstatistikleri (Genel Özet altında) */}
+          {isZabita && <ZabitaInspectionAnalytics />}
         </TabsContent>
         <TabsContent value="harita" className="space-y-6">
           <AlanyaMap complaints={c} />
