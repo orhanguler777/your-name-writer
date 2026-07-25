@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/panel")({
 const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
 
 function Panel() {
-  const { profile, primaryRole } = useAuth();
+  const { profile, primaryRole, user } = useAuth();
   const deptId = profile?.department_id;
   const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
@@ -60,6 +60,30 @@ function Panel() {
       return {
         complaints: complaintsRes.data ?? [],
         depts: deptsRes.data ?? [],
+      };
+    },
+  });
+
+  // Saha personeli için kendi denetim özeti (şikayet çözüm istatistikleri yerine)
+  const { data: sahaStats } = useQuery({
+    queryKey: ["saha-denetim-ozeti", user?.id],
+    enabled: isZabitaMemuru && !!user?.id,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from("workplace_inspections")
+        .select("penalty_points, followup_status, created_at, inspector_id");
+      const all = rows ?? [];
+      const mine = all.filter((r: any) => r.inspector_id === user?.id);
+      const now = new Date();
+      const thisMonth = mine.filter((r: any) => {
+        const d = new Date(r.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      return {
+        myTotal: mine.length,
+        myThisMonth: thisMonth.length,
+        pendingFollowup: all.filter((r: any) => r.followup_status === "pending").length,
+        myPenalized: mine.filter((r: any) => (r.penalty_points ?? 0) > 0).length,
       };
     },
   });
@@ -219,17 +243,28 @@ function Panel() {
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"} value={total} icon={MessageSquare} accent="primary" />
-        <KpiCard label={isMudurluk ? "Birim Açık" : "Açık Şikayet"} value={open} icon={Clock} accent="warn" />
-        <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
-        <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
-      </div>
+      {/* KPI Cards — saha personeli şikayet çözüm istatistikleri yerine kendi denetim özetini görür */}
+      {isZabitaMemuru ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Bu Ay Denetimim" value={sahaStats?.myThisMonth ?? "—"} icon={ClipboardCheck} accent="primary" />
+          <KpiCard label="Toplam Denetimim" value={sahaStats?.myTotal ?? "—"} icon={CheckCircle2} accent="accent" />
+          <KpiCard label="Bekleyen Re-Denetim" value={sahaStats?.pendingFollowup ?? "—"} icon={CalendarClock} accent="warn" />
+          <KpiCard label="Cezalı Denetimim" value={sahaStats?.myPenalized ?? "—"} icon={AlertTriangle} accent="destructive" />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"} value={total} icon={MessageSquare} accent="primary" />
+          <KpiCard label={isMudurluk ? "Birim Açık" : "Açık Şikayet"} value={open} icon={Clock} accent="warn" />
+          <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
+          <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
+        </div>
+      )}
 
       {/* Zabıta Re-Denetim Takip Paneli (Ana Panelde) */}
       <ZabitaFollowupDashboardWidget />
 
+      {/* Saha personeli analitik görmediği için sekmeler onlara gösterilmez */}
+      {!isZabitaMemuru && (
       <Tabs defaultValue="ozet" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="ozet">Genel Özet</TabsTrigger>
@@ -461,6 +496,7 @@ function Panel() {
           <AlanyaMap complaints={c} />
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }

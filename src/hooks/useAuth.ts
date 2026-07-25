@@ -14,7 +14,10 @@ export interface AuthProfile {
   departments?: { name: string } | null;
 }
 
-const SIMULATED_ROLE_KEY = "belediye_simulated_role";
+// Eski "rol simülasyonu" özelliğinden kalan iz (varsa) temizlenir.
+// Yetki testleri artık gerçek hesaplarla yapılır; istemci tarafı rol taklidi
+// veritabanı (RLS) tarafından tanınmadığı için yanıltıcı sonuç veriyordu.
+const LEGACY_SIMULATED_ROLE_KEY = "belediye_simulated_role";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,34 +25,11 @@ export function useAuth() {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [simulatedRole, setSimulatedRoleState] = useState<AppRole | null>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem(SIMULATED_ROLE_KEY) as AppRole) || null;
-    }
-    return null;
-  });
-
-  const setSimulatedRole = (role: AppRole | null) => {
-    setSimulatedRoleState(role);
-    if (typeof window !== "undefined") {
-      if (role) {
-        localStorage.setItem(SIMULATED_ROLE_KEY, role);
-      } else {
-        localStorage.removeItem(SIMULATED_ROLE_KEY);
-      }
-      window.dispatchEvent(new Event("role_permissions_updated"));
-    }
-  };
 
   useEffect(() => {
-    const handlePermUpdate = () => {
-      if (typeof window !== "undefined") {
-        const stored = (localStorage.getItem(SIMULATED_ROLE_KEY) as AppRole) || null;
-        setSimulatedRoleState(stored);
-      }
-    };
-    window.addEventListener("role_permissions_updated", handlePermUpdate);
-    return () => window.removeEventListener("role_permissions_updated", handlePermUpdate);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(LEGACY_SIMULATED_ROLE_KEY);
+    }
   }, []);
 
   useEffect(() => {
@@ -86,37 +66,40 @@ export function useAuth() {
     };
   }, []);
 
-  const hasRole = (role: AppRole) => (simulatedRole ? simulatedRole === role : roles.includes(role));
-  const hasAnyRole = (...rs: AppRole[]) => (simulatedRole ? rs.includes(simulatedRole) : rs.some((r) => roles.includes(r)));
+  const hasRole = (role: AppRole) => roles.includes(role);
+  const hasAnyRole = (...rs: AppRole[]) => rs.some((r) => roles.includes(r));
 
-  const realPrimaryRole: AppRole = roles.includes("admin")
+  // Yetki hiyerarşisi (en üstten aşağıya). Hem yeni hem eski rol adları tanınır.
+  const primaryRole: AppRole = roles.includes("superuser") || roles.includes("admin")
     ? "superuser"
     : roles.includes("baskan")
     ? "baskan"
+    : roles.includes("baskan_yardimcisi")
+    ? "baskan_yardimcisi"
     : roles.includes("cozum_masasi")
     ? "cozum_masasi"
+    : roles.includes("mudur")
+    ? "mudur"
     : roles.includes("mudurluk")
     ? "mudurluk"
-    : roles.includes("zabita")
+    : roles.includes("zabita_memuru") || roles.includes("zabita")
     ? "zabita_memuru"
     : "vatandas";
 
-  const activeRole: AppRole = simulatedRole || realPrimaryRole;
+  const isZabita =
+    primaryRole === "zabita_memuru" ||
+    (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false);
 
-  const isZabita = activeRole === "zabita_memuru" || activeRole === "zabita" || (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false);
-
-  return { 
-    session, 
-    user, 
-    roles, 
-    primaryRole: activeRole, 
-    realPrimaryRole,
-    profile, 
-    loading, 
-    hasRole, 
-    hasAnyRole, 
+  return {
+    session,
+    user,
+    roles,
+    primaryRole,
+    realPrimaryRole: primaryRole,
+    profile,
+    loading,
+    hasRole,
+    hasAnyRole,
     isZabita,
-    simulatedRole,
-    setSimulatedRole
   };
 }

@@ -54,16 +54,40 @@ function Page() {
       ]);
 
       const deptMap = new Map((departments ?? []).map(d => [d.id, d.name]));
-      const roleMap = new Map((userRoles ?? []).map(r => [r.user_id, r.role]));
+      
+      // A user can have multiple roles in user_roles. Map user_id to their list of roles.
+      const userRolesMap = new Map<string, string[]>();
+      (userRoles ?? []).forEach((r) => {
+        if (!userRolesMap.has(r.user_id)) {
+          userRolesMap.set(r.user_id, []);
+        }
+        userRolesMap.get(r.user_id)!.push(r.role);
+      });
+
       const profileMap = new Map((profiles ?? []).map(p => {
-        const uRole = roleMap.get(p.id) || "vatandas";
-        const roleLabel = uRole === "admin" || uRole === "superuser"
+        const rolesList = userRolesMap.get(p.id) || ["vatandas"];
+        
+        // Prioritize roles: superuser/admin > baskan > mudur > zabita/zabita_memuru > cozum_masasi > vatandas
+        let uRole = "vatandas";
+        if (rolesList.includes("admin") || rolesList.includes("superuser")) {
+          uRole = "superuser";
+        } else if (rolesList.includes("baskan")) {
+          uRole = "baskan";
+        } else if (rolesList.includes("mudur") || rolesList.includes("mudurluk")) {
+          uRole = "mudur";
+        } else if (rolesList.includes("zabita") || rolesList.includes("zabita_memuru")) {
+          uRole = "zabita_memuru";
+        } else if (rolesList.includes("cozum_masasi")) {
+          uRole = "cozum_masasi";
+        }
+
+        const roleLabel = uRole === "superuser"
           ? "Sistem Yöneticisi"
           : uRole === "baskan"
           ? "Belediye Başkanı"
-          : uRole === "mudur" || uRole === "mudurluk"
+          : uRole === "mudur"
           ? "Zabıta Müdürü"
-          : uRole === "zabita" || uRole === "zabita_memuru"
+          : uRole === "zabita_memuru"
           ? "Zabıta Memuru"
           : uRole === "cozum_masasi"
           ? "Çözüm Masası Yetkilisi"

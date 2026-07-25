@@ -11,7 +11,6 @@ import {
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MayorBotWidget } from "@/components/MayorBotWidget";
-import { RoleSimulatorWidget } from "@/components/RoleSimulatorWidget";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -126,9 +125,6 @@ function AuthedLayout() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Live Role Simulator Widget */}
-            <RoleSimulatorWidget />
-
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium">{profile?.full_name || profile?.email || "Kullanıcı"}</div>
               <div className="text-[11px] text-muted-foreground font-medium">
