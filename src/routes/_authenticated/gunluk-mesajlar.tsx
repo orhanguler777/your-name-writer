@@ -37,15 +37,22 @@ function Page() {
   const { data: messages } = useQuery({
     queryKey: ["mayor-messages"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("mayor_daily_messages")
-        .select(`
-          *,
-          sender:profiles(full_name, email),
-          targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))
-        `)
-        .order("created_at", { ascending: false });
-      return data ?? [];
+      const [{ data: msgs }, { data: profiles }] = await Promise.all([
+        supabase
+          .from("mayor_daily_messages")
+          .select("*, targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("id, full_name, email")
+      ]);
+
+      const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
+
+      return (msgs ?? []).map(m => ({
+        ...m,
+        sender: m.created_by ? profileMap.get(m.created_by) : null
+      }));
     },
   });
 
