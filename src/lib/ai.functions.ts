@@ -71,6 +71,7 @@ export const getBotSettings = createServerFn({ method: "GET" })
       slaLimitHours: 120,
       crisisLimitHours: 1,
       crisisLimitCount: 4,
+      zabitaInspectionThresholdDays: 30,
     };
     try {
       if (fs.existsSync(settingsPath)) {

@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedZabitaIsyerleriRouteImport } from './routes/_authenticated/zabita-isyerleri'
+import { Route as AuthenticatedZabitaHaritaRouteImport } from './routes/_authenticated/zabita-harita'
+import { Route as AuthenticatedZabitaDenetimRouteImport } from './routes/_authenticated/zabita-denetim'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVatandaslarRouteImport } from './routes/_authenticated/vatandaslar'
 import { Route as AuthenticatedSikayetOlusturRouteImport } from './routes/_authenticated/sikayet-olustur'
@@ -46,6 +49,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedZabitaIsyerleriRoute =
+  AuthenticatedZabitaIsyerleriRouteImport.update({
+    id: '/zabita-isyerleri',
+    path: '/zabita-isyerleri',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedZabitaHaritaRoute =
+  AuthenticatedZabitaHaritaRouteImport.update({
+    id: '/zabita-harita',
+    path: '/zabita-harita',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedZabitaDenetimRoute =
+  AuthenticatedZabitaDenetimRouteImport.update({
+    id: '/zabita-denetim',
+    path: '/zabita-denetim',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
   id: '/whatsapp',
   path: '/whatsapp',
@@ -170,6 +191,9 @@ export interface FileRoutesByFullPath {
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
+  '/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
+  '/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/anketler/': typeof AuthenticatedAnketlerIndexRoute
@@ -193,6 +217,9 @@ export interface FileRoutesByTo {
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
+  '/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
+  '/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/anketler': typeof AuthenticatedAnketlerIndexRoute
@@ -218,6 +245,9 @@ export interface FileRoutesById {
   '/_authenticated/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
   '/_authenticated/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/_authenticated/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
+  '/_authenticated/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
+  '/_authenticated/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
   '/_authenticated/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/_authenticated/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/_authenticated/anketler/': typeof AuthenticatedAnketlerIndexRoute
@@ -243,6 +273,9 @@ export interface FileRouteTypes {
     | '/sikayet-olustur'
     | '/vatandaslar'
     | '/whatsapp'
+    | '/zabita-denetim'
+    | '/zabita-harita'
+    | '/zabita-isyerleri'
     | '/anketler/$id'
     | '/sikayetler/$id'
     | '/anketler/'
@@ -266,6 +299,9 @@ export interface FileRouteTypes {
     | '/sikayet-olustur'
     | '/vatandaslar'
     | '/whatsapp'
+    | '/zabita-denetim'
+    | '/zabita-harita'
+    | '/zabita-isyerleri'
     | '/anketler/$id'
     | '/sikayetler/$id'
     | '/anketler'
@@ -290,6 +326,9 @@ export interface FileRouteTypes {
     | '/_authenticated/sikayet-olustur'
     | '/_authenticated/vatandaslar'
     | '/_authenticated/whatsapp'
+    | '/_authenticated/zabita-denetim'
+    | '/_authenticated/zabita-harita'
+    | '/_authenticated/zabita-isyerleri'
     | '/_authenticated/anketler/$id'
     | '/_authenticated/sikayetler/$id'
     | '/_authenticated/anketler/'
@@ -324,6 +363,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/zabita-isyerleri': {
+      id: '/_authenticated/zabita-isyerleri'
+      path: '/zabita-isyerleri'
+      fullPath: '/zabita-isyerleri'
+      preLoaderRoute: typeof AuthenticatedZabitaIsyerleriRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/zabita-harita': {
+      id: '/_authenticated/zabita-harita'
+      path: '/zabita-harita'
+      fullPath: '/zabita-harita'
+      preLoaderRoute: typeof AuthenticatedZabitaHaritaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/zabita-denetim': {
+      id: '/_authenticated/zabita-denetim'
+      path: '/zabita-denetim'
+      fullPath: '/zabita-denetim'
+      preLoaderRoute: typeof AuthenticatedZabitaDenetimRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/whatsapp': {
       id: '/_authenticated/whatsapp'
@@ -477,6 +537,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSikayetOlusturRoute: typeof AuthenticatedSikayetOlusturRoute
   AuthenticatedVatandaslarRoute: typeof AuthenticatedVatandaslarRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+  AuthenticatedZabitaDenetimRoute: typeof AuthenticatedZabitaDenetimRoute
+  AuthenticatedZabitaHaritaRoute: typeof AuthenticatedZabitaHaritaRoute
+  AuthenticatedZabitaIsyerleriRoute: typeof AuthenticatedZabitaIsyerleriRoute
   AuthenticatedAnketlerIdRoute: typeof AuthenticatedAnketlerIdRoute
   AuthenticatedSikayetlerIdRoute: typeof AuthenticatedSikayetlerIdRoute
   AuthenticatedAnketlerIndexRoute: typeof AuthenticatedAnketlerIndexRoute
@@ -499,6 +562,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSikayetOlusturRoute: AuthenticatedSikayetOlusturRoute,
   AuthenticatedVatandaslarRoute: AuthenticatedVatandaslarRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+  AuthenticatedZabitaDenetimRoute: AuthenticatedZabitaDenetimRoute,
+  AuthenticatedZabitaHaritaRoute: AuthenticatedZabitaHaritaRoute,
+  AuthenticatedZabitaIsyerleriRoute: AuthenticatedZabitaIsyerleriRoute,
   AuthenticatedAnketlerIdRoute: AuthenticatedAnketlerIdRoute,
   AuthenticatedSikayetlerIdRoute: AuthenticatedSikayetlerIdRoute,
   AuthenticatedAnketlerIndexRoute: AuthenticatedAnketlerIndexRoute,

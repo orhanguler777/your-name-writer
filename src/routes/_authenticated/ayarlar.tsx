@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/ayarlar")({
 });
 
 function Page() {
-  const { profile, primaryRole, roles, user } = useAuth();
+  const { profile, primaryRole, roles, user, isZabita } = useAuth();
   const [full_name, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [dept, setDept] = useState<string>("");
@@ -35,6 +35,7 @@ function Page() {
   const [slaLimitHours, setSlaLimitHours] = useState(120);
   const [crisisLimitHours, setCrisisLimitHours] = useState(1);
   const [crisisLimitCount, setCrisisLimitCount] = useState(4);
+  const [zabitaInspectionThresholdDays, setZabitaInspectionThresholdDays] = useState(30);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const { data: botSettings, refetch: refetchSettings } = useQuery({
@@ -49,6 +50,7 @@ function Page() {
       setSlaLimitHours(botSettings.slaLimitHours ?? 120);
       setCrisisLimitHours(botSettings.crisisLimitHours ?? 1);
       setCrisisLimitCount(botSettings.crisisLimitCount ?? 4);
+      setZabitaInspectionThresholdDays(botSettings.zabitaInspectionThresholdDays ?? 30);
     }
   }, [botSettings]);
 
@@ -107,6 +109,7 @@ function Page() {
           slaLimitHours: Number(slaLimitHours),
           crisisLimitHours: Number(crisisLimitHours),
           crisisLimitCount: Number(crisisLimitCount),
+          zabitaInspectionThresholdDays: Number(zabitaInspectionThresholdDays),
         }
       });
       if (res.success) {
@@ -206,6 +209,34 @@ function Page() {
                   className="w-full bg-red-600 hover:bg-red-700 text-white mt-2"
                 >
                   {isSavingSettings ? "Kaydediliyor..." : "Limitleri Kaydet"}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {(isZabita || isBaskanOrAdmin) && (
+            <Card className="p-5 space-y-4">
+              <h3 className="font-display font-semibold mb-2 text-primary">Zabıta Ayarları</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold">Mükerrer Denetim Uyarı Süresi (Gün)</Label>
+                  <Input 
+                    type="number" 
+                    value={zabitaInspectionThresholdDays} 
+                    onChange={(e) => setZabitaInspectionThresholdDays(Number(e.target.value))} 
+                    className="mt-1"
+                    min={1}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    İşyeri denetimlerinde, aynı işyerinin en son kaç gün içinde denetlenmiş olması durumunda uyarı verileceğini belirler. (Örn: 15, 30, 90)
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleSaveThresholds} 
+                  disabled={isSavingSettings}
+                  className="w-full mt-2"
+                >
+                  {isSavingSettings ? "Kaydediliyor..." : "Ayarları Kaydet"}
                 </Button>
               </div>
             </Card>

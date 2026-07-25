@@ -62,6 +62,7 @@ function Detail() {
   });
 
   const [response, setResponse] = useState("");
+  const [responseAction, setResponseAction] = useState<"bilgi" | "soru" | "red">("bilgi");
   const [newDept, setNewDept] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [newPriority, setNewPriority] = useState("");
@@ -125,23 +126,50 @@ function Detail() {
   const sendResponse = async () => {
     if (!response.trim()) return;
 
-    const { error: statusError } = await supabase
-      .from("complaints")
-      .update({ status: "vatandas_yaniti_bekleniyor" })
-      .eq("id", id);
-    if (statusError) return toast.error(statusError.message);
+    let responseType = "manuel";
+    let targetStatus: string | null = null;
+
+    if (responseAction === "soru") {
+      responseType = "soru";
+      targetStatus = "vatandas_yaniti_bekleniyor";
+    } else if (responseAction === "red") {
+      responseType = "manuel";
+      targetStatus = "reddedildi";
+    }
+
+    if (targetStatus) {
+      const { error: statusError } = await supabase
+        .from("complaints")
+        .update({ status: targetStatus, resolved_at: null })
+        .eq("id", id);
+      if (statusError) return toast.error(statusError.message);
+    }
 
     const { error } = await supabase.from("complaint_responses").insert({
-      complaint_id: id, response_text: response, responder_id: user?.id, response_type: "soru",
+      complaint_id: id,
+      response_text: response,
+      responder_id: user?.id,
+      response_type: responseType,
     });
     if (error) return toast.error(error.message);
-    toast.success("Soru gönderildi, vatandaş yanıtı bekleniyor");
+
+    toast.success(
+      responseAction === "soru"
+        ? "Soru gönderildi, vatandaş yanıtı bekleniyor"
+        : responseAction === "red"
+        ? "Şikayet reddedildi ve vatandaşa bildirildi"
+        : "Vatandaşa bilgi mesajı iletildi"
+    );
 
     fetch("http://localhost:3001/webhook/response", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ complaintId: id, responseText: response, isQuestion: true }),
-    }).catch(err => console.error("Webhook hatası:", err));
+      body: JSON.stringify({
+        complaintId: id,
+        responseText: response,
+        isQuestion: responseAction === "soru",
+      }),
+    }).catch((err) => console.error("Webhook hatası:", err));
 
     setResponse("");
     qc.invalidateQueries({ queryKey: ["responses", id] });
@@ -289,9 +317,56 @@ function Detail() {
               {(!responses || responses.length === 0) && <p className="text-sm text-muted-foreground">Henüz cevap yok.</p>}
             </div>
             {canManage && (
-              <div className="mt-4 space-y-2">
-                <Textarea value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Vatandaşa soru veya bilgi yazın..." />
-                <Button size="sm" onClick={sendResponse}><Send className="h-4 w-4 mr-1" /> Vatandaşa Gönder</Button>
+              <div className="mt-4 space-y-3 pt-2 border-t">
+                <Textarea
+                  value={response}
+                  onChange={(e) => setResponse(e.target.value)}
+                  placeholder="Vatandaşa iletilecek mesajı yazın..."
+                  rows={3}
+                />
+                
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-muted/40 p-3 rounded-lg border">
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="font-semibold text-muted-foreground">İşlem / Yanıt Türü:</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                      <input
+                        type="radio"
+                        name="responseAction"
+                        value="bilgi"
+                        checked={responseAction === "bilgi"}
+                        onChange={() => setResponseAction("bilgi")}
+                        className="h-3.5 w-3.5 text-primary"
+                      />
+                      <span>Cevap / Bilgi İlet</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                      <input
+                        type="radio"
+                        name="responseAction"
+                        value="soru"
+                        checked={responseAction === "soru"}
+                        onChange={() => setResponseAction("soru")}
+                        className="h-3.5 w-3.5 text-primary"
+                      />
+                      <span>Soru Sor (Vatandaş Yanıtı Bekle)</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                      <input
+                        type="radio"
+                        name="responseAction"
+                        value="red"
+                        checked={responseAction === "red"}
+                        onChange={() => setResponseAction("red")}
+                        className="h-3.5 w-3.5 text-primary"
+                      />
+                      <span>Sorumluluk Dışı / Reddet</span>
+                    </label>
+                  </div>
+
+                  <Button size="sm" onClick={sendResponse} disabled={!response.trim()} className="shrink-0">
+                    <Send className="h-4 w-4 mr-1" /> Vatandaşa Gönder
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
