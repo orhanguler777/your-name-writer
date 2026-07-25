@@ -172,41 +172,59 @@ function Page() {
       />
 
       <div className="space-y-4">
-        {!messages || messages.length === 0 ? (
-          <EmptyState title="Henüz mesaj veya talimat yok" description="Yöneticiniz veya amiriniz yeni bir talimat gönderdiğinde burada listelenecektir." icon={MessageSquare} />
-        ) : messages.map((m: any) => {
-          const myTarget = profile?.department_id ? m.targets.find((t: any) => t.department_id === profile.department_id) : null;
-          const readCount = m.targets.filter((t: any) => t.is_read).length;
-          const senderName = m.sender?.full_name || m.sender?.email || "Yönetim/Sistem";
-          return (
-            <Card key={m.id} className="p-5">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display font-semibold text-base">{m.title}</h3>
-                    <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "🚨 Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
+        {(() => {
+          // Managers & Executives can see all messages.
+          // Field workers (like zabita_memuru) should only see messages that target their department.
+          const filteredMessages = messages?.filter((m: any) => {
+            if (isExecutive || isManager) return true;
+            if (!profile?.department_id) return false;
+            return m.targets.some((t: any) => t.department_id === profile.department_id);
+          }) || [];
+
+          if (filteredMessages.length === 0) {
+            return (
+              <EmptyState
+                title="Henüz mesaj veya talimat yok"
+                description="Yöneticiniz veya amiriniz yeni bir talimat gönderdiğinde burada listelenecektir."
+                icon={MessageSquare}
+              />
+            );
+          }
+
+          return filteredMessages.map((m: any) => {
+            const myTarget = profile?.department_id ? m.targets.find((t: any) => t.department_id === profile.department_id) : null;
+            const readCount = m.targets.filter((t: any) => t.is_read).length;
+            const senderName = m.sender?.full_name || m.sender?.email || "Yönetim/Sistem";
+            return (
+              <Card key={m.id} className="p-5">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display font-semibold text-base">{m.title}</h3>
+                      <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "🚨 Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-primary/80">Gönderen: {senderName}</span>
+                      <span className="text-muted-foreground/60">•</span>
+                      <span>{new Date(m.created_at).toLocaleString("tr-TR")}</span>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-primary/80">Gönderen: {senderName}</span>
-                    <span className="text-muted-foreground/60">•</span>
-                    <span>{new Date(m.created_at).toLocaleString("tr-TR")}</span>
-                  </div>
+                  {myTarget && !myTarget.is_read && (
+                    <Button size="sm" variant="outline" onClick={() => markRead(myTarget.id)}><Check className="h-3 w-3 mr-1" /> Görevi Al / Okundu</Button>
+                  )}
+                  {myTarget?.is_read && <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 font-semibold">✓ Görev Alındı</Badge>}
                 </div>
-                {myTarget && !myTarget.is_read && (
-                  <Button size="sm" variant="outline" onClick={() => markRead(myTarget.id)}><Check className="h-3 w-3 mr-1" /> Görevi Al / Okundu</Button>
+                <p className="text-sm whitespace-pre-wrap text-foreground/90 my-3">{m.body}</p>
+                {canCreate && (
+                  <div className="mt-3 text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <span>Okunma Durumu:</span>
+                    <span className="font-bold text-foreground">{readCount}/{m.targets.length} Birim / Personel</span>
+                  </div>
                 )}
-                {myTarget?.is_read && <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 font-semibold">✓ Görev Alındı</Badge>}
-              </div>
-              <p className="text-sm whitespace-pre-wrap text-foreground/90 my-3">{m.body}</p>
-              {canCreate && (
-                <div className="mt-3 text-xs text-muted-foreground font-medium flex items-center gap-2">
-                  <span>Okunma Durumu:</span>
-                  <span className="font-bold text-foreground">{readCount}/{m.targets.length} Birim / Personel</span>
-                </div>
-              )}
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          });
+        })()}
       </div>
     </div>
   );
