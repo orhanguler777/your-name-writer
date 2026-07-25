@@ -71,6 +71,17 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
+function ResizeMapOnFullscreen({ isFullscreen }: { isFullscreen: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, map]);
+  return null;
+}
+
 export function ZabitaHaritaClientComponent({
   filtered,
   selectedInspection,
@@ -82,6 +93,16 @@ export function ZabitaHaritaClientComponent({
 }) {
   const [activeProvider, setActiveProvider] = useState<keyof typeof MAP_PROVIDERS>("satellite");
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
 
   const getCoords = (item: any, index: number) => {
     if (item.latitude && item.longitude) {
@@ -101,10 +122,10 @@ export function ZabitaHaritaClientComponent({
   const provider = MAP_PROVIDERS[activeProvider];
 
   return (
-    <Card className={`flex flex-col overflow-hidden border-sidebar-border bg-slate-950 text-white shadow-2xl relative transition-all duration-300 ${
+    <Card className={`flex flex-col overflow-hidden border-sidebar-border bg-slate-950 text-white shadow-2xl transition-all duration-300 ${
       isFullscreen
-        ? "fixed inset-4 z-[9999] lg:col-span-3 h-[calc(100vh-32px)]"
-        : "lg:col-span-2 h-[650px]"
+        ? "fixed inset-2 z-[9999] h-[calc(100vh-16px)] w-[calc(100vw-16px)]"
+        : "lg:col-span-2 h-[650px] relative"
     }`}>
       {/* Harita Başlığı ve Katman Seçici Butonlar */}
       <CardHeader className="pb-3 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 bg-slate-950/90 backdrop-blur-md">
@@ -116,7 +137,7 @@ export function ZabitaHaritaClientComponent({
           <p className="text-xs text-slate-400 mt-0.5">Canlı uydu görüntüsü ve işyeri denetim noktaları</p>
         </div>
 
-        {/* Katman Değiştirici Buton Grubu ve Tam Ekran Düğmesi */}
+        {/* Katman Değiştirici Buton Grubu ve Tam Ekran / Kapat Düğmesi */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 shrink-0">
             <Layers className="w-3.5 h-3.5 text-slate-400 ml-1 mr-0.5" />
@@ -139,10 +160,21 @@ export function ZabitaHaritaClientComponent({
           <button
             type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors"
-            title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran Yap"}
+            className={`p-2 rounded-lg transition-all font-bold flex items-center gap-1 text-xs border ${
+              isFullscreen
+                ? "bg-red-600 hover:bg-red-700 text-white border-red-500 shadow-lg"
+                : "bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800"
+            }`}
+            title={isFullscreen ? "Haritayı Küçült / Kapat (ESC)" : "Tam Ekran Yap"}
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-4 h-4" />
+                <span>Kapat (ESC)</span>
+              </>
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
           </button>
         </div>
       </CardHeader>
@@ -155,6 +187,7 @@ export function ZabitaHaritaClientComponent({
           attributionControl={false}
           className="w-full h-full z-0 bg-slate-900"
         >
+          <ResizeMapOnFullscreen isFullscreen={isFullscreen} />
           <TileLayer
             key={activeProvider}
             attribution={provider.attribution}

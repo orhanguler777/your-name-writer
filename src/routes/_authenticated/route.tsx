@@ -2,15 +2,16 @@ import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS } from "@/lib/turkish";
-import type { AppRole } from "@/hooks/useAuth";
+import { isMenuItemAllowedForRole, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive,
+  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive, Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MayorBotWidget } from "@/components/MayorBotWidget";
+import { RoleSimulatorWidget } from "@/components/RoleSimulatorWidget";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -22,37 +23,41 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-interface MenuItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles?: AppRole[]; zabitaOnly?: boolean; }
-const MENU: MenuItem[] = [
-  { to: "/panel", label: "Ana Panel", icon: LayoutDashboard },
-  { to: "/sikayetler", label: "Şikayetler", icon: MessageSquare },
-  { to: "/bilgi-talepleri", label: "Bilgi Talepleri", icon: HelpCircle },
-  { to: "/cozum-masasi", label: "Çözüm Masası", icon: HeadphonesIcon, roles: ["cozum_masasi", "admin", "baskan"] },
-  { to: "/zabita-denetim", label: "İşyeri Denetimi", icon: ClipboardCheck, zabitaOnly: true },
-  { to: "/zabita-isyerleri", label: "İşyeri Listesi", icon: Building2, zabitaOnly: true },
-  { to: "/zabita-harita", label: "Saha Haritası", icon: MapPin, zabitaOnly: true },
-  { to: "/tutanak-arsivi", label: "Tutanak Arşivi", icon: Archive, zabitaOnly: true },
-  { to: "/memnuniyet", label: "Memnuniyet Analizi", icon: Smile, roles: ["baskan", "admin", "cozum_masasi"] },
-  { to: "/baskan-ai-bot", label: "Başkan AI Bot", icon: Bot, roles: ["baskan", "admin"] },
-  { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },
-  { to: "/arac-bakim", label: "Araç Bakım", icon: Truck, roles: ["baskan", "admin", "mudurluk"] },
-  { to: "/personel-analizi", label: "Personel Analizi", icon: UserCheck, roles: ["baskan", "admin", "mudurluk"] },
-  { to: "/duyurular", label: "Duyurular & Reklamlar", icon: Megaphone },
-  { to: "/anketler", label: "Anketler", icon: PieChart },
-  { to: "/vatandaslar", label: "Vatandaşlar & Segmentasyon", icon: Users },
-  { to: "/ayarlar", label: "Ayarlar", icon: Settings },
-];
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  MessageSquare,
+  HelpCircle,
+  HeadphonesIcon,
+  ClipboardCheck,
+  Building2,
+  MapPin,
+  Archive,
+  Smile,
+  Bot,
+  Send,
+  Truck,
+  UserCheck,
+  Megaphone,
+  PieChart,
+  Users,
+  Settings,
+};
 
 function AuthedLayout() {
-  const { profile, roles, loading, isZabita, primaryRole } = useAuth();
+  const { profile, loading, primaryRole, realPrimaryRole } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [permVersion, setPermVersion] = useState(0);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const visibleMenu = MENU.filter((m) => {
-    // Zabıta modülleri yalnızca zabıtaya görünür (admin dahil diğer roller göremez).
-    if (m.zabitaOnly) return isZabita;
-    return !m.roles || m.roles.some((r) => roles.includes(r)) || roles.includes("admin");
+  useEffect(() => {
+    const handleUpdate = () => setPermVersion((v) => v + 1);
+    window.addEventListener("role_permissions_updated", handleUpdate);
+    return () => window.removeEventListener("role_permissions_updated", handleUpdate);
+  }, []);
+
+  const visibleMenu = MENU_ITEMS_CONFIG.filter((item) => {
+    return isMenuItemAllowedForRole(primaryRole, item.id);
   });
 
   const handleLogout = async () => {
@@ -86,7 +91,7 @@ function AuthedLayout() {
         <nav className="flex flex-col gap-0.5 overflow-y-auto p-3">
           {visibleMenu.map((item) => {
             const active = pathname === item.to || (item.to !== "/panel" && pathname.startsWith(item.to));
-            const Icon = item.icon;
+            const Icon = ICON_MAP[item.iconName] || LayoutDashboard;
             return (
               <Link
                 key={item.to}
@@ -120,13 +125,18 @@ function AuthedLayout() {
               <span className="font-display font-semibold">Yapay Zeka Destekli Yönetim Paneli</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Role Simulator Widget */}
+            <RoleSimulatorWidget />
+
             <div className="hidden text-right sm:block">
-              <div className="text-sm font-medium">{profile?.full_name || profile?.email}</div>
-              <div className="text-[11px] text-muted-foreground">{primaryRole === "baskan" ? "Başkanlık Makamı" : ROLE_LABELS[primaryRole]}</div>
+              <div className="text-sm font-medium">{profile?.full_name || profile?.email || "Kullanıcı"}</div>
+              <div className="text-[11px] text-muted-foreground font-medium">
+                {ROLE_LABELS[primaryRole] || primaryRole}
+              </div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-              {(profile?.full_name || profile?.email || "?").charAt(0).toUpperCase()}
+              {(profile?.full_name || profile?.email || "U").charAt(0).toUpperCase()}
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} title="Çıkış Yap">
               <LogOut className="h-4 w-4" />
@@ -138,8 +148,8 @@ function AuthedLayout() {
         </main>
       </div>
       
-      {/* Global Floating Bot for Mayor/Admin */}
-      {(primaryRole === "baskan" || primaryRole === "admin") && <MayorBotWidget />}
+      {/* Global Floating Bot driven by Dynamic SuperUser RBAC Matrix */}
+      {isMenuItemAllowedForRole(primaryRole, "baskan-ai-bot") && <MayorBotWidget />}
     </div>
   );
 }

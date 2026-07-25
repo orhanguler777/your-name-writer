@@ -68,22 +68,29 @@ function Page() {
     toast.success("Okundu olarak işaretlendi");
   };
 
-  const canCreate = primaryRole === "baskan" || primaryRole === "admin";
+  // Can create message: SuperUser, Baskan, Baskan Yardımcısı, Admin or Department Managers (Müdür)
+  const isManager = primaryRole === "mudur" || primaryRole === "mudurluk";
+  const isExecutive = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
+  const canCreate = isExecutive || isManager;
 
   return (
     <div>
       <PageHeader
-        title="Başkan Günlük Mesajları"
-        description="Başkanın müdürlüklere gönderdiği toplu duyurular ve talimatlar."
+        title={isExecutive ? "Başkanlık & Yönetim Günlük Mesajları" : "Birim İçi Görev Talimatları & Mesajlar"}
+        description={
+          isExecutive
+            ? "Müdürlüklere ve tüm ekiplere gönderilen toplu duyurular, genelgeler ve talimatlar."
+            : "Birim amirlerinin saha personeline ve ekiplerine ilettiği anlık görev talimatları."
+        }
         actions={
           canCreate && (
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> Yeni Mesaj</Button></DialogTrigger>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> {isExecutive ? "Yeni Genelge / Mesaj" : "Saha Görev Talimatı Ver"}</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Yeni Günlük Mesaj</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{isExecutive ? "Yeni Başkanlık / Yönetim Mesajı" : "Birim İçi Görev Talimatı Oluştur"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
-                  <div><Label>Başlık</Label><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
-                  <div><Label>İçerik</Label><Textarea rows={4} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} /></div>
+                  <div><Label>Talimat / Mesaj Başlığı</Label><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Örn: Hafta Sonu Sahil Denetimi" /></div>
+                  <div><Label>Detaylı Açıklama & Talimatlar</Label><Textarea rows={4} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Saha personelinin yapması gereken işlemler..." /></div>
                   <div className="grid grid-cols-2 gap-3">
                     <div><Label>Öncelik</Label>
                       <Select value={f.priority} onValueChange={(v) => setF({ ...f, priority: v })}>
@@ -91,21 +98,32 @@ function Page() {
                         <SelectContent>
                           <SelectItem value="normal">Normal</SelectItem>
                           <SelectItem value="onemli">Önemli</SelectItem>
-                          <SelectItem value="acil">Acil</SelectItem>
+                          <SelectItem value="acil">🚨 Acil Görev</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div><Label>Hedef</Label>
+                    <div><Label>Hedef Birim / Ekip</Label>
                       <Select value={f.target} onValueChange={(v) => setF({ ...f, target: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Tüm Müdürlükler</SelectItem>
-                          {departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          {isExecutive ? (
+                            <>
+                              <SelectItem value="all">Tüm Müdürlükler & Ekipler</SelectItem>
+                              {departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="all">Tüm Birim Personelleri (Saha Ekipleri)</SelectItem>
+                              {profile?.department_id && departments?.filter((d) => d.id === profile.department_id).map((d) => (
+                                <SelectItem key={d.id} value={d.id}>{d.name} (Kendi Birimim)</SelectItem>
+                              ))}
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-                  <Button onClick={create} className="w-full"><Send className="h-4 w-4 mr-1" /> Gönder</Button>
+                  <Button onClick={create} className="w-full"><Send className="h-4 w-4 mr-1" /> Talimatı Gönder</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -115,7 +133,7 @@ function Page() {
 
       <div className="space-y-4">
         {!messages || messages.length === 0 ? (
-          <EmptyState title="Henüz mesaj yok" description="Başkan yeni bir mesaj gönderdiğinde burada listelenecektir." icon={MessageSquare} />
+          <EmptyState title="Henüz mesaj veya talimat yok" description="Yöneticiniz veya amiriniz yeni bir talimat gönderdiğinde burada listelenecektir." icon={MessageSquare} />
         ) : messages.map((m: any) => {
           const myTarget = profile?.department_id ? m.targets.find((t: any) => t.department_id === profile.department_id) : null;
           const readCount = m.targets.filter((t: any) => t.is_read).length;
@@ -124,20 +142,21 @@ function Page() {
               <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-display font-semibold">{m.title}</h3>
-                    <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
+                    <h3 className="font-display font-semibold text-base">{m.title}</h3>
+                    <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "🚨 Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString("tr-TR")}</div>
                 </div>
                 {myTarget && !myTarget.is_read && (
-                  <Button size="sm" variant="outline" onClick={() => markRead(myTarget.id)}><Check className="h-3 w-3 mr-1" /> Okundu</Button>
+                  <Button size="sm" variant="outline" onClick={() => markRead(myTarget.id)}><Check className="h-3 w-3 mr-1" /> Görevi Al / Okundu</Button>
                 )}
-                {myTarget?.is_read && <Badge variant="secondary">Okundu</Badge>}
+                {myTarget?.is_read && <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 font-semibold">✓ Görev Alındı</Badge>}
               </div>
-              <p className="text-sm whitespace-pre-wrap">{m.body}</p>
+              <p className="text-sm whitespace-pre-wrap text-foreground/90">{m.body}</p>
               {canCreate && (
-                <div className="mt-3 text-xs text-muted-foreground">
-                  {readCount}/{m.targets.length} müdürlük okudu
+                <div className="mt-3 text-xs text-muted-foreground font-medium flex items-center gap-2">
+                  <span>Okunma Durumu:</span>
+                  <span className="font-bold text-foreground">{readCount}/{m.targets.length} Birim / Personel</span>
                 </div>
               )}
             </Card>

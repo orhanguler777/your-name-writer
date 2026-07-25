@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { AppRole } from "@/lib/menuPermissions";
 
-export type AppRole = "vatandas" | "cozum_masasi" | "mudurluk" | "baskan" | "admin" | "zabita";
+export type { AppRole };
 
 export interface AuthProfile {
   id: string;
@@ -13,12 +14,43 @@ export interface AuthProfile {
   departments?: { name: string } | null;
 }
 
+const SIMULATED_ROLE_KEY = "belediye_simulated_role";
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [simulatedRole, setSimulatedRoleState] = useState<AppRole | null>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem(SIMULATED_ROLE_KEY) as AppRole) || null;
+    }
+    return null;
+  });
+
+  const setSimulatedRole = (role: AppRole | null) => {
+    setSimulatedRoleState(role);
+    if (typeof window !== "undefined") {
+      if (role) {
+        localStorage.setItem(SIMULATED_ROLE_KEY, role);
+      } else {
+        localStorage.removeItem(SIMULATED_ROLE_KEY);
+      }
+      window.dispatchEvent(new Event("role_permissions_updated"));
+    }
+  };
+
+  useEffect(() => {
+    const handlePermUpdate = () => {
+      if (typeof window !== "undefined") {
+        const stored = (localStorage.getItem(SIMULATED_ROLE_KEY) as AppRole) || null;
+        setSimulatedRoleState(stored);
+      }
+    };
+    window.addEventListener("role_permissions_updated", handlePermUpdate);
+    return () => window.removeEventListener("role_permissions_updated", handlePermUpdate);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -45,7 +77,6 @@ export function useAuth() {
 
     supabase.auth.getSession().then(({ data }) => load(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      // Use setTimeout to avoid deadlocks per Supabase guidance
       setTimeout(() => load(s), 0);
     });
 
@@ -55,10 +86,11 @@ export function useAuth() {
     };
   }, []);
 
-  const hasRole = (role: AppRole) => roles.includes(role);
-  const hasAnyRole = (...rs: AppRole[]) => rs.some((r) => roles.includes(r));
-  const primaryRole: AppRole = roles.includes("admin")
-    ? "admin"
+  const hasRole = (role: AppRole) => (simulatedRole ? simulatedRole === role : roles.includes(role));
+  const hasAnyRole = (...rs: AppRole[]) => (simulatedRole ? rs.includes(simulatedRole) : rs.some((r) => roles.includes(r)));
+
+  const realPrimaryRole: AppRole = roles.includes("admin")
+    ? "superuser"
     : roles.includes("baskan")
     ? "baskan"
     : roles.includes("cozum_masasi")
@@ -66,10 +98,25 @@ export function useAuth() {
     : roles.includes("mudurluk")
     ? "mudurluk"
     : roles.includes("zabita")
-    ? "zabita"
+    ? "zabita_memuru"
     : "vatandas";
 
-  const isZabita = roles.includes("zabita") || (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false);
+  const activeRole: AppRole = simulatedRole || realPrimaryRole;
 
-  return { session, user, roles, primaryRole, profile, loading, hasRole, hasAnyRole, isZabita };
+  const isZabita = activeRole === "zabita_memuru" || activeRole === "zabita" || (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false);
+
+  return { 
+    session, 
+    user, 
+    roles, 
+    primaryRole: activeRole, 
+    realPrimaryRole,
+    profile, 
+    loading, 
+    hasRole, 
+    hasAnyRole, 
+    isZabita,
+    simulatedRole,
+    setSimulatedRole
+  };
 }

@@ -29,10 +29,13 @@ export const Route = createFileRoute("/_authenticated/panel")({
 const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
 
 function Panel() {
-  const { profile, primaryRole, isZabita } = useAuth();
+  const { profile, primaryRole } = useAuth();
   const deptId = profile?.department_id;
-  const isMudurluk = primaryRole === "mudurluk";
-  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
+  const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur";
+  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
+  const isZabitaMemuru = primaryRole === "zabita_memuru";
+  const isZabitaMudur = primaryRole === "mudur" || (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));
+  const canSeeAnalytics = isBaskanOrAdmin || isMudurluk || isZabitaMudur;
 
   const getSettings = useServerFn(getBotSettings);
   const { data: botSettings } = useQuery({
@@ -169,12 +172,18 @@ function Panel() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={isBaskanOrAdmin ? `Hoş geldiniz, Başkanım` : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`}
-        description={`${isBaskanOrAdmin ? "Başkanlık Paneli" : `Rolünüz: ${ROLE_LABELS[primaryRole]}`} — ${isMudurluk && deptName ? deptName + " — " : ""}Belediye AI Modülü`}
+        title={
+          isBaskanOrAdmin
+            ? `Hoş geldiniz, ${primaryRole === "baskan" ? "Başkanım" : profile?.full_name || "Yönetici"}`
+            : isZabitaMemuru
+            ? `Saha Operasyon Paneli — ${profile?.full_name || "Zabıta Memuru"}`
+            : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`
+        }
+        description={`Rolünüz: ${ROLE_LABELS[primaryRole] ?? primaryRole} — ${deptName ? deptName + " — " : ""}Belediye AI Modülü`}
       />
 
       {/* Alerts */}
-      {(isBaskanOrAdmin || isMudurluk) && (activeCrises.length > 0 || escalatedComplaints.length > 0) && (
+      {canSeeAnalytics && (activeCrises.length > 0 || escalatedComplaints.length > 0) && (
         <div className="space-y-3">
           {activeCrises.map((crisis, i) => (
             <div key={`crisis-${i}`} className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5">
@@ -230,7 +239,7 @@ function Panel() {
         {/* ── TAB 1: GENEL ÖZET ── */}
         <TabsContent value="ozet" className="space-y-6">
           {/* ── ANALİZ VE GRAFİKLER BÖLÜMÜ ── */}
-          {(isBaskanOrAdmin || isMudurluk) && (
+          {canSeeAnalytics && (
             <div className="space-y-6">
               {/* AI Insight Card */}
               {total > 0 && (
@@ -445,8 +454,8 @@ function Panel() {
         </div>
       )}
 
-          {/* Zabıta Ruhsat Denetim İstatistikleri (Genel Özet altında) */}
-          {isZabita && <ZabitaInspectionAnalytics />}
+          {/* Zabıta Ruhsat Denetim İstatistikleri (Genel Özet altında - Sadece Müdür/Yönetici) */}
+          {canSeeAnalytics && <ZabitaInspectionAnalytics />}
         </TabsContent>
         <TabsContent value="harita" className="space-y-6">
           <AlanyaMap complaints={c} />
