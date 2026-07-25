@@ -37,17 +37,40 @@ function Page() {
   const { data: messages } = useQuery({
     queryKey: ["mayor-messages"],
     queryFn: async () => {
-      const [{ data: msgs }, { data: profiles }] = await Promise.all([
+      const [{ data: msgs }, { data: profiles }, { data: userRoles }, { data: departments }] = await Promise.all([
         supabase
           .from("mayor_daily_messages")
           .select("*, targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))")
           .order("created_at", { ascending: false }),
         supabase
           .from("profiles")
-          .select("id, full_name, email")
+          .select("id, full_name, email"),
+        supabase
+          .from("user_roles")
+          .select("user_id, role"),
+        supabase
+          .from("departments")
+          .select("id, name")
       ]);
 
-      const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
+      const deptMap = new Map((departments ?? []).map(d => [d.id, d.name]));
+      const roleMap = new Map((userRoles ?? []).map(r => [r.user_id, r.role]));
+      const profileMap = new Map((profiles ?? []).map(p => {
+        const uRole = roleMap.get(p.id) || "vatandas";
+        const roleLabel = uRole === "admin" || uRole === "superuser"
+          ? "Sistem Yöneticisi"
+          : uRole === "baskan"
+          ? "Belediye Başkanı"
+          : uRole === "mudur" || uRole === "mudurluk"
+          ? "Zabıta Müdürü"
+          : uRole === "zabita" || uRole === "zabita_memuru"
+          ? "Zabıta Memuru"
+          : uRole === "cozum_masasi"
+          ? "Çözüm Masası Yetkilisi"
+          : "Vatandaş";
+
+        return [p.id, { ...p, roleLabel }];
+      }));
 
       return (msgs ?? []).map(m => ({
         ...m,
@@ -201,7 +224,9 @@ function Page() {
           return filteredMessages.map((m: any) => {
             const myTarget = profile?.department_id ? m.targets.find((t: any) => t.department_id === profile.department_id) : null;
             const readCount = m.targets.filter((t: any) => t.is_read).length;
-            const senderName = m.sender?.full_name || m.sender?.email || "Yönetim/Sistem";
+            const displayName = m.sender?.full_name || m.sender?.email || "Yönetim/Sistem";
+            const roleSuffix = m.sender?.roleLabel ? ` (${m.sender.roleLabel})` : "";
+            const senderNameWithRole = `${displayName}${roleSuffix}`;
             return (
               <Card key={m.id} className="p-5">
                 <div className="mb-2 flex items-start justify-between gap-3">
@@ -211,7 +236,7 @@ function Page() {
                       <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "🚨 Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-primary/80">Gönderen: {senderName}</span>
+                      <span className="font-semibold text-primary/80">Gönderen: {senderNameWithRole}</span>
                       <span className="text-muted-foreground/60">•</span>
                       <span>{new Date(m.created_at).toLocaleString("tr-TR")}</span>
                     </div>
