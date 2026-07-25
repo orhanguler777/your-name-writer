@@ -17,6 +17,7 @@ import { Route as AuthenticatedZabitaHaritaRouteImport } from './routes/_authent
 import { Route as AuthenticatedZabitaDenetimRouteImport } from './routes/_authenticated/zabita-denetim'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVatandaslarRouteImport } from './routes/_authenticated/vatandaslar'
+import { Route as AuthenticatedTutanakArsiviRouteImport } from './routes/_authenticated/tutanak-arsivi'
 import { Route as AuthenticatedSikayetOlusturRouteImport } from './routes/_authenticated/sikayet-olustur'
 import { Route as AuthenticatedPersonelAnaliziRouteImport } from './routes/_authenticated/personel-analizi'
 import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
@@ -76,6 +77,12 @@ const AuthenticatedVatandaslarRoute =
   AuthenticatedVatandaslarRouteImport.update({
     id: '/vatandaslar',
     path: '/vatandaslar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTutanakArsiviRoute =
+  AuthenticatedTutanakArsiviRouteImport.update({
+    id: '/tutanak-arsivi',
+    path: '/tutanak-arsivi',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSikayetOlusturRoute =
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/panel': typeof AuthenticatedPanelRoute
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/tutanak-arsivi': typeof AuthenticatedTutanakArsiviRoute
   '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/panel': typeof AuthenticatedPanelRoute
   '/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/tutanak-arsivi': typeof AuthenticatedTutanakArsiviRoute
   '/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
@@ -243,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/panel': typeof AuthenticatedPanelRoute
   '/_authenticated/personel-analizi': typeof AuthenticatedPersonelAnaliziRoute
   '/_authenticated/sikayet-olustur': typeof AuthenticatedSikayetOlusturRoute
+  '/_authenticated/tutanak-arsivi': typeof AuthenticatedTutanakArsiviRoute
   '/_authenticated/vatandaslar': typeof AuthenticatedVatandaslarRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/_authenticated/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/panel'
     | '/personel-analizi'
     | '/sikayet-olustur'
+    | '/tutanak-arsivi'
     | '/vatandaslar'
     | '/whatsapp'
     | '/zabita-denetim'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/panel'
     | '/personel-analizi'
     | '/sikayet-olustur'
+    | '/tutanak-arsivi'
     | '/vatandaslar'
     | '/whatsapp'
     | '/zabita-denetim'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/panel'
     | '/_authenticated/personel-analizi'
     | '/_authenticated/sikayet-olustur'
+    | '/_authenticated/tutanak-arsivi'
     | '/_authenticated/vatandaslar'
     | '/_authenticated/whatsapp'
     | '/_authenticated/zabita-denetim'
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/vatandaslar'
       fullPath: '/vatandaslar'
       preLoaderRoute: typeof AuthenticatedVatandaslarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tutanak-arsivi': {
+      id: '/_authenticated/tutanak-arsivi'
+      path: '/tutanak-arsivi'
+      fullPath: '/tutanak-arsivi'
+      preLoaderRoute: typeof AuthenticatedTutanakArsiviRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/sikayet-olustur': {
@@ -535,6 +555,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPanelRoute: typeof AuthenticatedPanelRoute
   AuthenticatedPersonelAnaliziRoute: typeof AuthenticatedPersonelAnaliziRoute
   AuthenticatedSikayetOlusturRoute: typeof AuthenticatedSikayetOlusturRoute
+  AuthenticatedTutanakArsiviRoute: typeof AuthenticatedTutanakArsiviRoute
   AuthenticatedVatandaslarRoute: typeof AuthenticatedVatandaslarRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
   AuthenticatedZabitaDenetimRoute: typeof AuthenticatedZabitaDenetimRoute
@@ -560,6 +581,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPanelRoute: AuthenticatedPanelRoute,
   AuthenticatedPersonelAnaliziRoute: AuthenticatedPersonelAnaliziRoute,
   AuthenticatedSikayetOlusturRoute: AuthenticatedSikayetOlusturRoute,
+  AuthenticatedTutanakArsiviRoute: AuthenticatedTutanakArsiviRoute,
   AuthenticatedVatandaslarRoute: AuthenticatedVatandaslarRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
   AuthenticatedZabitaDenetimRoute: AuthenticatedZabitaDenetimRoute,
