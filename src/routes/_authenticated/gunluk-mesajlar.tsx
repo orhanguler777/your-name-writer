@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Send, Check, Plus, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useServerFn } from "@tanstack/react-start";
+import { createMayorMessageServer } from "@/lib/adminMessages.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/gunluk-mesajlar")({
@@ -30,6 +32,7 @@ const PRIO_STYLE: Record<string, string> = {
 function Page() {
   const qc = useQueryClient();
   const { user, primaryRole, profile } = useAuth();
+  const createMessageFn = useServerFn(createMayorMessageServer);
 
   const { data: messages } = useQuery({
     queryKey: ["mayor-messages"],
@@ -55,15 +58,48 @@ function Page() {
   const [f, setF] = useState({ title: "", body: "", priority: "normal", target: "all" });
 
   const create = async () => {
-    const { data, error } = await supabase.from("mayor_daily_messages").insert({
-      title: f.title, body: f.body, priority: f.priority, created_by: user?.id,
-    }).select("id").maybeSingle();
-    if (error || !data) return toast.error(error?.message ?? "Hata");
-    const targets = f.target === "all" ? departments ?? [] : departments?.filter((d) => d.id === f.target) ?? [];
-    await supabase.from("mayor_daily_message_targets").insert(targets.map((d) => ({ message_id: data.id, department_id: d.id })));
-    toast.success("Mesaj gönderildi");
-    setOpen(false); setF({ title: "", body: "", priority: "normal", target: "all" });
-    qc.invalidateQueries({ queryKey: ["mayor-messages"] });
+    if (!user?.id) return;
+    try {
+      const res = await createMessageFn({
+        data: {
+          title: f.title,
+          body: f.body,
+          priority: f.priority,
+          createdBy: user.id,
+          target: f.target,
+        },
+      });
+
+      if (!res.success) {
+        // Fallback to client-side insert if service role key is not configured or fails
+        const { data: dataMsg, error: errorMsg } = await supabase
+          .from("mayor_daily_messages")
+          .insert({
+            title: f.title,
+            body: f.body,
+            priority: f.priority,
+            created_by: user.id,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (errorMsg || !dataMsg) throw new Error(errorMsg?.message || "Mesaj oluşturulamadı.");
+
+        const targets = f.target === "all" ? departments ?? [] : departments?.filter((d) => d.id === f.target) ?? [];
+        const { error: errorTar } = await supabase
+          .from("mayor_daily_message_targets")
+          .insert(targets.map((d) => ({ message_id: dataMsg.id, department_id: d.id })));
+
+        if (errorTar) throw errorTar;
+      }
+
+      toast.success("Mesaj / Talimat başarıyla gönderildi");
+      setOpen(false);
+      setF({ title: "", body: "", priority: "normal", target: "all" });
+      qc.invalidateQueries({ queryKey: ["mayor-messages"] });
+    } catch (e: any) {
+      toast.error("Hata oluştu: " + (e.message || e));
+    }
   };
 
   const markRead = async (targetId: string) => {
