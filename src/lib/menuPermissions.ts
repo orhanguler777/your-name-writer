@@ -20,7 +20,7 @@ export interface MenuItemConfig {
 }
 
 export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
-  { id: "panel", to: "/panel", label: "Ana Panel", iconName: "LayoutDashboard", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
+  { id: "panel", to: "/panel", label: "Ana Panel", iconName: "LayoutDashboard", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk", "zabita_memuru", "zabita"] },
   { id: "sikayetler", to: "/sikayetler", label: "Şikayetler", iconName: "MessageSquare", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
   { id: "bilgi-talepleri", to: "/bilgi-talepleri", label: "Bilgi Talepleri", iconName: "HelpCircle", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
   { id: "cozum-masasi", to: "/cozum-masasi", label: "Çözüm Masası", iconName: "HeadphonesIcon", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
@@ -39,12 +39,18 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "ayarlar", to: "/ayarlar", label: "Ayarlar & RBAC Matrisi", iconName: "Settings", defaultRoles: ["superuser", "baskan", "admin"] },
 ];
 
-const LOCAL_STORAGE_PERMISSIONS_KEY = "belediye_role_menu_permissions_v1";
+// Eski sürümde matris tarayıcıda tutuluyordu; artık veritabanında.
+const LEGACY_LOCAL_STORAGE_KEY = "belediye_role_menu_permissions_v1";
+
+export const ALL_ROLES: AppRole[] = [
+  "superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru",
+  "vatandas", "cozum_masasi", "mudurluk", "admin", "zabita",
+];
 
 export type RoleMenuMatrix = Record<AppRole, Record<string, boolean>>;
 
 export function getDefaultRoleMenuMatrix(): RoleMenuMatrix {
-  const roles: AppRole[] = ["superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru", "vatandas", "cozum_masasi", "mudurluk", "admin", "zabita"];
+  const roles: AppRole[] = ALL_ROLES;
   const matrix: Partial<RoleMenuMatrix> = {};
 
   roles.forEach((r) => {
@@ -62,38 +68,89 @@ export function getDefaultRoleMenuMatrix(): RoleMenuMatrix {
   return matrix as RoleMenuMatrix;
 }
 
-export function getRoleMenuMatrix(): RoleMenuMatrix {
-  if (typeof window === "undefined") return getDefaultRoleMenuMatrix();
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_PERMISSIONS_KEY);
-    if (!raw) return getDefaultRoleMenuMatrix();
-    const parsed = JSON.parse(raw);
-    const defaults = getDefaultRoleMenuMatrix();
-    // Merge defaults with stored values so new menus/roles don't break
-    const merged: Partial<RoleMenuMatrix> = {};
-    (Object.keys(defaults) as AppRole[]).forEach((r) => {
-      merged[r] = { ...defaults[r], ...(parsed[r] || {}) };
+/**
+ * Veritabanından okunan matrisin bellek önbelleği.
+ * Senkron çağrılar (isMenuItemAllowedForRole) bunu kullanır; henüz yüklenmediyse
+ * varsayılanlara düşer. Önbellek useMenuPermissions hook'u tarafından doldurulur.
+ */
+let cachedMatrix: RoleMenuMatrix | null = null;
+
+export function getCachedRoleMenuMatrix(): RoleMenuMatrix {
+  return cachedMatrix ?? getDefaultRoleMenuMatrix();
+}
+
+/** Eski localStorage kaydını temizler (bir kereye mahsus geçiş). */
+export function clearLegacyLocalMatrix(): void {
+  if (typeof window !== "undefined") localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY);
+}
+
+/** Matrisi veritabanından çeker. Tablo/veri yoksa varsayılanlara düşer. */
+export async function fetchRoleMenuMatrix(): Promise<RoleMenuMatrix> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const defaults = getDefaultRoleMenuMatrix();
+
+  const { data, error } = await supabase
+    .from("role_menu_permissions")
+    .select("role, menu_id, allowed");
+
+  if (error || !data || data.length === 0) {
+    // Tablo henüz oluşturulmadıysa veya boşsa sistemin çalışmaya devam etmesi için varsayılanlar
+    if (error) console.warn("Yetki matrisi okunamadı, varsayılanlar kullanılıyor:", error.message);
+    cachedMatrix = defaults;
+    return defaults;
+  }
+
+  const merged: RoleMenuMatrix = defaults;
+  (data as { role: AppRole; menu_id: string; allowed: boolean }[]).forEach((row) => {
+    if (!merged[row.role]) merged[row.role] = {};
+    merged[row.role][row.menu_id] = row.allowed;
+  });
+
+  cachedMatrix = merged;
+  return merged;
+}
+
+/** Matrisi veritabanına yazar (yalnızca üst yönetim; RLS zorunlu kılar). */
+export async function saveRoleMenuMatrix(matrix: RoleMenuMatrix): Promise<void> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data: auth } = await supabase.auth.getUser();
+
+  const rows: { role: AppRole; menu_id: string; allowed: boolean; updated_by: string | null; updated_at: string }[] = [];
+  (Object.keys(matrix) as AppRole[]).forEach((role) => {
+    MENU_ITEMS_CONFIG.forEach((m) => {
+      rows.push({
+        role,
+        menu_id: m.id,
+        allowed: role === "superuser" ? true : !!matrix[role]?.[m.id],
+        updated_by: auth?.user?.id ?? null,
+        updated_at: new Date().toISOString(),
+      });
     });
-    return merged as RoleMenuMatrix;
-  } catch (e) {
-    console.error("Failed to parse role menu matrix", e);
-    return getDefaultRoleMenuMatrix();
+  });
+
+  const { error } = await supabase
+    .from("role_menu_permissions")
+    .upsert(rows, { onConflict: "role,menu_id" });
+
+  if (error) throw new Error(error.message);
+
+  cachedMatrix = matrix;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("role_permissions_updated"));
   }
 }
 
-export function saveRoleMenuMatrix(matrix: RoleMenuMatrix): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_PERMISSIONS_KEY, JSON.stringify(matrix));
-    window.dispatchEvent(new Event("role_permissions_updated"));
-  } catch (e) {
-    console.error("Failed to save role menu matrix", e);
-  }
+/** Matrisi kod içindeki varsayılanlara döndürür (DB'ye yazar). */
+export async function resetRoleMenuMatrix(): Promise<RoleMenuMatrix> {
+  const defaults = getDefaultRoleMenuMatrix();
+  await saveRoleMenuMatrix(defaults);
+  clearLegacyLocalMatrix();
+  return defaults;
 }
 
 export function isMenuItemAllowedForRole(role: AppRole, menuId: string): boolean {
   if (role === "superuser") return true;
-  const matrix = getRoleMenuMatrix();
+  const matrix = getCachedRoleMenuMatrix();
   if (matrix[role] && typeof matrix[role][menuId] === "boolean") {
     return matrix[role][menuId];
   }

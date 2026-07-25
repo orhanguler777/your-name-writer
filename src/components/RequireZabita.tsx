@@ -2,28 +2,30 @@ import { useEffect } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { isMenuItemAllowedForRole, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
+import { MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
 
 /**
- * Zabıta ve Saha modüllerini sarmalayan dinamik yetki kontrolü.
- * SuperUser matrisinde izin verilmişse (işaretlenmişse) her rol (Başkan dâhil) sayfaya erişebilir.
+ * Sayfa düzeyinde yetki kontrolü. Yetki matrisi (veritabanı) o rol için sayfayı
+ * kapatmışsa içerik gösterilmez ve kullanıcı Ana Panel'e yönlendirilir.
  */
 export function RequireZabita({ children }: { children: React.ReactNode }) {
   const { primaryRole, loading } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isAllowed, isLoading: permsLoading } = useMenuPermissions();
 
-  // Bulunan rota için menuId eşleştirmesi
   const menuItem = MENU_ITEMS_CONFIG.find((m) => m.to === pathname);
-  const isAllowed = menuItem ? isMenuItemAllowedForRole(primaryRole, menuItem.id) : true;
+  const allowed = menuItem ? isAllowed(primaryRole, menuItem.id) : true;
+  const busy = loading || permsLoading;
 
   useEffect(() => {
-    if (!loading && !isAllowed) {
+    if (!busy && !allowed) {
       navigate({ to: "/panel", replace: true });
     }
-  }, [loading, isAllowed, navigate]);
+  }, [busy, allowed, navigate]);
 
-  if (loading) {
+  if (busy) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -31,7 +33,7 @@ export function RequireZabita({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAllowed) return null;
+  if (!allowed) return null;
 
   return <>{children}</>;
 }

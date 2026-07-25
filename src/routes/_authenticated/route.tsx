@@ -2,7 +2,8 @@ import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS } from "@/lib/turkish";
-import { isMenuItemAllowedForRole, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
+import { MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
@@ -45,19 +46,22 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 function AuthedLayout() {
   const { profile, loading, primaryRole, realPrimaryRole } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [permVersion, setPermVersion] = useState(0);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isAllowed, isLoading: permsLoading } = useMenuPermissions();
+
+  const visibleMenu = MENU_ITEMS_CONFIG.filter((item) => isAllowed(primaryRole, item.id));
+
+  // Merkezi URL koruması: menüde gizlenen bir sayfaya adres çubuğundan da girilemez.
+  const currentMenuItem = MENU_ITEMS_CONFIG.find((m) => m.to === pathname);
+  const pathBlocked = !!currentMenuItem && !isAllowed(primaryRole, currentMenuItem.id);
 
   useEffect(() => {
-    const handleUpdate = () => setPermVersion((v) => v + 1);
-    window.addEventListener("role_permissions_updated", handleUpdate);
-    return () => window.removeEventListener("role_permissions_updated", handleUpdate);
-  }, []);
-
-  const visibleMenu = MENU_ITEMS_CONFIG.filter((item) => {
-    return isMenuItemAllowedForRole(primaryRole, item.id);
-  });
+    if (loading || permsLoading || !pathBlocked) return;
+    // Ana Panel'e de yetkisi yoksa sonsuz döngü olmasın
+    const fallback = MENU_ITEMS_CONFIG.find((m) => isAllowed(primaryRole, m.id));
+    navigate({ to: fallback?.to ?? "/auth", replace: true });
+  }, [loading, permsLoading, pathBlocked, primaryRole, navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -145,7 +149,7 @@ function AuthedLayout() {
       </div>
       
       {/* Global Floating Bot driven by Dynamic SuperUser RBAC Matrix */}
-      {isMenuItemAllowedForRole(primaryRole, "baskan-ai-bot") && <MayorBotWidget />}
+      {isAllowed(primaryRole, "baskan-ai-bot") && <MayorBotWidget />}
     </div>
   );
 }

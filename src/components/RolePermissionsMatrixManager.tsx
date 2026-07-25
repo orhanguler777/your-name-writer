@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getRoleMenuMatrix, saveRoleMenuMatrix, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
+import { saveRoleMenuMatrix, resetRoleMenuMatrix, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import type { AppRole, RoleMenuMatrix } from "@/lib/menuPermissions";
 import { ROLE_LABELS } from "@/lib/turkish";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,22 +11,25 @@ import { toast } from "sonner";
 
 const DISPLAY_ROLES: { role: AppRole; label: string; desc: string }[] = [
   { role: "superuser", label: "SuperUser", desc: "Sistem Kurucusu / Developer (Tam Yetki)" },
-  { role: "baskan", label: "Belediye Başkanı", desc: "Makro Genel İstatistik & Şehir Özeti" },
-  { role: "baskan_yardimcisi", label: "Başkan Yardımcısı", desc: "Çoklu Birim & Raporlama" },
-  { role: "mudur", label: "Zabıta Müdürü", desc: "Birim İçi Ekip & İstatistik Takibi" },
-  { role: "zabita_memuru", label: "Zabıta Memuru (Saha)", desc: "Harita + Denetim + Tutanak Arşivi" },
-  { role: "zabita", label: "Zabıta (Sistem)", desc: "Zabıta Rolü (Alt Yapı)" },
-  { role: "cozum_masasi", label: "Çözüm Masası", desc: "Vatandaş Şikayet & Talep Yönetimi" },
+  { role: "baskan", label: "Belediye Başkanı", desc: "1. Seviye — Tüm şehir" },
+  { role: "baskan_yardimcisi", label: "Başkan Yardımcısı", desc: "2. Seviye — Bağlı müdürlükler" },
+  { role: "mudur", label: "Müdür", desc: "3. Seviye — Kendi müdürlüğü" },
+  { role: "zabita_memuru", label: "Zabıta Memuru (Saha)", desc: "4. Seviye — Saha operasyonu" },
+  { role: "cozum_masasi", label: "Çözüm Masası", desc: "Vatandaş şikayet & talep yönetimi" },
+  { role: "mudurluk", label: "Müdürlük (eski)", desc: "Eski rol adı — geriye dönük uyum" },
+  { role: "zabita", label: "Zabıta (eski)", desc: "Eski rol adı — geriye dönük uyum" },
+  { role: "admin", label: "Admin (eski)", desc: "Eski teknik üst rol" },
 ];
 
 export function RolePermissionsMatrixManager() {
-  const [matrix, setMatrix] = useState<RoleMenuMatrix>(() => getRoleMenuMatrix());
+  const { matrix: dbMatrix, isLoading } = useMenuPermissions();
+  const [matrix, setMatrix] = useState<RoleMenuMatrix>(dbMatrix);
+  const [saving, setSaving] = useState(false);
 
+  // Veritabanından gelen matris yüklendiğinde/değiştiğinde ekranı eşitle
   useEffect(() => {
-    const handleUpdate = () => setMatrix(getRoleMenuMatrix());
-    window.addEventListener("role_permissions_updated", handleUpdate);
-    return () => window.removeEventListener("role_permissions_updated", handleUpdate);
-  }, []);
+    setMatrix(dbMatrix);
+  }, [dbMatrix]);
 
   const handleToggle = (role: AppRole, menuId: string, checked: boolean) => {
     if (role === "superuser") {
@@ -42,18 +46,28 @@ export function RolePermissionsMatrixManager() {
     setMatrix(updated);
   };
 
-  const handleSave = () => {
-    saveRoleMenuMatrix(matrix);
-    toast.success("Rol ve menü yetki matrisi başarıyla güncellendi!");
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveRoleMenuMatrix(matrix);
+      toast.success("Yetki matrisi kaydedildi — tüm kullanıcılar ve cihazlar için geçerli.");
+    } catch (e: any) {
+      toast.error("Kaydedilemedi: " + (e?.message || "yetkiniz olmayabilir"));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("belediye_role_menu_permissions_v1");
-      const defaultMat = getRoleMenuMatrix();
-      setMatrix(defaultMat);
-      saveRoleMenuMatrix(defaultMat);
-      toast.info("Yetki matrisi varsayılan fabrika ayarlarına sıfırlandı.");
+  const handleReset = async () => {
+    setSaving(true);
+    try {
+      const defaults = await resetRoleMenuMatrix();
+      setMatrix(defaults);
+      toast.info("Yetki matrisi varsayılan ayarlara sıfırlandı.");
+    } catch (e: any) {
+      toast.error("Sıfırlanamadı: " + (e?.message || "yetkiniz olmayabilir"));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,11 +85,11 @@ export function RolePermissionsMatrixManager() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={handleReset} className="h-8 gap-1 text-xs">
+            <Button variant="outline" size="sm" onClick={handleReset} disabled={saving || isLoading} className="h-8 gap-1 text-xs">
               <RotateCcw className="h-3.5 w-3.5" /> Varsayılana Dön
             </Button>
-            <Button variant="default" size="sm" onClick={handleSave} className="h-8 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700">
-              <Save className="h-3.5 w-3.5" /> Matrisi Kaydet
+            <Button variant="default" size="sm" onClick={handleSave} disabled={saving || isLoading} className="h-8 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700">
+              <Save className="h-3.5 w-3.5" /> {saving ? "Kaydediliyor..." : "Matrisi Kaydet"}
             </Button>
           </div>
         </div>
@@ -123,7 +137,10 @@ export function RolePermissionsMatrixManager() {
         </table>
         <div className="p-3 bg-muted/20 border-t flex items-center gap-2 text-[11px] text-muted-foreground">
           <Info className="h-4 w-4 text-primary shrink-0" />
-          <span>İşaretlenen kutucuklar anında kaydedilir ve sol navigasyon menüsünde ilgili rol için canlı olarak aktif olur.</span>
+          <span>
+            Değişiklikler <strong>“Matrisi Kaydet”</strong> ile veritabanına yazılır ve tüm kullanıcıların
+            cihazlarında geçerli olur. Kapatılan bir menü, adres çubuğundan da açılamaz.
+          </span>
         </div>
       </CardContent>
     </Card>
