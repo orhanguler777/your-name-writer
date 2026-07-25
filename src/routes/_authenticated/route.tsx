@@ -44,22 +44,26 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 function AuthedLayout() {
-  const { profile, loading, primaryRole, realPrimaryRole } = useAuth();
+  const { profile, loading, primaryRole, realPrimaryRole, hasModule } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isAllowed, isLoading: permsLoading } = useMenuPermissions();
 
-  const visibleMenu = MENU_ITEMS_CONFIG.filter((item) => isAllowed(primaryRole, item.id));
+  // Erişim = rol kademesi (matris) VE birime tanımlı modül
+  const canAccess = (item: (typeof MENU_ITEMS_CONFIG)[number]) =>
+    isAllowed(primaryRole, item.id) && (!item.module || hasModule(item.module));
+
+  const visibleMenu = MENU_ITEMS_CONFIG.filter(canAccess);
 
   // Merkezi URL koruması: menüde gizlenen bir sayfaya adres çubuğundan da girilemez.
   const currentMenuItem = MENU_ITEMS_CONFIG.find((m) => m.to === pathname);
-  const pathBlocked = !!currentMenuItem && !isAllowed(primaryRole, currentMenuItem.id);
+  const pathBlocked = !!currentMenuItem && !canAccess(currentMenuItem);
 
   useEffect(() => {
     if (loading || permsLoading || !pathBlocked) return;
     // Ana Panel'e de yetkisi yoksa sonsuz döngü olmasın
-    const fallback = MENU_ITEMS_CONFIG.find((m) => isAllowed(primaryRole, m.id));
+    const fallback = MENU_ITEMS_CONFIG.find(canAccess);
     navigate({ to: fallback?.to ?? "/auth", replace: true });
   }, [loading, permsLoading, pathBlocked, primaryRole, navigate]);
 

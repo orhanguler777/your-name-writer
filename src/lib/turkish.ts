@@ -29,6 +29,7 @@ export const ROLE_LABELS: Record<string, string> = {
   baskan: "Belediye Başkanı",
   baskan_yardimcisi: "Başkan Yardımcısı",
   mudur: "Birim Müdürü",
+  personel: "Birim Görevlisi",
   zabita_memuru: "Zabıta Memuru (Saha)",
   vatandas: "Vatandaş",
   cozum_masasi: "Çözüm Masası",

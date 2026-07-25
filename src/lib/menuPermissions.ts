@@ -1,8 +1,9 @@
-export type AppRole = 
+export type AppRole =
   | "superuser"
   | "baskan"
   | "baskan_yardimcisi"
   | "mudur"
+  | "personel"
   | "zabita_memuru"
   | "vatandas"
   | "cozum_masasi"
@@ -16,6 +17,11 @@ export interface MenuItemConfig {
   label: string;
   iconName: string;
   defaultRoles: AppRole[];
+  /**
+   * Birime özel modül. Doluysa bu menü yalnızca kullanıcının müdürlüğünde
+   * ilgili modül tanımlıysa görünür (rol kademeyi, modül birimi belirler).
+   */
+  module?: string;
   description?: string;
 }
 
@@ -24,10 +30,10 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "sikayetler", to: "/sikayetler", label: "Şikayetler", iconName: "MessageSquare", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
   { id: "bilgi-talepleri", to: "/bilgi-talepleri", label: "Bilgi Talepleri", iconName: "HelpCircle", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
   { id: "cozum-masasi", to: "/cozum-masasi", label: "Çözüm Masası", iconName: "HeadphonesIcon", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
-  { id: "zabita-denetim", to: "/zabita-denetim", label: "İşyeri Denetimi", iconName: "ClipboardCheck", defaultRoles: ["superuser", "mudur", "zabita_memuru", "zabita"] },
-  { id: "zabita-isyerleri", to: "/zabita-isyerleri", label: "İşyeri Listesi", iconName: "Building2", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"] },
-  { id: "zabita-harita", to: "/zabita-harita", label: "Saha Haritası", iconName: "MapPin", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"] },
-  { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"] },
+  { id: "zabita-denetim", to: "/zabita-denetim", label: "İşyeri Denetimi", iconName: "ClipboardCheck", defaultRoles: ["superuser", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-isyerleri", to: "/zabita-isyerleri", label: "İşyeri Listesi", iconName: "Building2", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-harita", to: "/zabita-harita", label: "Saha Haritası", iconName: "MapPin", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "memnuniyet", to: "/memnuniyet", label: "Memnuniyet Analizi", iconName: "Smile", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
   { id: "baskan-ai-bot", to: "/baskan-ai-bot", label: "Başkan AI Bot", iconName: "Bot", defaultRoles: ["superuser", "baskan"] },
   { id: "gunluk-mesajlar", to: "/gunluk-mesajlar", label: "Günlük Mesajlar", iconName: "Send", defaultRoles: ["superuser", "baskan", "admin", "mudur", "mudurluk", "zabita_memuru", "zabita"] },
@@ -43,7 +49,7 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
 const LEGACY_LOCAL_STORAGE_KEY = "belediye_role_menu_permissions_v1";
 
 export const ALL_ROLES: AppRole[] = [
-  "superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru",
+  "superuser", "baskan", "baskan_yardimcisi", "mudur", "personel", "zabita_memuru",
   "vatandas", "cozum_masasi", "mudurluk", "admin", "zabita",
 ];
 

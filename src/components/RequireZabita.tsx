@@ -10,13 +10,16 @@ import { MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
  * kapatmışsa içerik gösterilmez ve kullanıcı Ana Panel'e yönlendirilir.
  */
 export function RequireZabita({ children }: { children: React.ReactNode }) {
-  const { primaryRole, loading } = useAuth();
+  const { primaryRole, loading, hasModule } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isAllowed, isLoading: permsLoading } = useMenuPermissions();
 
   const menuItem = MENU_ITEMS_CONFIG.find((m) => m.to === pathname);
-  const allowed = menuItem ? isAllowed(primaryRole, menuItem.id) : true;
+  // Erişim = rol kademesi (matris) VE birime tanımlı modül
+  const allowed = menuItem
+    ? isAllowed(primaryRole, menuItem.id) && (!menuItem.module || hasModule(menuItem.module))
+    : true;
   const busy = loading || permsLoading;
 
   useEffect(() => {

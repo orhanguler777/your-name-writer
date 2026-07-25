@@ -29,11 +29,11 @@ export const Route = createFileRoute("/_authenticated/panel")({
 const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
 
 function Panel() {
-  const { profile, primaryRole, user } = useAuth();
+  const { profile, primaryRole, user, isFieldStaff } = useAuth();
   const deptId = profile?.department_id;
   const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
-  const isZabitaMemuru = primaryRole === "zabita_memuru";
+  const isZabitaMemuru = isFieldStaff; // 4. seviye: personel veya (eski) zabita_memuru
   const isZabitaMudur = primaryRole === "mudur" || (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));
   const canSeeAnalytics = isBaskanOrAdmin || isMudurluk || isZabitaMudur;
 
