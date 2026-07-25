@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Switch } from "@/components/ui/switch";
 import { getBotSettings, updateBotSettings } from "@/lib/ai.functions";
 import { RolePermissionsMatrixManager } from "@/components/RolePermissionsMatrixManager";
+import { UserRoleAssignerManager } from "@/components/UserRoleAssignerManager";
 
 export const Route = createFileRoute("/_authenticated/ayarlar")({
   ssr: false,
@@ -258,9 +259,10 @@ function Page() {
         </div>
       </div>
 
-      {/* SuperUser / Admin Dynamic Role Permission Matrix */}
+      {/* SuperUser / Admin Dynamic Role Permission & User Assignment Section */}
       {(primaryRole === "superuser" || primaryRole === "admin") && (
-        <div className="mt-8 max-w-6xl">
+        <div className="mt-8 max-w-6xl space-y-8">
+          <UserRoleAssignerManager />
           <RolePermissionsMatrixManager />
         </div>
       )}
