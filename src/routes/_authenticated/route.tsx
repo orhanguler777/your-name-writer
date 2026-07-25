@@ -6,7 +6,7 @@ import type { AppRole } from "@/hooks/useAuth";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile, Megaphone, PieChart, Users,
+  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,15 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-interface MenuItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles?: AppRole[]; }
+interface MenuItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles?: AppRole[]; zabitaOnly?: boolean; }
 const MENU: MenuItem[] = [
   { to: "/panel", label: "Ana Panel", icon: LayoutDashboard },
   { to: "/sikayetler", label: "Şikayetler", icon: MessageSquare },
   { to: "/bilgi-talepleri", label: "Bilgi Talepleri", icon: HelpCircle },
   { to: "/cozum-masasi", label: "Çözüm Masası", icon: HeadphonesIcon, roles: ["cozum_masasi", "admin", "baskan"] },
+  { to: "/zabita-denetim", label: "İşyeri Denetimi", icon: ClipboardCheck, zabitaOnly: true },
+  { to: "/zabita-isyerleri", label: "İşyeri Listesi", icon: Building2, zabitaOnly: true },
+  { to: "/zabita-harita", label: "Saha Haritası", icon: MapPin, zabitaOnly: true },
   { to: "/memnuniyet", label: "Memnuniyet Analizi", icon: Smile, roles: ["baskan", "admin", "cozum_masasi"] },
   { to: "/baskan-ai-bot", label: "Başkan AI Bot", icon: Bot, roles: ["baskan", "admin"] },
   { to: "/gunluk-mesajlar", label: "Günlük Mesajlar", icon: Send, roles: ["baskan", "admin", "mudurluk"] },
@@ -40,12 +43,16 @@ const MENU: MenuItem[] = [
 ];
 
 function AuthedLayout() {
-  const { profile, roles, primaryRole, loading } = useAuth();
+  const { profile, roles, loading, isZabita, primaryRole } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const visibleMenu = MENU.filter((m) => !m.roles || m.roles.some((r) => roles.includes(r)) || roles.includes("admin"));
+  const visibleMenu = MENU.filter((m) => {
+    // Zabıta modülleri yalnızca zabıtaya görünür (admin dahil diğer roller göremez).
+    if (m.zabitaOnly) return isZabita;
+    return !m.roles || m.roles.some((r) => roles.includes(r)) || roles.includes("admin");
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

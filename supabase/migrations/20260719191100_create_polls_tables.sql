@@ -1,4 +1,4 @@
-create table public.polls (
+create table if not exists public.polls (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   question text not null,
@@ -19,7 +19,7 @@ create policy "Enable read access for all users" on public.polls
 create policy "Enable all access for authenticated users" on public.polls
   for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
-create table public.poll_options (
+create table if not exists public.poll_options (
   id uuid primary key default gen_random_uuid(),
   poll_id uuid not null references public.polls(id) on delete cascade,
   option_text text not null,
@@ -34,7 +34,7 @@ create policy "Enable read access for all users" on public.poll_options
 create policy "Enable all access for authenticated users" on public.poll_options
   for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
-create table public.poll_votes (
+create table if not exists public.poll_votes (
   id uuid primary key default gen_random_uuid(),
   poll_id uuid not null references public.polls(id) on delete cascade,
   option_id uuid not null references public.poll_options(id) on delete cascade,

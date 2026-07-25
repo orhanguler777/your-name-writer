@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "vatandas" | "cozum_masasi" | "mudurluk" | "baskan" | "admin";
+export type AppRole = "vatandas" | "cozum_masasi" | "mudurluk" | "baskan" | "admin" | "zabita";
 
 export interface AuthProfile {
   id: string;
@@ -10,6 +10,7 @@ export interface AuthProfile {
   email: string | null;
   phone: string | null;
   department_id: string | null;
+  departments?: { name: string } | null;
 }
 
 export function useAuth() {
@@ -34,7 +35,7 @@ export function useAuth() {
       }
       const [{ data: r }, { data: p }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-        supabase.from("profiles").select("id, full_name, email, phone, department_id").eq("id", sess.user.id).maybeSingle(),
+        supabase.from("profiles").select("id, full_name, email, phone, department_id, departments(name)").eq("id", sess.user.id).maybeSingle(),
       ]);
       if (!mounted) return;
       setRoles(((r ?? []) as { role: AppRole }[]).map((x) => x.role));
@@ -64,7 +65,11 @@ export function useAuth() {
     ? "cozum_masasi"
     : roles.includes("mudurluk")
     ? "mudurluk"
+    : roles.includes("zabita")
+    ? "zabita"
     : "vatandas";
 
-  return { session, user, roles, primaryRole, profile, loading, hasRole, hasAnyRole };
+  const isZabita = roles.includes("zabita") || (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false);
+
+  return { session, user, roles, primaryRole, profile, loading, hasRole, hasAnyRole, isZabita };
 }

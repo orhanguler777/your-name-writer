@@ -4,7 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { KpiCard, PageHeader, StatusBadge, PriorityBadge } from "@/components/panel-primitives";
-import { MessageSquare, CheckCircle2, Clock, TrendingUp, Building2, Bot, Sparkles, RefreshCw, MapPin, Zap, Smile, AlertTriangle } from "lucide-react";
+import { MessageSquare, CheckCircle2, Clock, TrendingUp, Building2, Bot, Sparkles, RefreshCw, MapPin, Zap, Smile, AlertTriangle, CalendarClock, ClipboardCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -215,6 +216,9 @@ function Panel() {
         <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
         <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
       </div>
+
+      {/* Zabıta Re-Denetim Takip Paneli (Ana Panelde) */}
+      <ZabitaFollowupDashboardWidget />
 
       <Tabs defaultValue="ozet" className="w-full">
         <TabsList className="mb-6">
@@ -598,4 +602,170 @@ function getDeptPerformance(complaints: any[], depts: any[]) {
       topCategory: topCat,
     };
   }).sort((a, b) => b.total - a.total);
+}
+
+/* ─── Zabıta Re-Denetim Takip Widget (Ana Panel) ─── */
+function ZabitaFollowupDashboardWidget() {
+  const { isZabita } = useAuth();
+  // Yalnızca zabıta görebilir; başkan/admin dahil diğer roller görmez.
+  const isRelevant = isZabita;
+
+  const followupQuery = useQuery({
+    queryKey: ["dashboard-followup-inspections"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workplace_inspections")
+        .select("*")
+        .eq("followup_status", "pending")
+        .not("followup_date", "is", null)
+        .order("followup_date", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: isRelevant,
+    refetchInterval: 60_000,
+  });
+
+  if (!isRelevant) return null;
+
+  const items = followupQuery.data ?? [];
+  if (items.length === 0) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const overdue: typeof items = [];
+  const upcoming: typeof items = [];
+  const later: typeof items = [];
+
+  items.forEach((item) => {
+    const fd = new Date(item.followup_date!);
+    fd.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((fd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) overdue.push(item);
+    else if (diffDays <= 3) upcoming.push(item);
+    else later.push(item);
+  });
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const daysDiff = (iso: string) => {
+    const fd = new Date(iso);
+    fd.setHours(0, 0, 0, 0);
+    return Math.ceil((fd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  return (
+    <Card className="border-orange-300 dark:border-orange-700 overflow-hidden">
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 px-5 py-3 border-b border-orange-200 dark:border-orange-800 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-orange-500/15 dark:bg-orange-500/25 p-2 rounded-lg">
+            <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-orange-900 dark:text-orange-200 text-sm">
+              Zabıta Re-Denetim Takibi
+            </h3>
+            <p className="text-[11px] text-orange-700/70 dark:text-orange-400/60">
+              İhtar verilen işyerleri otomatik takip
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {overdue.length > 0 && (
+            <Badge variant="destructive" className="text-xs animate-pulse">
+              {overdue.length} Gecikmiş
+            </Badge>
+          )}
+          {upcoming.length > 0 && (
+            <Badge className="text-xs bg-amber-500 text-white">
+              {upcoming.length} Yaklaşan
+            </Badge>
+          )}
+          <Button variant="outline" size="sm" className="h-7 text-xs border-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40" asChild>
+            <Link to="/zabita-denetim">
+              <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
+              Denetim Sayfası
+            </Link>
+          </Button>
+        </div>
+      </div>
+      <div className="px-4 py-3 max-h-52 overflow-y-auto space-y-1.5">
+        {overdue.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Süresi Dolmuş — Acil Re-Denetim Gerekli
+            </p>
+            {overdue.map((item) => (
+              <Link
+                key={item.id}
+                to="/zabita-denetim"
+                className="block px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm text-red-800 dark:text-red-300 truncate">{item.workplace_name}</span>
+                  <Badge variant="destructive" className="text-[10px] shrink-0 ml-2">
+                    {Math.abs(daysDiff(item.followup_date!))} gün gecikmiş
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-0.5">
+                  Süre Bitişi: {formatDate(item.followup_date!)} · Ceza: {item.penalty_points} Puan
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+        {upcoming.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Yaklaşan (3 Gün İçinde)
+            </p>
+            {upcoming.map((item) => (
+              <Link
+                key={item.id}
+                to="/zabita-denetim"
+                className="block px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm text-amber-800 dark:text-amber-300 truncate">{item.workplace_name}</span>
+                  <Badge className="text-[10px] bg-amber-500 text-white shrink-0 ml-2">
+                    {daysDiff(item.followup_date!)} gün kaldı
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-0.5">
+                  Süre Bitişi: {formatDate(item.followup_date!)} · Ceza: {item.penalty_points} Puan
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+        {later.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Clock className="w-3 h-3" /> İlerisi
+            </p>
+            {later.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                className="px-3 py-1.5 rounded-md bg-muted/20 border text-muted-foreground"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-xs truncate">{item.workplace_name}</span>
+                  <span className="text-[10px] shrink-0 ml-2">{daysDiff(item.followup_date!)} gün</span>
+                </div>
+              </div>
+            ))}
+            {later.length > 3 && (
+              <p className="text-[10px] text-muted-foreground text-center">
+                +{later.length - 3} daha fazla…
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
 }

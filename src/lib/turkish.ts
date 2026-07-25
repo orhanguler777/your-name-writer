@@ -30,6 +30,7 @@ export const ROLE_LABELS: Record<string, string> = {
   mudurluk: "Müdürlük Kullanıcısı",
   baskan: "Başkan",
   admin: "Admin",
+  zabita: "Zabıta Ekibi",
 };
 
 export const CATEGORIES = [

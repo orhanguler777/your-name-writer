@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      workplace_inspections: {
+        Row: {
+          id: string
+          workplace_name: string
+          owner_name: string | null
+          address: string | null
+          tax_office: string | null
+          tax_number: string | null
+          phone: string | null
+          inspection_type: string
+          checklist: Json
+          inspector_id: string | null
+          notes: string | null
+          created_at: string
+          images: string[] | null
+          penalty_points: number | null
+          recommended_action: string | null
+          latitude: number | null
+          longitude: number | null
+          followup_date: string | null
+          followup_status: string | null
+        }
+        Insert: {
+          id?: string
+          workplace_name: string
+          owner_name?: string | null
+          address?: string | null
+          tax_office?: string | null
+          tax_number?: string | null
+          phone?: string | null
+          inspection_type: string
+          checklist?: Json
+          inspector_id?: string | null
+          notes?: string | null
+          created_at?: string
+          images?: string[] | null
+          penalty_points?: number | null
+          recommended_action?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          followup_date?: string | null
+          followup_status?: string | null
+        }
+        Update: {
+          id?: string
+          workplace_name?: string
+          owner_name?: string | null
+          address?: string | null
+          tax_office?: string | null
+          tax_number?: string | null
+          phone?: string | null
+          inspection_type?: string
+          checklist?: Json
+          inspector_id?: string | null
+          notes?: string | null
+          created_at?: string
+          images?: string[] | null
+          penalty_points?: number | null
+          recommended_action?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          followup_date?: string | null
+          followup_status?: string | null
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           id: string

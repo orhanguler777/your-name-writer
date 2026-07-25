@@ -142,6 +142,24 @@ const openai = process.env.OPENAI_API_KEY
 
 // Botun kendi gönderdiği mesajların ID'lerini saklamak için önbellek (Sonsuz döngüyü önler)
 const botMessageIds = new Set();
+// Track IDs of messages sent by the bot to avoid processing them again
+const recentStatusSent = new Map(); // key: 8‑char complaint ID, value: timestamp
+const STATUS_DUPLICATE_TTL = 60 * 1000; // 1 minute
+function shouldSendStatus(complaintId) {
+  const now = Date.now();
+  const key = complaintId.substring(0, 8).toUpperCase();
+  const last = recentStatusSent.get(key);
+  if (last && now - last < STATUS_DUPLICATE_TTL) {
+    return false; // already sent recently
+  }
+  recentStatusSent.set(key, now);
+  // purge old entries
+  for (const [k, t] of recentStatusSent) {
+    if (now - t > STATUS_DUPLICATE_TTL) recentStatusSent.delete(k);
+  }
+  return true;
+}
+
 function addBotMessageId(id) {
   if (!id) return;
   botMessageIds.add(id);
@@ -1361,6 +1379,11 @@ async function startBot() {
               if (newResponse.response_type === 'durum_bildirimi') {
                 // ✅ Çözüldü bildirimi
                 const trackingNo = newResponse.complaint_id.substring(0, 8).toUpperCase();
+                // Prevent duplicate solved messages if we already sent a status for this complaint recently
+                if (!shouldSendStatus(newResponse.complaint_id)) {
+                  console.log('   ⚠️ Duplicate solved webhook suppressed for', newResponse.complaint_id);
+                  return; // skip sending this response
+                }
                 let neighborhoodName = '';
                 if (complaint.neighborhood_id) {
                   const nbr = neighborhoodsCache.find(n => n.id === complaint.neighborhood_id);
@@ -2195,7 +2218,7 @@ async function startBot() {
           // Mesaj neredeyse yalnızca koddan mı ibaret? (etiket kelimeleri temizlenir)
           // Not: Türkçe "ş" gibi harflerde \b güvenilmez olduğundan word-boundary kullanılmaz.
           const cleaned = lowerTextTrim
-            .replace(/[#:.\-]/g, ' ')
+            .replace(/[#:.\-()]/g, ' ')
             .replace(/(takip\s*no|takip|numaras[iı]|numara|[sş]ikayet\s*no|[sş]ikayet|no)/gi, ' ')
             .replace(/\s+/g, ' ')
             .trim()
@@ -2233,6 +2256,10 @@ async function startBot() {
             const qLang = found?.language || (/status|track/i.test(lowerTextTrim) ? 'en' : 'tr');
 
             let statusMsg;
+            if (found && found.status === 'cozuldu' && !shouldSendStatus(found.id)) {
+                console.log('   ⚠️ Duplicate solved status suppressed for', found.id);
+                continue;
+            }
             if (found) {
               const nbr = found.neighborhood_id ? neighborhoodsCache.find((n) => n.id === found.neighborhood_id) : null;
               const dept = found.assigned_department_id ? departmentsCache.find((d) => d.id === found.assigned_department_id) : null;
