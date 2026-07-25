@@ -30,7 +30,7 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"] },
   { id: "memnuniyet", to: "/memnuniyet", label: "Memnuniyet Analizi", iconName: "Smile", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
   { id: "baskan-ai-bot", to: "/baskan-ai-bot", label: "Başkan AI Bot", iconName: "Bot", defaultRoles: ["superuser", "baskan"] },
-  { id: "gunluk-mesajlar", to: "/gunluk-mesajlar", label: "Günlük Mesajlar", iconName: "Send", defaultRoles: ["superuser", "baskan", "admin", "mudur", "mudurluk"] },
+  { id: "gunluk-mesajlar", to: "/gunluk-mesajlar", label: "Günlük Mesajlar", iconName: "Send", defaultRoles: ["superuser", "baskan", "admin", "mudur", "mudurluk", "zabita_memuru", "zabita"] },
   { id: "arac-bakim", to: "/arac-bakim", label: "Araç Bakım", iconName: "Truck", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "admin", "mudurluk"] },
   { id: "personel-analizi", to: "/personel-analizi", label: "Personel Analizi", iconName: "UserCheck", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin"] },
   { id: "duyurular", to: "/duyurular", label: "Duyurular & Reklamlar", iconName: "Megaphone", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi"] },
