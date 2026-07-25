@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { updateUserRoleServer } from "@/lib/adminUserRole.functions";
 import type { AppRole } from "@/lib/menuPermissions";
 import { ROLE_LABELS } from "@/lib/turkish";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +26,7 @@ const ASSIGNABLE_ROLES: { role: AppRole; label: string }[] = [
 export function UserRoleAssignerManager() {
   const qc = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const updateRoleFn = useServerFn(updateUserRoleServer);
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ["admin-all-users-with-roles"],
@@ -51,26 +54,16 @@ export function UserRoleAssignerManager() {
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     setUpdatingUserId(userId);
     try {
-      // 1. Delete existing roles for user
-      await supabase.from("user_roles").delete().eq("user_id", userId);
-
-      // 2. Insert new role (map new role names to DB supported string if needed)
-      const dbRole = newRole === "superuser" ? "admin" : newRole === "zabita_memuru" ? "zabita" : newRole === "mudur" ? "mudurluk" : newRole;
-
-      const { error } = await supabase.from("user_roles").insert({
-        user_id: userId,
-        role: dbRole as any,
-      });
-
-      if (error) throw error;
-
-      // If assigning zabita, automatically link department if not set
-      if (newRole === "zabita_memuru" || newRole === "mudur") {
-        const { data: depts } = await supabase.from("departments").select("id, name");
-        const zabitaDept = depts?.find((d) => d.name.toLowerCase().includes("zabıta"));
-        if (zabitaDept) {
-          await supabase.from("profiles").update({ department_id: zabitaDept.id }).eq("id", userId);
-        }
+      const res = await updateRoleFn({ data: { userId, role: newRole } });
+      if (!res.success) {
+        // Fallback: Try client-side update if server function key missing
+        await supabase.from("user_roles").delete().eq("user_id", userId);
+        const dbRole = newRole === "superuser" ? "admin" : newRole === "zabita_memuru" ? "zabita" : newRole === "mudur" ? "mudurluk" : newRole;
+        const { error } = await supabase.from("user_roles").insert({
+          user_id: userId,
+          role: dbRole as any,
+        });
+        if (error) throw new Error(res.error || error.message);
       }
 
       toast.success("Kullanıcı rolü başarıyla güncellendi!");
