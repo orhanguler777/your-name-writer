@@ -36,7 +36,11 @@ function Page() {
     queryFn: async () => {
       const { data } = await supabase
         .from("mayor_daily_messages")
-        .select("*, targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))")
+        .select(`
+          *,
+          sender:profiles!mayor_daily_messages_created_by_fkey(full_name, email),
+          targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))
+        `)
         .order("created_at", { ascending: false });
       return data ?? [];
     },
@@ -137,22 +141,27 @@ function Page() {
         ) : messages.map((m: any) => {
           const myTarget = profile?.department_id ? m.targets.find((t: any) => t.department_id === profile.department_id) : null;
           const readCount = m.targets.filter((t: any) => t.is_read).length;
+          const senderName = m.sender?.full_name || m.sender?.email || "Yönetim/Sistem";
           return (
             <Card key={m.id} className="p-5">
               <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-display font-semibold text-base">{m.title}</h3>
                     <Badge className={PRIO_STYLE[m.priority]}>{m.priority === "acil" ? "🚨 Acil" : m.priority === "onemli" ? "Önemli" : "Normal"}</Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString("tr-TR")}</div>
+                  <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-primary/80">Gönderen: {senderName}</span>
+                    <span className="text-muted-foreground/60">•</span>
+                    <span>{new Date(m.created_at).toLocaleString("tr-TR")}</span>
+                  </div>
                 </div>
                 {myTarget && !myTarget.is_read && (
                   <Button size="sm" variant="outline" onClick={() => markRead(myTarget.id)}><Check className="h-3 w-3 mr-1" /> Görevi Al / Okundu</Button>
                 )}
                 {myTarget?.is_read && <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 font-semibold">✓ Görev Alındı</Badge>}
               </div>
-              <p className="text-sm whitespace-pre-wrap text-foreground/90">{m.body}</p>
+              <p className="text-sm whitespace-pre-wrap text-foreground/90 my-3">{m.body}</p>
               {canCreate && (
                 <div className="mt-3 text-xs text-muted-foreground font-medium flex items-center gap-2">
                   <span>Okunma Durumu:</span>
