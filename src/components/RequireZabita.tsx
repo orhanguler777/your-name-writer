@@ -1,22 +1,27 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { isMenuItemAllowedForRole, MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
 
 /**
- * Zabıta modüllerini (İşyeri Denetimi, İşyeri Listesi, Saha Haritası) sarmalayan koruma.
- * Yalnızca zabıta kullanıcıları (zabita rolü veya "Zabıta Müdürlüğü" departmanı) erişebilir;
- * diğer roller (admin dahil) doğrudan URL ile girse bile Ana Panel'e yönlendirilir.
+ * Zabıta ve Saha modüllerini sarmalayan dinamik yetki kontrolü.
+ * SuperUser matrisinde izin verilmişse (işaretlenmişse) her rol (Başkan dâhil) sayfaya erişebilir.
  */
 export function RequireZabita({ children }: { children: React.ReactNode }) {
-  const { isZabita, loading } = useAuth();
+  const { primaryRole, loading } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Bulunan rota için menuId eşleştirmesi
+  const menuItem = MENU_ITEMS_CONFIG.find((m) => m.to === pathname);
+  const isAllowed = menuItem ? isMenuItemAllowedForRole(primaryRole, menuItem.id) : true;
 
   useEffect(() => {
-    if (!loading && !isZabita) {
+    if (!loading && !isAllowed) {
       navigate({ to: "/panel", replace: true });
     }
-  }, [loading, isZabita, navigate]);
+  }, [loading, isAllowed, navigate]);
 
   if (loading) {
     return (
@@ -26,7 +31,7 @@ export function RequireZabita({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isZabita) return null;
+  if (!isAllowed) return null;
 
   return <>{children}</>;
 }

@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Switch } from "@/components/ui/switch";
 import { getBotSettings, updateBotSettings } from "@/lib/ai.functions";
+import { RolePermissionsMatrixManager } from "@/components/RolePermissionsMatrixManager";
 
 export const Route = createFileRoute("/_authenticated/ayarlar")({
   ssr: false,
@@ -253,18 +254,16 @@ function Page() {
               </div>
               <Switch checked={selfChatOnly} onCheckedChange={handleBotSettingsChange} />
             </div>
-            <div className="flex items-center justify-between rounded-md border p-3 bg-muted/20 mt-4">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-semibold">Köksal'a Cevap Ver</Label>
-                <p className="text-xs text-muted-foreground max-w-[280px]">
-                  Aktif olduğunda +90 545 459 70 00 numarasından gelen mesajlara bot yanıt verir.
-                </p>
-              </div>
-              <Switch checked={koksalChatOnly} onCheckedChange={handleKoksalChange} />
-            </div>
           </Card>
         </div>
       </div>
+
+      {/* SuperUser / Admin Dynamic Role Permission Matrix */}
+      {(primaryRole === "superuser" || primaryRole === "admin") && (
+        <div className="mt-8 max-w-6xl">
+          <RolePermissionsMatrixManager />
+        </div>
+      )}
     </div>
   );
 }

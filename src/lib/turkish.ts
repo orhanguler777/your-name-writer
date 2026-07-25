@@ -25,10 +25,14 @@ export const PRIORITY_LABELS: Record<string, string> = {
 };
 
 export const ROLE_LABELS: Record<string, string> = {
+  superuser: "Sistem Yöneticisi (SuperUser)",
+  baskan: "Belediye Başkanı",
+  baskan_yardimcisi: "Başkan Yardımcısı",
+  mudur: "Birim Müdürü",
+  zabita_memuru: "Zabıta Memuru (Saha)",
   vatandas: "Vatandaş",
   cozum_masasi: "Çözüm Masası",
   mudurluk: "Müdürlük Kullanıcısı",
-  baskan: "Başkan",
   admin: "Admin",
   zabita: "Zabıta Ekibi",
 };
