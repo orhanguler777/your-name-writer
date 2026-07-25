@@ -41,7 +41,7 @@ function Page() {
         .from("mayor_daily_messages")
         .select(`
           *,
-          sender:profiles!mayor_daily_messages_created_by_fkey(full_name, email),
+          sender:profiles(full_name, email),
           targets:mayor_daily_message_targets(id, department_id, is_read, read_at, departments(name))
         `)
         .order("created_at", { ascending: false });
