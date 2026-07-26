@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/panel-primitives";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Search, AlertTriangle, Save, ChevronDown, ChevronUp, XCircle, CheckCircle2, Camera, Trash2, UploadCloud, Image, MapPin, Navigation, Clock, CalendarClock, FileText } from "lucide-react";
+import { ClipboardCheck, Search, AlertTriangle, Save, ChevronDown, ChevronUp, XCircle, CheckCircle2, Camera, Trash2, UploadCloud, Image, MapPin, Navigation, Clock, FileText } from "lucide-react";
 import { ZABITA_CHECKLISTS, calculatePenalty } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, generateInspectionPdfBlob } from "@/lib/tutanak";
 import { InspectionSignDialog } from "@/components/InspectionSignDialog";
@@ -168,143 +168,6 @@ function PreviousInspectionsDropdownDetail({
   );
 }
 
-/* ─── Süresi Dolan Kontrol Noktaları (Re-Denetim Bekleyenler) ─── */
-function FollowupPanel({ onSelectWorkplace }: { onSelectWorkplace: (name: string) => void }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const followupQuery = useQuery({
-    queryKey: ["followup-inspections"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workplace_inspections")
-        .select("*")
-        .eq("followup_status", "pending")
-        .not("followup_date", "is", null)
-        .order("followup_date", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-    refetchInterval: 60_000,
-  });
-
-  const items = followupQuery.data ?? [];
-  if (items.length === 0) return null;
-
-  // Group: overdue (followup_date <= today), upcoming (within 3 days), later
-  const overdue: typeof items = [];
-  const upcoming: typeof items = [];
-  const later: typeof items = [];
-
-  items.forEach((item) => {
-    const fd = new Date(item.followup_date!);
-    fd.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((fd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays <= 0) overdue.push(item);
-    else if (diffDays <= 3) upcoming.push(item);
-    else later.push(item);
-  });
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
-  };
-
-  const daysDiff = (iso: string) => {
-    const fd = new Date(iso);
-    fd.setHours(0, 0, 0, 0);
-    return Math.ceil((fd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  };
-
-  return (
-    <Card className="border-orange-300 dark:border-orange-700">
-      <CardHeader className="bg-orange-50 dark:bg-orange-950/30 pb-3 border-b border-orange-200 dark:border-orange-800">
-        <CardTitle className="text-base flex items-center gap-2 text-orange-800 dark:text-orange-300">
-          <CalendarClock className="w-5 h-5" />
-          Süresi Dolan Kontrol Noktaları
-          <Badge variant="outline" className="ml-auto bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border-orange-300">
-            {items.length} Bekleyen
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-3 max-h-64 overflow-y-auto space-y-1.5">
-        {overdue.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> Süresi Dolmuş
-            </p>
-            {overdue.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onSelectWorkplace(item.workplace_name)}
-                className="w-full text-left px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm text-red-800 dark:text-red-300 truncate">{item.workplace_name}</span>
-                  <Badge variant="destructive" className="text-xs shrink-0 ml-2">
-                    {Math.abs(daysDiff(item.followup_date!))} gün gecikmiş
-                  </Badge>
-                </div>
-                <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">
-                  Süre Bitişi: {formatDate(item.followup_date!)} · Puan: {item.penalty_points}
-                </p>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {upcoming.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> Yaklaşan (3 Gün İçinde)
-            </p>
-            {upcoming.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onSelectWorkplace(item.workplace_name)}
-                className="w-full text-left px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm text-amber-800 dark:text-amber-300 truncate">{item.workplace_name}</span>
-                  <Badge className="text-xs bg-amber-500 text-white shrink-0 ml-2">
-                    {daysDiff(item.followup_date!)} gün kaldı
-                  </Badge>
-                </div>
-                <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-0.5">
-                  Süre Bitişi: {formatDate(item.followup_date!)} · Puan: {item.penalty_points}
-                </p>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {later.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> İlerisi
-            </p>
-            {later.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onSelectWorkplace(item.workplace_name)}
-                className="w-full text-left px-3 py-2 rounded-md bg-muted/30 border hover:bg-muted/60 transition-colors"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm truncate">{item.workplace_name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0 ml-2">{daysDiff(item.followup_date!)} gün</span>
-                </div>
-                <p className="text-xs text-muted-foreground/70 mt-0.5">
-                  Süre Bitişi: {formatDate(item.followup_date!)} · Puan: {item.penalty_points}
-                </p>
-              </button>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function ZabitaDenetimPage() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -319,6 +182,8 @@ function ZabitaDenetimPage() {
     tax_office: "",
     tax_number: "",
     phone: "",
+    license_number: "",
+    pos_device_number: "",
     inspection_type: "",
     notes: "",
   });
@@ -330,6 +195,52 @@ function ZabitaDenetimPage() {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [signOpen, setSignOpen] = useState(false);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  // Memur adresi elle düzenlediyse GPS artık üzerine yazmaz
+  const addressTouched = useRef(false);
+
+  /** GPS koordinatından açık adres (mahalle / sokak / no) çözümler — OpenStreetMap Nominatim */
+  const reverseGeocode = async (lat: number, lng: number, { force = false } = {}) => {
+    setIsGeocoding(true);
+    try {
+      const url =
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1` +
+        `&accept-language=tr&lat=${lat}&lon=${lng}`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`Adres servisi yanıt vermedi (${res.status})`);
+      const json = await res.json();
+      const a = json?.address ?? {};
+
+      const mahalle = a.neighbourhood || a.quarter || a.suburb || a.village || a.hamlet;
+      const yol = a.road || a.pedestrian || a.footway;
+      const kapiNo = a.house_number;
+      const ilce = a.town || a.city_district || a.county || a.municipality;
+      const il = a.province || a.city || a.state;
+
+      const parts = [
+        mahalle ? (/mah/i.test(mahalle) ? mahalle : `${mahalle} Mah.`) : null,
+        yol ? (/(cad|sok|blv|bulvar|sk\.|cd\.)/i.test(yol) ? yol : `${yol} Sk.`) : null,
+        kapiNo ? `No: ${kapiNo}` : null,
+        [ilce, il].filter(Boolean).join("/") || null,
+      ].filter(Boolean);
+
+      const formatted = parts.length > 0 ? parts.join(" ") : (json?.display_name ?? null);
+      setGeoAddress(formatted);
+
+      // Adres boşsa veya kullanıcı hiç dokunmadıysa otomatik doldur (alan yine düzenlenebilir)
+      if (formatted && (force || !addressTouched.current)) {
+        setForm((f) => (force || !f.address ? { ...f, address: formatted } : f));
+      }
+      return formatted;
+    } catch (e: any) {
+      setGeoAddress(null);
+      if (force) toast.error("Adres çözümlenemedi: " + (e?.message || "bilinmeyen hata"));
+      return null;
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   // Automatically fetch GPS position on mount / demand
   const fetchLocation = () => {
@@ -341,11 +252,11 @@ function ZabitaDenetimPage() {
     setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setCoords({ lat, lng });
         setIsLocating(false);
+        void reverseGeocode(lat, lng);
       },
       (err) => {
         setIsLocating(false);
@@ -397,15 +308,11 @@ function ZabitaDenetimPage() {
   };
 
 
-  useMemo(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchName);
-      if (searchName && !form.workplace_name) {
-        setForm((prev) => ({ ...prev, workplace_name: searchName }));
-      }
-    }, 500);
+  // Sorgu kutusu yalnızca geçmiş denetimleri arar; forma kopyalama yapmaz.
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(searchName), 500);
     return () => clearTimeout(handler);
-  }, [searchName, form.workplace_name]);
+  }, [searchName]);
 
   // Check recent inspections (collision detection)
   const { data: recentInspections, isLoading: isChecking } = useQuery({
@@ -435,6 +342,24 @@ function ZabitaDenetimPage() {
   // Auto-fill form and set checklist when a recent inspection is found
   const lastFilledWorkplace = useRef<string | null>(null);
 
+  /** Formu boşaltır; adres varsa GPS önerisiyle yeniden doldurulur. */
+  const clearForm = () => {
+    setForm({
+      workplace_name: "",
+      owner_name: "",
+      address: geoAddress ?? "",
+      tax_office: "",
+      tax_number: "",
+      phone: "",
+      license_number: "",
+      pos_device_number: "",
+      inspection_type: "",
+      notes: "",
+    });
+    setChecklistData({});
+    addressTouched.current = false;
+  };
+
   useEffect(() => {
     if (recentInspections?.data && recentInspections.data.length > 0) {
       const latest = recentInspections.data[0];
@@ -448,15 +373,22 @@ function ZabitaDenetimPage() {
           phone: latest.phone || "",
           tax_office: latest.tax_office || "",
           tax_number: latest.tax_number || "",
+          license_number: (latest as any).license_number || "",
+          pos_device_number: (latest as any).pos_device_number || "",
           inspection_type: latest.inspection_type || "",
           notes: "",
         });
+        // geçmiş kayıttan adres geldiyse GPS bunun üzerine yazmasın
+        if (latest.address) addressTouched.current = true;
         if (latest.checklist) {
           setChecklistData(latest.checklist as Record<string, boolean>);
         }
       }
-    } else {
+    } else if (lastFilledWorkplace.current !== null) {
+      // Sorgu değiştirildi/silindi ve artık eşleşen kayıt yok:
+      // önceki işyerinden otomatik gelen bilgiler formda kalmasın.
       lastFilledWorkplace.current = null;
+      clearForm();
     }
   }, [recentInspections?.data]);
 
@@ -491,6 +423,22 @@ function ZabitaDenetimPage() {
 
       if (error) throw error;
 
+      // Ruhsat / POS bilgileri ayrı yazılır: ilgili migration henüz uygulanmadıysa
+      // ana kayıt kaybolmasın diye insert'e dahil edilmez.
+      if (data?.id && (form.license_number || form.pos_device_number)) {
+        const { error: extraErr } = await supabase
+          .from("workplace_inspections")
+          .update({
+            license_number: form.license_number || null,
+            pos_device_number: form.pos_device_number || null,
+          } as any)
+          .eq("id", data.id);
+        if (extraErr) {
+          console.warn("Ruhsat/POS bilgisi kaydedilemedi (migration gerekli olabilir):", extraErr.message);
+          toast.warning("Ruhsat / POS numarası kaydedilemedi — veritabanı güncellemesi bekliyor.");
+        }
+      }
+
       // İmzalar + arşivlenmiş imzalı tutanak PDF'i storage'a yüklenir, DB'ye işlenir
       if (data?.id) {
         const signedAt = new Date().toISOString();
@@ -508,6 +456,8 @@ function ZabitaDenetimPage() {
             tax_office: form.tax_office,
             tax_number: form.tax_number,
             phone: form.phone,
+            license_number: form.license_number,
+            pos_device_number: form.pos_device_number,
             inspection_type: form.inspection_type,
             checklist: checklistData,
             notes: form.notes,
@@ -553,12 +503,16 @@ function ZabitaDenetimPage() {
         tax_office: "",
         tax_number: "",
         phone: "",
+        license_number: "",
+        pos_device_number: "",
         inspection_type: "",
         notes: "",
       });
       setChecklistData({});
       setUploadedImages([]);
       setSearchName("");
+      addressTouched.current = false;
+      lastFilledWorkplace.current = null;
       queryClient.invalidateQueries({ queryKey: ["recent-inspections"] });
       queryClient.invalidateQueries({ queryKey: ["all-inspections"] });
     },
@@ -585,11 +539,6 @@ function ZabitaDenetimPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sol Kolon */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Süresi Dolan Kontrol Noktaları (Re-Denetim Bekleyenler) */}
-          <FollowupPanel onSelectWorkplace={(name: string) => {
-            setSearchName(name);
-          }} />
-
           {/* Çakışma Önleme */}
           <Card>
             <CardHeader className="bg-primary/5 pb-4 border-b">
@@ -624,10 +573,10 @@ function ZabitaDenetimPage() {
             </CardContent>
           </Card>
 
-          {/* İşyeri Bilgileri */}
+          {/* Yeni İşyeri Denetimi Ekle */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">İşyeri Bilgileri</CardTitle>
+              <CardTitle className="text-lg">Yeni İşyeri Denetimi Ekle</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
@@ -652,9 +601,56 @@ function ZabitaDenetimPage() {
                   <Input value={form.tax_number} onChange={(e) => setForm((f) => ({ ...f, tax_number: e.target.value }))} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Ruhsat Numarası</Label>
+                  <Input
+                    value={form.license_number}
+                    onChange={(e) => setForm((f) => ({ ...f, license_number: e.target.value }))}
+                    placeholder="Örn. 2024/1234"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>POS Cihazı Numarası</Label>
+                  <Input
+                    value={form.pos_device_number}
+                    onChange={(e) => setForm((f) => ({ ...f, pos_device_number: e.target.value }))}
+                    placeholder="Terminal / POS no"
+                  />
+                </div>
+              </div>
               <div className="space-y-1.5">
-                <Label>Adres</Label>
-                <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+                <Label className="flex items-center justify-between">
+                  <span>Adres</span>
+                  {coords && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => reverseGeocode(coords.lat, coords.lng, { force: true })}
+                      disabled={isGeocoding}
+                    >
+                      <MapPin className={`w-3 h-3 mr-1 ${isGeocoding ? "animate-pulse" : ""}`} />
+                      {isGeocoding ? "Çözümleniyor..." : "GPS'ten Doldur"}
+                    </Button>
+                  )}
+                </Label>
+                <Input
+                  value={form.address}
+                  placeholder={isGeocoding ? "GPS adresi çözümleniyor..." : "Mahalle / Sokak / No"}
+                  onChange={(e) => {
+                    addressTouched.current = true;
+                    setForm((f) => ({ ...f, address: e.target.value }));
+                  }}
+                />
+                {geoAddress && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {form.address === geoAddress
+                      ? "GPS konumundan otomatik dolduruldu — yanlışsa düzeltebilirsiniz."
+                      : `GPS önerisi: ${geoAddress}`}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Denetim Türü <span className="text-red-500">*</span></Label>
@@ -847,6 +843,8 @@ function ZabitaDenetimPage() {
                             tax_office: form.tax_office,
                             tax_number: form.tax_number,
                             phone: form.phone,
+                            license_number: form.license_number,
+                            pos_device_number: form.pos_device_number,
                             inspection_type: form.inspection_type,
                             checklist: checklistData,
                             notes: form.notes,

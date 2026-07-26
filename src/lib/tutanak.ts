@@ -10,6 +10,8 @@ export interface TutanakData {
   tax_office?: string | null;
   tax_number?: string | null;
   phone?: string | null;
+  license_number?: string | null;
+  pos_device_number?: string | null;
   inspection_type: string;
   checklist: Record<string, boolean>;
   notes?: string | null;
@@ -232,6 +234,7 @@ export async function buildInspectionReportHtml(
       <tr>${infoRow("İşyeri Ünvanı", data.workplace_name)}${infoRow("Denetim Türü", category?.title ?? data.inspection_type)}</tr>
       <tr>${infoRow("Sahibi / Sorumlusu", data.owner_name)}${infoRow("Telefon", data.phone)}</tr>
       <tr>${infoRow("Vergi Dairesi", data.tax_office)}${infoRow("Vergi No", data.tax_number)}</tr>
+      <tr>${infoRow("Ruhsat No", data.license_number)}${infoRow("POS Cihaz No", data.pos_device_number)}</tr>
       <tr><td class="k">Adres</td><td class="v" colspan="3">${esc(data.address) || "—"}</td></tr>
     </table>
 
