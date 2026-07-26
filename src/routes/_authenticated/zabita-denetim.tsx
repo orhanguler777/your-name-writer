@@ -706,17 +706,17 @@ function ZabitaDenetimPage() {
                 </Label>
                 
                 {coords ? (
-                  <div className="mt-1.5 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="font-mono text-[11px]">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
+                  <div className="mt-1.5 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-xs text-emerald-800 dark:text-emerald-300 flex flex-wrap items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="font-mono text-[11px] truncate">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
                     </div>
-                    <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
+                    <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
                       Konum Doğrulandı
                     </Badge>
                   </div>
                 ) : locationError ? (
-                  <div className="mt-1.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-800 dark:text-amber-300">
+                  <div className="mt-1.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-800 dark:text-amber-300 break-words">
                     {locationError}
                   </div>
                 ) : (
@@ -772,7 +772,7 @@ function ZabitaDenetimPage() {
                   const isWarning = penalty.penaltyPoints > 0;
 
                   return (
-                    <div className={`p-3 rounded-lg border flex items-center justify-between gap-4 transition-colors ${
+                    <div className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 transition-colors ${
                       isSevere
                         ? "bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-300"
                         : isMedium
@@ -781,25 +781,26 @@ function ZabitaDenetimPage() {
                         ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-900 dark:text-yellow-300"
                         : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
                     }`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-full ${
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`p-1.5 rounded-full shrink-0 ${
                           isSevere ? "bg-red-500 text-white" : isMedium ? "bg-amber-500 text-white" : isWarning ? "bg-yellow-500 text-white" : "bg-emerald-500 text-white"
                         }`}>
                           <AlertTriangle className="w-4 h-4" />
                         </div>
-                        <div>
-                          <div className="text-xs font-semibold flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold flex flex-wrap items-center gap-x-2">
                             <span>Otomatik Ceza Puanı: <strong className="text-sm font-bold">{penalty.penaltyPoints} Puan</strong></span>
                             {penalty.missingItemsCount > 0 && (
                               <span className="text-[11px] opacity-80">({penalty.missingItemsCount} eksik madde)</span>
                             )}
                           </div>
-                          <div className="text-xs opacity-90 mt-0.5">
+                          <div className="text-xs opacity-90 mt-0.5 break-words">
                             Tavsiye Edilen Yaptırım: <strong>{penalty.recommendedAction}</strong>
                           </div>
                         </div>
                       </div>
-                      <Badge variant={isSevere ? "destructive" : "outline"} className="shrink-0 text-xs px-2.5 py-1 font-semibold">
+                      {/* Yaptırım rozeti mobilde gizli: aynı bilgi zaten üstteki satırda yazıyor */}
+                      <Badge variant={isSevere ? "destructive" : "outline"} className="hidden sm:inline-flex shrink-0 text-xs px-2.5 py-1 font-semibold">
                         {penalty.recommendedAction}
                       </Badge>
                     </div>
@@ -994,16 +995,16 @@ function ZabitaDenetimPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="p-4 border-t bg-card flex justify-between items-center gap-3">
+              <CardFooter className="p-4 border-t bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
                   {Object.values(checklistData).filter(Boolean).length} / {selectedChecklist.items.length} madde işaretlendi
                 </span>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setForm({ ...form, inspection_type: "" })}>Vazgeç</Button>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setForm({ ...form, inspection_type: "" })}>Vazgeç</Button>
                   <Button
                     onClick={() => setSignOpen(true)}
                     disabled={saveMutation.isPending || !form.workplace_name}
-                    className="gap-2"
+                    className="gap-2 flex-1 sm:flex-none"
                   >
                     {saveMutation.isPending ? "Kaydediliyor..." : <><Save className="w-4 h-4" /> İmzala ve Kaydet</>}
                   </Button>

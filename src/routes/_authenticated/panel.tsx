@@ -711,21 +711,21 @@ function ZabitaFollowupDashboardWidget() {
 
   return (
     <Card className="border-orange-300 dark:border-orange-700 overflow-hidden">
-      <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 px-5 py-3 border-b border-orange-200 dark:border-orange-800 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="bg-orange-500/15 dark:bg-orange-500/25 p-2 rounded-lg">
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20 px-4 sm:px-5 py-3 border-b border-orange-200 dark:border-orange-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="bg-orange-500/15 dark:bg-orange-500/25 p-2 rounded-lg shrink-0">
             <CalendarClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="font-semibold text-orange-900 dark:text-orange-200 text-sm">
               Zabıta Re-Denetim Takibi
             </h3>
-            <p className="text-[11px] text-orange-700/70 dark:text-orange-400/60">
+            <p className="text-[11px] text-orange-700/70 dark:text-orange-400/60 truncate">
               İhtar verilen işyerleri otomatik takip
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {overdue.length > 0 && (
             <Badge variant="destructive" className="text-xs animate-pulse">
               {overdue.length} Gecikmiş

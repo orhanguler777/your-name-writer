@@ -57,7 +57,9 @@ export function InspectionSignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      {/* Telefonda içerik ekrana sığmayabilir: dialog kaydırılabilir olmalı,
+          yoksa "İmzala ve Kaydet" butonu ekran dışında kalıyor. */}
+      <DialogContent className="max-w-lg max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PenLine className="w-4 h-4 text-primary" />

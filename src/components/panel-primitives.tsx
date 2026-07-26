@@ -36,13 +36,13 @@ export function KpiCard({
   const accentClass = accent === "accent" ? "text-accent" : accent === "destructive" ? "text-destructive" : accent === "warn" ? "text-priority-medium" : "text-primary";
   return (
     <Card className="p-5">
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-          <div className="mt-2 font-display text-3xl font-bold">{value}</div>
+          <div className="mt-2 font-display text-3xl font-bold break-words">{value}</div>
           {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
         </div>
-        <div className={`rounded-md bg-muted p-2 ${accentClass}`}>
+        <div className={`shrink-0 rounded-md bg-muted p-2 ${accentClass}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -53,9 +53,9 @@ export function KpiCard({
 export function PageHeader({ title, description, actions, icon: Icon }: { title: string; description?: string; actions?: ReactNode; icon?: React.ComponentType<{ className?: string }> }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight md:text-3xl flex items-center gap-2">
-          {Icon && <Icon className="h-7 w-7 text-primary" />}
+      <div className="min-w-0">
+        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight md:text-3xl flex items-center gap-2">
+          {Icon && <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />}
           {title}
         </h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}

@@ -82,9 +82,9 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
           {/* Checklist Özeti */}
           {checklist && (
             <div>
-              <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
                 <h4 className="text-sm font-semibold">Denetim Maddeleri ({formatDate(activeRow.created_at)})</h4>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
                     variant="outline"
