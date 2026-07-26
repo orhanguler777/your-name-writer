@@ -5,9 +5,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/panel-primitives";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Search, Phone, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, FileText, Download, QrCode } from "lucide-react";
+import {
+  Building2,
+  Search,
+  Phone,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  XCircle,
+  Camera,
+  FileText,
+  Download,
+  QrCode,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
@@ -16,7 +35,13 @@ import { loadSignatures } from "@/lib/signatures";
 import { RequireZabita } from "@/components/RequireZabita";
 import { WorkplaceQrDialog } from "@/components/WorkplaceQrDialog";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Clock } from "lucide-react";
 
@@ -30,9 +55,15 @@ export const Route = createFileRoute("/_authenticated/zabita-isyerleri")({
   head: () => ({ meta: [{ title: "İşyeri Listesi — Zabıta" }] }),
 });
 
-function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWorkplaceInspections: any[] }) {
+function InspectionExpandRow({
+  row,
+  allWorkplaceInspections,
+}: {
+  row: any;
+  allWorkplaceInspections: any[];
+}) {
   const workplaceHistory = (allWorkplaceInspections || []).filter(
-    (ins) => ins.workplace_name?.toLowerCase().trim() === row.workplace_name?.toLowerCase().trim()
+    (ins) => ins.workplace_name?.toLowerCase().trim() === row.workplace_name?.toLowerCase().trim(),
   );
 
   const [selectedId, setSelectedId] = useState<string>(row.id);
@@ -57,8 +88,12 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-600 shrink-0" />
                 <div>
-                  <Label className="text-xs font-semibold text-foreground">İşyeri Denetim Geçmişi ({workplaceHistory.length} Kayıt)</Label>
-                  <p className="text-[11px] text-muted-foreground">İncelemek istediğiniz tarihi açılır menüden seçebilirsiniz:</p>
+                  <Label className="text-xs font-semibold text-foreground">
+                    İşyeri Denetim Geçmişi ({workplaceHistory.length} Kayıt)
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    İncelemek istediğiniz tarihi açılır menüden seçebilirsiniz:
+                  </p>
                 </div>
               </div>
               <Select value={selectedId} onValueChange={setSelectedId}>
@@ -67,11 +102,14 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
                 </SelectTrigger>
                 <SelectContent>
                   {workplaceHistory.map((ins) => {
-                    const title = ZABITA_CHECKLISTS.find((c) => c.id === ins.inspection_type)?.title || ins.inspection_type;
+                    const title =
+                      ZABITA_CHECKLISTS.find((c) => c.id === ins.inspection_type)?.title ||
+                      ins.inspection_type;
                     const pts = ins.penalty_points ?? 0;
                     return (
                       <SelectItem key={ins.id} value={ins.id} className="text-xs">
-                        {formatDate(ins.created_at)} — {pts > 0 ? `${pts} Puan (${ins.recommended_action})` : "Temiz"}
+                        {formatDate(ins.created_at)} —{" "}
+                        {pts > 0 ? `${pts} Puan (${ins.recommended_action})` : "Temiz"}
                       </SelectItem>
                     );
                   })}
@@ -84,7 +122,9 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
           {checklist && (
             <div>
               <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
-                <h4 className="text-sm font-semibold">Denetim Maddeleri ({formatDate(activeRow.created_at)})</h4>
+                <h4 className="text-sm font-semibold">
+                  Denetim Maddeleri ({formatDate(activeRow.created_at)})
+                </h4>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
@@ -131,7 +171,7 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
                       onClick={() =>
                         downloadFromUrl(
                           activeRow.tutanak_url,
-                          `Tutanak-${tutanakBelgeNo({ id: activeRow.id } as any)}.pdf`
+                          `Tutanak-${tutanakBelgeNo({ id: activeRow.id } as any)}.pdf`,
                         )
                       }
                     >
@@ -139,8 +179,13 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
                       İmzalı Belgeyi İndir
                     </Button>
                   )}
-                  <Badge variant={activeRow.penalty_points > 0 ? "destructive" : "default"} className="text-xs">
-                    {activeRow.penalty_points > 0 ? `${activeRow.penalty_points} Puan - ${activeRow.recommended_action}` : "Temiz / Uygun"}
+                  <Badge
+                    variant={activeRow.penalty_points > 0 ? "destructive" : "default"}
+                    className="text-xs"
+                  >
+                    {activeRow.penalty_points > 0
+                      ? `${activeRow.penalty_points} Puan - ${activeRow.recommended_action}`
+                      : "Temiz / Uygun"}
                   </Badge>
                 </div>
               </div>
@@ -151,14 +196,19 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
                     <div
                       key={item.id}
                       className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${
-                        !checked ? "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400" : "text-muted-foreground"
+                        !checked
+                          ? "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+                          : "text-muted-foreground"
                       }`}
                     >
-                      {checked
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                        : <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                      }
-                      <span className={!checked ? "font-medium" : ""}>{i + 1}. {item.label}</span>
+                      {checked ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      )}
+                      <span className={!checked ? "font-medium" : ""}>
+                        {i + 1}. {item.label}
+                      </span>
                     </div>
                   );
                 })}
@@ -189,7 +239,11 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
                     rel="noreferrer"
                     className="block w-24 h-24 rounded-lg border overflow-hidden hover:opacity-80 hover:shadow-md transition-all"
                   >
-                    <img src={url} alt={`Fotoğraf ${i + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={url}
+                      alt={`Fotoğraf ${i + 1}`}
+                      className="w-full h-full object-cover"
+                    />
                   </a>
                 ))}
               </div>
@@ -208,7 +262,9 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
 function ZabitaIsyerleriPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [qrWorkplace, setQrWorkplace] = useState<{ name: string; address?: string | null } | null>(null);
+  const [qrWorkplace, setQrWorkplace] = useState<{ name: string; address?: string | null } | null>(
+    null,
+  );
 
   // Get all inspections and deduplicated unique workplaces
   const { data: inspectionData, isLoading } = useQuery({
@@ -250,8 +306,7 @@ function ZabitaIsyerleriPage() {
     );
   });
 
-  const getChecklistLabel = (id: string) =>
-    ZABITA_CHECKLISTS.find((c) => c.id === id)?.title ?? id;
+  const getChecklistLabel = (id: string) => ZABITA_CHECKLISTS.find((c) => c.id === id)?.title ?? id;
 
   const getCheckedCount = (checklist: any) => {
     const data: Record<string, boolean> = checklist ?? {};
@@ -325,17 +380,16 @@ function ZabitaIsyerleriPage() {
                         onClick={() => setExpandedId(isExpanded ? null : row.id)}
                       >
                         <TableCell className="text-muted-foreground">
-                          {isExpanded
-                            ? <ChevronUp className="w-4 h-4" />
-                            : <ChevronDown className="w-4 h-4" />
-                          }
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
                         </TableCell>
                         <TableCell className="font-medium text-foreground">
                           <div className="flex items-center gap-2">
                             {row.workplace_name}
-                            {hasImages && (
-                              <Camera className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            )}
+                            {hasImages && <Camera className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground whitespace-nowrap">
@@ -347,22 +401,33 @@ function ZabitaIsyerleriPage() {
                               <Phone className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
                               {row.phone}
                             </span>
-                          ) : "—"}
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                           {row.tax_office || row.tax_number ? (
                             <div className="flex flex-col">
                               {row.tax_office && <span>{row.tax_office} V.D.</span>}
-                              {row.tax_number && <span className="font-mono text-[10px] text-muted-foreground/85">No: {row.tax_number}</span>}
+                              {row.tax_number && (
+                                <span className="font-mono text-[10px] text-muted-foreground/85">
+                                  No: {row.tax_number}
+                                </span>
+                              )}
                             </div>
-                          ) : "—"}
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {getChecklistLabel(row.inspection_type)}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <Badge variant={isGood ? "default" : "destructive"} className="text-[10px] px-1.5 py-0">
+                            <Badge
+                              variant={isGood ? "default" : "destructive"}
+                              className="text-[10px] px-1.5 py-0"
+                            >
                               {pct}% Uyumlu
                             </Badge>
                             <span className="text-[10px] text-muted-foreground">
@@ -373,11 +438,17 @@ function ZabitaIsyerleriPage() {
                         <TableCell className="text-center">
                           {(row.penalty_points ?? 0) > 0 ? (
                             <div className="flex flex-col items-center gap-0.5">
-                              <span className="text-xs font-bold text-red-600 dark:text-red-400">{row.penalty_points} Puan</span>
-                              <span className="text-[10px] text-muted-foreground">{row.recommended_action || "Uyarı"}</span>
+                              <span className="text-xs font-bold text-red-600 dark:text-red-400">
+                                {row.penalty_points} Puan
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {row.recommended_action || "Uyarı"}
+                              </span>
                             </div>
                           ) : (
-                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Temiz</span>
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              Temiz
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap text-xs text-muted-foreground">
@@ -398,7 +469,13 @@ function ZabitaIsyerleriPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                      {isExpanded && <InspectionExpandRow key={`${row.id}-expand`} row={row} allWorkplaceInspections={allInspections} />}
+                      {isExpanded && (
+                        <InspectionExpandRow
+                          key={`${row.id}-expand`}
+                          row={row}
+                          allWorkplaceInspections={allInspections}
+                        />
+                      )}
                     </>
                   );
                 })}

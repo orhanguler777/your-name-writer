@@ -12,7 +12,7 @@ export interface SendTutanakResult {
 
 export async function sendTutanakWhatsapp(
   inspectionId: string,
-  opts: { phone?: string | null; pdfUrl?: string | null } = {}
+  opts: { phone?: string | null; pdfUrl?: string | null } = {},
 ): Promise<SendTutanakResult> {
   try {
     const res = await fetch(`${BOT_URL}/send-inspection-pdf`, {

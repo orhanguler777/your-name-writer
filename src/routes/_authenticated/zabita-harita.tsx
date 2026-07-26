@@ -44,7 +44,7 @@ function ZabitaHaritaPage() {
       if (error) throw error;
 
       // Deduplicate: keep latest per workplace_name
-      const seen = new Map<string, typeof data[0]>();
+      const seen = new Map<string, (typeof data)[0]>();
       for (const row of data) {
         const key = row.workplace_name.toLowerCase().trim();
         if (!seen.has(key)) seen.set(key, row);
@@ -125,7 +125,9 @@ function ZabitaHaritaPage() {
           <CardHeader className="pb-3 border-b space-y-2">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Denetim Noktaları</span>
-              <Badge variant="secondary" className="text-xs">{filtered.length} İşyeri</Badge>
+              <Badge variant="secondary" className="text-xs">
+                {filtered.length} İşyeri
+              </Badge>
             </CardTitle>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -142,7 +144,9 @@ function ZabitaHaritaPage() {
             {isLoading ? (
               <div className="p-4 text-center text-xs text-muted-foreground">Yükleniyor...</div>
             ) : filtered.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">İşyeri bulunamadı.</div>
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                İşyeri bulunamadı.
+              </div>
             ) : (
               filtered.map((item) => {
                 const hasPenalty = (item.penalty_points ?? 0) > 0;
@@ -161,10 +165,15 @@ function ZabitaHaritaPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded-full shrink-0 ${hasPenalty ? "bg-red-500 animate-pulse" : "bg-emerald-500"}`} />
+                        <span
+                          className={`w-3 h-3 rounded-full shrink-0 ${hasPenalty ? "bg-red-500 animate-pulse" : "bg-emerald-500"}`}
+                        />
                         <h4 className="font-semibold text-sm truncate">{item.workplace_name}</h4>
                       </div>
-                      <Badge variant={hasPenalty ? "destructive" : "default"} className="text-[10px] px-1.5 py-0 shrink-0">
+                      <Badge
+                        variant={hasPenalty ? "destructive" : "default"}
+                        className="text-[10px] px-1.5 py-0 shrink-0"
+                      >
                         {hasPenalty ? `${item.penalty_points} Puan` : "Temiz"}
                       </Badge>
                     </div>

@@ -5,11 +5,30 @@ import { PageHeader, StatusBadge, PriorityBadge } from "@/components/panel-primi
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { STATUS_LABELS, LANGUAGES } from "@/lib/turkish";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Bot, MapPin, Phone, Mail, User, Check, ArrowRightLeft, Send, MessageSquare, Clock, Paperclip } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  MapPin,
+  Phone,
+  Mail,
+  User,
+  Check,
+  ArrowRightLeft,
+  Send,
+  MessageSquare,
+  Clock,
+  Paperclip,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_authenticated/sikayetler/$id")({
@@ -22,23 +41,29 @@ export const Route = createFileRoute("/_authenticated/sikayetler/$id")({
 function renderBold(text: string) {
   if (!text) return text;
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**")
-      ? <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
-      : <span key={i}>{part}</span>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i} className="font-semibold">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
   );
 }
 
 function Detail() {
   const { id } = useParams({ from: "/_authenticated/sikayetler/$id" });
   const qc = useQueryClient();
-  const { user, hasAnyRole } = useAuth();
+  const { user, hasAnyRole, profile } = useAuth();
 
   const { data: c, isLoading } = useQuery({
     queryKey: ["complaint", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("complaints")
-        .select("*, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name, id), ai_dept:departments!complaints_ai_department_id_fkey(name, id)")
+        .select(
+          "*, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name, id), ai_dept:departments!complaints_ai_department_id_fkey(name, id)",
+        )
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -48,17 +73,32 @@ function Detail() {
 
   const { data: departments } = useQuery({
     queryKey: ["departments-all"],
-    queryFn: async () => (await supabase.from("departments").select("id, name").order("name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("departments").select("id, name").order("name")).data ?? [],
   });
 
   const { data: responses } = useQuery({
     queryKey: ["responses", id],
-    queryFn: async () => (await supabase.from("complaint_responses").select("*").eq("complaint_id", id).order("created_at")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("complaint_responses")
+          .select("*")
+          .eq("complaint_id", id)
+          .order("created_at")
+      ).data ?? [],
   });
 
   const { data: attachments } = useQuery({
     queryKey: ["attachments", id],
-    queryFn: async () => (await supabase.from("complaint_attachments").select("*").eq("complaint_id", id).order("created_at")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("complaint_attachments")
+          .select("*")
+          .eq("complaint_id", id)
+          .order("created_at")
+      ).data ?? [],
   });
 
   const [response, setResponse] = useState("");
@@ -67,20 +107,29 @@ function Detail() {
   const [newStatus, setNewStatus] = useState("");
   const [newPriority, setNewPriority] = useState("");
 
-  const canManage = hasAnyRole("admin", "baskan", "cozum_masasi", "mudurluk");
+  const isUstYonetimOrCozum = hasAnyRole("admin", "baskan", "cozum_masasi");
+  const isOwnDepartment =
+    hasAnyRole("mudurluk", "mudur", "sef") &&
+    c?.assigned_department_id &&
+    profile?.department_id &&
+    c.assigned_department_id === profile.department_id;
+  const canManage = isUstYonetimOrCozum || isOwnDepartment;
 
   const updateStatus = async (status: string) => {
-    const { error } = await supabase.from("complaints").update({ status, resolved_at: status === "cozuldu" ? new Date().toISOString() : null }).eq("id", id);
+    const { error } = await supabase
+      .from("complaints")
+      .update({ status, resolved_at: status === "cozuldu" ? new Date().toISOString() : null })
+      .eq("id", id);
     if (error) return toast.error("Güncellenemedi", { description: error.message });
     toast.success("Durum güncellendi");
-    
+
     // Şikayet çözüldü yapıldıysa, botun express sunucusuna webhook fırlat
     if (status === "cozuldu") {
       fetch("http://localhost:3001/webhook/resolved", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ complaintId: id })
-      }).catch(err => {
+        body: JSON.stringify({ complaintId: id }),
+      }).catch((err) => {
         console.warn("Otomatik WhatsApp bildirim webhook hatası (bot açık olmayabilir):", err);
       });
     }
@@ -90,7 +139,10 @@ function Detail() {
 
   const acceptAiSuggestion = async () => {
     if (!c?.ai_department_id) return;
-    const { error } = await supabase.from("complaints").update({ assigned_department_id: c.ai_department_id, status: "incelemede" }).eq("id", id);
+    const { error } = await supabase
+      .from("complaints")
+      .update({ assigned_department_id: c.ai_department_id, status: "incelemede" })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("AI önerisi kabul edildi ve müdürlüğe atandı");
     qc.invalidateQueries({ queryKey: ["complaint", id] });
@@ -99,11 +151,17 @@ function Detail() {
   const transferDepartment = async () => {
     if (!newDept) return;
     const oldDept = c?.assigned_department_id;
-    const { error } = await supabase.from("complaints").update({ assigned_department_id: newDept }).eq("id", id);
+    const { error } = await supabase
+      .from("complaints")
+      .update({ assigned_department_id: newDept })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     await supabase.from("complaint_assignment_feedback").insert({
-      complaint_id: id, old_department_id: oldDept, new_department_id: newDept,
-      corrected_by: user?.id, reason: "Manuel müdürlük değişikliği",
+      complaint_id: id,
+      old_department_id: oldDept,
+      new_department_id: newDept,
+      corrected_by: user?.id,
+      reason: "Manuel müdürlük değişikliği",
     });
     toast.success("Bu düzeltme, yapay zeka yönlendirme modelini iyileştirmek için kaydedildi.");
     qc.invalidateQueries({ queryKey: ["complaint", id] });
@@ -113,10 +171,15 @@ function Detail() {
   const updatePriority = async () => {
     if (!newPriority) return;
     const oldPrio = c?.priority;
-    const { error } = await supabase.from("complaints").update({ priority: newPriority }).eq("id", id);
+    const { error } = await supabase
+      .from("complaints")
+      .update({ priority: newPriority })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     await supabase.from("complaint_assignment_feedback").insert({
-      complaint_id: id, corrected_by: user?.id, reason: `Öncelik değişimi: ${oldPrio} -> ${newPriority}`,
+      complaint_id: id,
+      corrected_by: user?.id,
+      reason: `Öncelik değişimi: ${oldPrio} -> ${newPriority}`,
     });
     toast.success("Öncelik güncellendi ve AI eğitimi için kaydedildi.");
     qc.invalidateQueries({ queryKey: ["complaint", id] });
@@ -157,8 +220,8 @@ function Detail() {
       responseAction === "soru"
         ? "Soru gönderildi, vatandaş yanıtı bekleniyor"
         : responseAction === "red"
-        ? "Şikayet reddedildi ve vatandaşa bildirildi"
-        : "Vatandaşa bilgi mesajı iletildi"
+          ? "Şikayet reddedildi ve vatandaşa bildirildi"
+          : "Vatandaşa bilgi mesajı iletildi",
     );
 
     fetch("http://localhost:3001/webhook/response", {
@@ -176,19 +239,27 @@ function Detail() {
     qc.invalidateQueries({ queryKey: ["complaint", id] });
   };
 
-  if (isLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Yükleniyor...</div>;
+  if (isLoading)
+    return <div className="p-8 text-center text-sm text-muted-foreground">Yükleniyor...</div>;
   if (!c) return <div className="p-8 text-center">Şikayet bulunamadı.</div>;
 
   return (
     <div>
       <Button asChild variant="ghost" size="sm" className="mb-3">
-        <Link to="/sikayetler"><ArrowLeft className="h-4 w-4 mr-1" /> Şikayetler</Link>
+        <Link to="/sikayetler">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Şikayetler
+        </Link>
       </Button>
 
       <PageHeader
         title={`Şikayet #${(c.id as string).slice(0, 8)}`}
         description={`${(c as any).neighborhoods?.name ?? "—"} · ${new Date(c.created_at as string).toLocaleString("tr-TR")}`}
-        actions={<><StatusBadge status={c.status as string} /><PriorityBadge priority={c.priority as string} /></>}
+        actions={
+          <>
+            <StatusBadge status={c.status as string} />
+            <PriorityBadge priority={c.priority as string} />
+          </>
+        }
       />
 
       {/* ── Timeline Bar ── */}
@@ -202,7 +273,9 @@ function Detail() {
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
               <span className="rounded bg-muted px-2 py-1">Kategori: {c.category}</span>
               <span className="rounded bg-muted px-2 py-1">Kaynak: {c.source}</span>
-              <span className="rounded bg-muted px-2 py-1">Dil: {LANGUAGES[c.language as string] ?? c.language}</span>
+              <span className="rounded bg-muted px-2 py-1">
+                Dil: {LANGUAGES[c.language as string] ?? c.language}
+              </span>
             </div>
           </Card>
 
@@ -241,7 +314,7 @@ function Detail() {
                       <Paperclip className="h-6 w-6" />
                       Belgeyi aç
                     </a>
-                  )
+                  ),
                 )}
               </div>
             </Card>
@@ -253,45 +326,85 @@ function Detail() {
               <div className="mb-4 flex items-center justify-between border-b pb-3">
                 <div className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="font-display font-semibold">Yapay Zeka Sınıflandırma ve Aktarım</h3>
+                  <h3 className="font-display font-semibold">
+                    Yapay Zeka Sınıflandırma ve Aktarım
+                  </h3>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 mb-4">
-                <div className="bg-background/60 p-3 rounded-md border"><div className="text-xs text-muted-foreground mb-1">Tespit Edilen Kategori</div><div className="font-medium">{c.ai_category ?? c.category}</div></div>
-                <div className="bg-background/60 p-3 rounded-md border"><div className="text-xs text-muted-foreground mb-1">Önerilen Müdürlük</div><div className="font-medium">{(c as any).ai_dept?.name ?? "—"}</div></div>
-                <div className="bg-background/60 p-3 rounded-md border"><div className="text-xs text-muted-foreground mb-1">Güven Skoru</div><div className="font-medium">%{Math.round((Number(c.ai_confidence_score) || 0) * 100)}</div></div>
-                <div className="bg-background/60 p-3 rounded-md border"><div className="text-xs text-muted-foreground mb-1">Öncelik Seviyesi</div><PriorityBadge priority={c.priority as string} /></div>
+                <div className="bg-background/60 p-3 rounded-md border">
+                  <div className="text-xs text-muted-foreground mb-1">Tespit Edilen Kategori</div>
+                  <div className="font-medium">{c.ai_category ?? c.category}</div>
+                </div>
+                <div className="bg-background/60 p-3 rounded-md border">
+                  <div className="text-xs text-muted-foreground mb-1">Önerilen Müdürlük</div>
+                  <div className="font-medium">{(c as any).ai_dept?.name ?? "—"}</div>
+                </div>
+                <div className="bg-background/60 p-3 rounded-md border">
+                  <div className="text-xs text-muted-foreground mb-1">Güven Skoru</div>
+                  <div className="font-medium">
+                    %{Math.round((Number(c.ai_confidence_score) || 0) * 100)}
+                  </div>
+                </div>
+                <div className="bg-background/60 p-3 rounded-md border">
+                  <div className="text-xs text-muted-foreground mb-1">Öncelik Seviyesi</div>
+                  <PriorityBadge priority={c.priority as string} />
+                </div>
               </div>
-              
+
               {canManage && (
                 <div className="flex flex-col gap-3 pt-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button size="sm" onClick={acceptAiSuggestion} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Button
+                      size="sm"
+                      onClick={acceptAiSuggestion}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
                       <Check className="h-4 w-4 mr-1" /> AI Atamasını Onayla
                     </Button>
                   </div>
-                  
+
                   <div className="grid sm:grid-cols-2 gap-3 mt-2">
                     <div className="flex gap-2 p-3 bg-background/80 rounded-md border">
                       <Select value={newDept} onValueChange={setNewDept}>
-                        <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Farklı Birime Aktar..." /></SelectTrigger>
-                        <SelectContent>{departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="w-full bg-background">
+                          <SelectValue placeholder="Farklı Birime Aktar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments?.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
-                      <Button size="sm" variant="outline" onClick={transferDepartment} disabled={!newDept}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={transferDepartment}
+                        disabled={!newDept}
+                      >
                         Aktar
                       </Button>
                     </div>
-                    
+
                     <div className="flex gap-2 p-3 bg-background/80 rounded-md border">
                       <Select value={newPriority} onValueChange={setNewPriority}>
-                        <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Önceliği Değiştir..." /></SelectTrigger>
+                        <SelectTrigger className="w-full bg-background">
+                          <SelectValue placeholder="Önceliği Değiştir..." />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Yüksek">Yüksek</SelectItem>
                           <SelectItem value="Orta">Orta</SelectItem>
                           <SelectItem value="Düşük">Düşük</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button size="sm" variant="outline" onClick={updatePriority} disabled={!newPriority}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={updatePriority}
+                        disabled={!newPriority}
+                      >
                         Kaydet
                       </Button>
                     </div>
@@ -314,7 +427,9 @@ function Detail() {
                   <p className="text-sm whitespace-pre-wrap">{r.response_text}</p>
                 </div>
               ))}
-              {(!responses || responses.length === 0) && <p className="text-sm text-muted-foreground">Henüz cevap yok.</p>}
+              {(!responses || responses.length === 0) && (
+                <p className="text-sm text-muted-foreground">Henüz cevap yok.</p>
+              )}
             </div>
             {canManage && (
               <div className="mt-4 space-y-3 pt-2 border-t">
@@ -324,7 +439,7 @@ function Detail() {
                   placeholder="Vatandaşa iletilecek mesajı yazın..."
                   rows={3}
                 />
-                
+
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-muted/40 p-3 rounded-lg border">
                   <div className="flex flex-wrap items-center gap-3 text-xs">
                     <span className="font-semibold text-muted-foreground">İşlem / Yanıt Türü:</span>
@@ -363,7 +478,12 @@ function Detail() {
                     </label>
                   </div>
 
-                  <Button size="sm" onClick={sendResponse} disabled={!response.trim()} className="shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={sendResponse}
+                    disabled={!response.trim()}
+                    className="shrink-0"
+                  >
                     <Send className="h-4 w-4 mr-1" /> Vatandaşa Gönder
                   </Button>
                 </div>
@@ -376,10 +496,22 @@ function Detail() {
           <Card className="p-5">
             <h3 className="mb-3 font-semibold">Vatandaş Bilgileri</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{c.citizen_name}</div>
-              <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" />{c.citizen_phone ?? "—"}</div>
-              <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" />{c.citizen_email ?? "—"}</div>
-              <div className="flex items-start gap-2"><MapPin className="h-4 w-4 text-muted-foreground mt-0.5" /><span>{c.address}</span></div>
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                {c.citizen_name}
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                {c.citizen_phone ?? "—"}
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                {c.citizen_email ?? "—"}
+              </div>
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <span>{c.address}</span>
+              </div>
               {(c.wants_human_representative as boolean) && (
                 <div className="rounded-md bg-priority-medium/10 border border-priority-medium/30 p-2 text-priority-medium text-xs">
                   Vatandaş gerçek temsilci ile görüşmek istiyor.
@@ -397,17 +529,31 @@ function Detail() {
               <div className="space-y-4 text-sm">
                 <div className="bg-white p-3 rounded-md shadow-sm">
                   <div className="text-xs text-slate-500 mb-1">Şu An Atanan Müdürlük</div>
-                  <div className="font-semibold text-slate-900">{(c as any).departments?.name ?? "—"}</div>
+                  <div className="font-semibold text-slate-900">
+                    {(c as any).departments?.name ?? "—"}
+                  </div>
                 </div>
                 {canManage && (
                   <div className="space-y-3 pt-2">
                     <div className="text-xs font-medium text-slate-300">Durumu Güncelle</div>
                     <div className="flex gap-2">
                       <Select value={newStatus} onValueChange={setNewStatus}>
-                        <SelectTrigger className="w-full bg-white border-transparent text-slate-900 h-10 shadow-sm"><SelectValue placeholder="Yeni durumu seçin..." /></SelectTrigger>
-                        <SelectContent>{Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k} className="font-medium">{v}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="w-full bg-white border-transparent text-slate-900 h-10 shadow-sm">
+                          <SelectValue placeholder="Yeni durumu seçin..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                            <SelectItem key={k} value={k} className="font-medium">
+                              {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
-                      <Button onClick={() => updateStatus(newStatus)} disabled={!newStatus} className="bg-white hover:bg-slate-100 text-slate-900 shadow-sm shrink-0 font-medium">
+                      <Button
+                        onClick={() => updateStatus(newStatus)}
+                        disabled={!newStatus}
+                        className="bg-white hover:bg-slate-100 text-slate-900 shadow-sm shrink-0 font-medium"
+                      >
                         Kaydet
                       </Button>
                     </div>
@@ -424,11 +570,16 @@ function Detail() {
 
 function responseTypeLabel(type: string | null | undefined): string {
   switch (type) {
-    case "otomatik": return "AI Otomatik Cevap";
-    case "soru": return "Belediye Sorusu";
-    case "vatandas": return "Vatandaş Yanıtı";
-    case "durum_bildirimi": return "Durum Bildirimi";
-    default: return "Belediye";
+    case "otomatik":
+      return "AI Otomatik Cevap";
+    case "soru":
+      return "Belediye Sorusu";
+    case "vatandas":
+      return "Vatandaş Yanıtı";
+    case "durum_bildirimi":
+      return "Durum Bildirimi";
+    default:
+      return "Belediye";
   }
 }
 
@@ -438,9 +589,11 @@ function TimelineBar({ complaint, responses }: { complaint: any; responses: any[
   const resolvedAt = complaint.resolved_at ? new Date(complaint.resolved_at) : null;
 
   // Build timeline events
-  const events: { label: string; date: Date; type: "created" | "response" | "resolved" | "status" }[] = [
-    { label: "Şikayet Oluşturuldu", date: created, type: "created" },
-  ];
+  const events: {
+    label: string;
+    date: Date;
+    type: "created" | "response" | "resolved" | "status";
+  }[] = [{ label: "Şikayet Oluşturuldu", date: created, type: "created" }];
 
   responses.forEach((r) => {
     events.push({
@@ -486,14 +639,20 @@ function TimelineBar({ complaint, responses }: { complaint: any; responses: any[
               {i > 0 && (
                 <div className="flex flex-col items-center mt-2 mx-1">
                   <div className="h-0.5 w-12 bg-border" />
-                  <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{formatDuration(elapsed)}</span>
+                  <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">
+                    {formatDuration(elapsed)}
+                  </span>
                 </div>
               )}
               {/* dot + label */}
               <div className="flex flex-col items-center min-w-[90px]">
-                <div className={`h-4 w-4 rounded-full ${dotColor[ev.type]} border-2 border-background shadow-sm shrink-0`} />
+                <div
+                  className={`h-4 w-4 rounded-full ${dotColor[ev.type]} border-2 border-background shadow-sm shrink-0`}
+                />
                 <div className="mt-1 text-center">
-                  <div className="text-[11px] font-medium leading-tight whitespace-nowrap">{ev.label}</div>
+                  <div className="text-[11px] font-medium leading-tight whitespace-nowrap">
+                    {ev.label}
+                  </div>
                   <div className="text-[10px] text-muted-foreground whitespace-nowrap">
                     {ev.date.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })}{" "}
                     {ev.date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}

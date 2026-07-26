@@ -1,5 +1,5 @@
-const fs = require('fs');
-let code = fs.readFileSync('whatsapp-bot/index.js', 'utf8');
+const fs = require("fs");
+let code = fs.readFileSync("whatsapp-bot/index.js", "utf8");
 
 const webhookCode = `
       // 📢 MANUEL CEVAP WEBHOOK'U (Realtime'a güvenmemek için)
@@ -77,6 +77,9 @@ const webhookCode = `
       });
 `;
 
-code = code.replace('// Zaten dinlemede olan bir express sunucusu varsa', webhookCode + '\n      // Zaten dinlemede olan bir express sunucusu varsa');
-fs.writeFileSync('whatsapp-bot/index.js', code);
+code = code.replace(
+  "// Zaten dinlemede olan bir express sunucusu varsa",
+  webhookCode + "\n      // Zaten dinlemede olan bir express sunucusu varsa",
+);
+fs.writeFileSync("whatsapp-bot/index.js", code);
 console.log("Fix applied");

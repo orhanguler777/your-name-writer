@@ -46,7 +46,8 @@ Sadece geçerli JSON döndür (başka metin yok):
         priority: parsed.priority ?? local.priority,
         language: parsed.language ?? "tr",
         confidence: typeof parsed.confidence === "number" ? parsed.confidence : local.confidence,
-        auto_response: parsed.auto_response ?? "Şikayetiniz alındı, en kısa sürede geri dönüş yapılacaktır.",
+        auto_response:
+          parsed.auto_response ?? "Şikayetiniz alındı, en kısa sürede geri dönüş yapılacaktır.",
         source: "ai",
       };
     } catch (e) {
@@ -60,39 +61,40 @@ Sadece geçerli JSON döndür (başka metin yok):
     }
   });
 
-export const getBotSettings = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const fs = await import("fs");
-    const path = await import("path");
-    const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
-    const defaults = {
-      selfChatOnly: true,
-      koksalChatOnly: false,
-      slaLimitHours: 120,
-      crisisLimitHours: 1,
-      crisisLimitCount: 4,
-      zabitaInspectionThresholdDays: 30,
-    };
-    try {
-      if (fs.existsSync(settingsPath)) {
-        const data = fs.readFileSync(settingsPath, "utf-8");
-        return { ...defaults, ...JSON.parse(data) };
-      }
-    } catch (e) {
-      console.error("Failed to read bot settings", e);
+export const getBotSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const fs = await import("fs");
+  const path = await import("path");
+  const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
+  const defaults = {
+    selfChatOnly: true,
+    koksalChatOnly: false,
+    slaLimitHours: 120,
+    crisisLimitHours: 1,
+    crisisLimitCount: 4,
+    zabitaInspectionThresholdDays: 30,
+  };
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, "utf-8");
+      return { ...defaults, ...JSON.parse(data) };
     }
-    return defaults;
-  });
+  } catch (e) {
+    console.error("Failed to read bot settings", e);
+  }
+  return defaults;
+});
 
 export const updateBotSettings = createServerFn({ method: "POST" })
   .inputValidator((input: any) =>
-    z.object({
-      selfChatOnly: z.boolean().optional(),
-      koksalChatOnly: z.boolean().optional(),
-      slaLimitHours: z.number().optional(),
-      crisisLimitHours: z.number().optional(),
-      crisisLimitCount: z.number().optional(),
-    }).parse(input)
+    z
+      .object({
+        selfChatOnly: z.boolean().optional(),
+        koksalChatOnly: z.boolean().optional(),
+        slaLimitHours: z.number().optional(),
+        crisisLimitHours: z.number().optional(),
+        crisisLimitCount: z.number().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const fs = await import("fs");
@@ -113,11 +115,15 @@ export const updateBotSettings = createServerFn({ method: "POST" })
   });
 
 export const fetchBilgiTalepleri = createServerFn({ method: "GET" })
-  .inputValidator((input: any) => z.object({
-    search: z.string().optional(),
-    departmentId: z.string().nullable().optional(),
-    isMudurluk: z.boolean().optional(),
-  }).parse(input))
+  .inputValidator((input: any) =>
+    z
+      .object({
+        search: z.string().optional(),
+        departmentId: z.string().nullable().optional(),
+        isMudurluk: z.boolean().optional(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -285,18 +291,22 @@ PARAGRAF YAPISI:
 
 export const fetchCitizensData = createServerFn({ method: "GET" })
   .inputValidator((input: any) =>
-    z.object({
-      search: z.string().optional(),
-      language: z.string().optional(),
-      kvkkStatus: z.string().optional(),
-    }).parse(input)
+    z
+      .object({
+        search: z.string().optional(),
+        language: z.string().optional(),
+        kvkkStatus: z.string().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: complaints, error } = await supabaseAdmin
       .from("complaints")
-      .select("id, citizen_phone, citizen_name, language, address, created_at, status, category, complaint_text")
+      .select(
+        "id, citizen_phone, citizen_name, language, address, created_at, status, category, complaint_text",
+      )
       .order("created_at", { ascending: false })
       .limit(1000);
 
@@ -333,7 +343,9 @@ export const fetchCitizensData = createServerFn({ method: "GET" })
           lastActivity: c.created_at,
           lastAddress: c.address,
           categories: [c.category].filter(Boolean),
-          history: [{ id: c.id, text: c.complaint_text || "Şikayet", status: c.status, date: c.created_at }],
+          history: [
+            { id: c.id, text: c.complaint_text || "Şikayet", status: c.status, date: c.created_at },
+          ],
         });
       } else {
         const item = map.get(phone);
@@ -345,7 +357,12 @@ export const fetchCitizensData = createServerFn({ method: "GET" })
           item.name = c.citizen_name;
           item.kvkkAccepted = true;
         }
-        item.history.push({ id: c.id, text: c.complaint_text || "Şikayet", status: c.status, date: c.created_at });
+        item.history.push({
+          id: c.id,
+          text: c.complaint_text || "Şikayet",
+          status: c.status,
+          date: c.created_at,
+        });
       }
     }
 
@@ -354,7 +371,7 @@ export const fetchCitizensData = createServerFn({ method: "GET" })
     if (data.search) {
       const s = data.search.toLowerCase();
       result = result.filter(
-        (r) => r.phone.toLowerCase().includes(s) || r.name.toLowerCase().includes(s)
+        (r) => r.phone.toLowerCase().includes(s) || r.name.toLowerCase().includes(s),
       );
     }
 
@@ -372,4 +389,3 @@ export const fetchCitizensData = createServerFn({ method: "GET" })
 
     return result;
   });
-

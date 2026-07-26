@@ -1,4 +1,5 @@
 # ALANYA BELEDİYESİ EVLENDİRME MEMURLUĞU
+
 **İrtibat Tel:** 0 242 513 22 52
 **Adres:** Saray Mahallesi İsmet Hilmi Balcı Caddesi No:11/D Alanya Belediyesi Nikah Dairesi
 
@@ -28,19 +29,26 @@
 ## YABANCI EVLİLİKLERLE İLGİLİ EK BİLGİLER (ÜLKEYE GÖRE PROSEDÜR)
 
 ### a) Ahvali Şahsiye Sözleşmesine Taraf Ülkeler ("Çok Dilli" Belge)
+
 **Ülkeler:** Almanya, Hollanda, Belçika, İtalya, Fransa, Avusturya
+
 - Doğum Belgesi ve Evlenme Ehliyet Belgesini **"Çok Dilli"** olarak alacaklardır.
 
 ### b) Lahey Sözleşmesine Üye Ülkeler (Apostilli Belge)
+
 **Ülkeler:** Rusya, Azerbaycan, Kırgızistan, Kazakistan, Türkmenistan, Özbekistan, Tacikistan, Belarus, Ukrayna
+
 - Doğum Belgesi ve Evlenme Ehliyet Belgesini **Apostilli** olacaklardır.
 - Apostilli olan belgeler Türkiye'deki tercüme büroları tarafından tercüme ettirilerek, Noterden tasdik ettirilecektir.
 
 ### c) Hiçbir Sözleşmeye Taraf Olmayan Ülkeler (Konsolosluk + Dışişleri Onayı)
+
 **Ülkeler:** Suriye, İran, Irak, Ürdün, Fas, Cezayir, Suudi Arabistan v.s.
+
 - Ülkelerinden aldıkları evrakları, Ankara'daki Konsolosluklarına onaylattırdıktan sonra, Dışişleri Bakanlığı'na tasdik ettirip, Türkiye'deki tercüme büroları tarafından tercüme edilmiş ve Noter tasdikli halini getireceklerdir.
 
 ### d) Türkiye'deki Konsolosluktan Belge Temin Edenler
+
 - Konsolosluk Ankara'da ise Dışişleri Bakanlığı'na, Diğer illerde ise o İl'in Valiliği'ne tasdik ettirdikten sonra, Türkiye'deki tercüme büroları tarafından tercüme edilmiş ve Noter tasdikli halini getireceklerdir.
 
 ---

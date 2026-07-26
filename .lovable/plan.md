@@ -7,14 +7,17 @@ Tamamen Türkçe, kurumsal SaaS görünümlü, Supabase (Lovable Cloud) destekli
 **Enable Lovable Cloud** — kimlik doğrulama, veritabanı, storage.
 
 ### Tablolar (14 adet, tam şema)
+
 `profiles`, `departments`, `deputy_mayors`, `neighborhoods`, `complaints`, `complaint_attachments`, `complaint_responses`, `complaint_assignment_feedback`, `mayor_daily_messages`, `mayor_daily_message_targets`, `vehicles`, `personnel`, `personnel_attendance`, `ai_bot_logs`.
 
 Ayrıca:
+
 - `app_role` enum: `vatandas`, `cozum_masasi`, `mudurluk`, `baskan`, `admin`
 - `user_roles` tablosu (rol ayrı tabloda — güvenlik)
 - `has_role()` security definer fonksiyonu
 
 ### RLS Politikaları
+
 - admin/baskan → tüm veriler
 - cozum_masasi → tüm şikayetler (SELECT/UPDATE)
 - mudurluk → sadece kendi `department_id` şikayetleri
@@ -22,12 +25,15 @@ Ayrıca:
 - mesajlar/araç/personel → role göre
 
 ### Indexler
+
 Belirtilen tüm indexler oluşturulacak.
 
 ### Storage
+
 `complaint-attachments` bucket (public read, authenticated write).
 
 ### Seed Data
+
 - 5 başkan yardımcısı, 20 mahalle, 12 müdürlük
 - 40 personel, 25 araç, 200 devam kaydı
 - 100 şikayet, 50 cevap, 20 AI düzeltme
@@ -35,6 +41,7 @@ Belirtilen tüm indexler oluşturulacak.
 - Demo kullanıcı profilleri (auth kullanıcıları migration ile oluşturulamaz; onboarding sırasında rol atanır — demo için hazır profiller seed edilir, kullanıcı `/auth`'tan kayıt olur ve admin rol atar; ya da signup sonrası trigger ile otomatik rol)
 
 ## 2. Kimlik Doğrulama
+
 - `/auth` sayfası (giriş + kayıt, email/şifre)
 - `_authenticated` layout (integration-managed)
 - Signup trigger → `profiles` + varsayılan `vatandas` rolü
@@ -66,6 +73,7 @@ Sol menü + üst kullanıcı barı ortak layout.
 ## 4. AI Katmanı (Lovable AI Gateway)
 
 `google/gemini-3-flash-preview` üzerinden server function'lar:
+
 - `classifyComplaint` — kategori/müdürlük/öncelik/dil + güven skoru + otomatik Türkçe cevap. Anahtar kelime eşleştirmesi + LLM.
 - `mayorBotQuery` — başkanın doğal dil sorularına Supabase verisiyle Türkçe cevap (özet/bulgu/aksiyon/kayıtlar formatında).
 - `attendanceInsight` — personel devam AI içgörüsü.
@@ -89,6 +97,7 @@ Fallback: AI hatasında anahtar kelime tabanlı yerel sınıflandırma.
 ## 6. Tasarım Sistemi
 
 `src/styles.css` içinde tokenlar:
+
 - Lacivert `--primary` (oklch), belediye yeşili `--accent`
 - Beyaz/açık gri yüzeyler
 - Durum renkleri: mavi/turuncu/mor/yeşil/kırmızı (semantic tokens)

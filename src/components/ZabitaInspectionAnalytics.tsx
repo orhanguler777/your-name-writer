@@ -6,17 +6,40 @@ import { KpiCard } from "@/components/panel-primitives";
 import { ClipboardCheck, ShieldCheck, AlertTriangle, Stamp, Loader2 } from "lucide-react";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid, AreaChart, Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  CartesianGrid,
+  AreaChart,
+  Area,
 } from "recharts";
 
-const COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
+const COLORS = [
+  "#1e2f5a",
+  "#3fa87a",
+  "#e08a3c",
+  "#7c4dff",
+  "#3aa4d0",
+  "#c4574f",
+  "#607d8b",
+  "#8bc34a",
+  "#ff7043",
+];
 
 const typeTitle = (id: string) => ZABITA_CHECKLISTS.find((c) => c.id === id)?.title || id;
 
 // Adresin ilk kelimesinden mahalle çıkarımı (SARAY MAH. → SARAY, İskele Caddesi → İSKELE)
 function mahalleOf(address?: string | null): string {
-  const first = String(address ?? "").trim().split(/[\s,.]+/)[0] || "";
+  const first =
+    String(address ?? "")
+      .trim()
+      .split(/[\s,.]+/)[0] || "";
   return first ? first.toLocaleUpperCase("tr-TR") : "—";
 }
 
@@ -30,7 +53,8 @@ const ACTION_META: { match: (a: string) => boolean; label: string; color: string
 ];
 const actionBucket = (a?: string | null) =>
   ACTION_META.find((m) => m.match(String(a ?? "")))?.label ?? "Diğer";
-const bucketColor = (label: string) => ACTION_META.find((m) => m.label === label)?.color ?? "#607d8b";
+const bucketColor = (label: string) =>
+  ACTION_META.find((m) => m.label === label)?.color ?? "#607d8b";
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -38,7 +62,9 @@ function CustomTooltip({ active, payload, label }: any) {
     <div className="rounded-md border bg-card px-3 py-2 text-xs shadow">
       <div className="font-semibold mb-0.5">{label ?? payload[0]?.name}</div>
       {payload.map((p: any, i: number) => (
-        <div key={i} style={{ color: p.color || p.fill }}>{p.name}: <b>{p.value}</b></div>
+        <div key={i} style={{ color: p.color || p.fill }}>
+          {p.name}: <b>{p.value}</b>
+        </div>
       ))}
     </div>
   );
@@ -50,7 +76,9 @@ export function ZabitaInspectionAnalytics() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workplace_inspections")
-        .select("inspection_type, address, penalty_points, recommended_action, checklist, created_at")
+        .select(
+          "inspection_type, address, penalty_points, recommended_action, checklist, created_at",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -61,19 +89,32 @@ export function ZabitaInspectionAnalytics() {
   const a = useMemo(() => {
     const total = rows.length;
     const clean = rows.filter((r: any) => (r.penalty_points ?? 0) === 0).length;
-    const sealed = rows.filter((r: any) => actionBucket(r.recommended_action) === "Mühürleme").length;
-    const avgPenalty = total ? Math.round(rows.reduce((s: number, r: any) => s + (r.penalty_points ?? 0), 0) / total) : 0;
+    const sealed = rows.filter(
+      (r: any) => actionBucket(r.recommended_action) === "Mühürleme",
+    ).length;
+    const avgPenalty = total
+      ? Math.round(rows.reduce((s: number, r: any) => s + (r.penalty_points ?? 0), 0) / total)
+      : 0;
     const cleanRate = total ? Math.round((clean / total) * 100) : 0;
 
     // Sektöre / türe göre
     const byTypeMap: Record<string, number> = {};
-    rows.forEach((r: any) => { const k = typeTitle(r.inspection_type); byTypeMap[k] = (byTypeMap[k] ?? 0) + 1; });
-    const byType = Object.entries(byTypeMap).map(([name, value]) => ({ name, value })).sort((x, y) => y.value - x.value);
+    rows.forEach((r: any) => {
+      const k = typeTitle(r.inspection_type);
+      byTypeMap[k] = (byTypeMap[k] ?? 0) + 1;
+    });
+    const byType = Object.entries(byTypeMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((x, y) => y.value - x.value);
 
     // Uyuma / yaptırıma göre
     const byActionMap: Record<string, number> = {};
-    rows.forEach((r: any) => { const k = actionBucket(r.recommended_action); byActionMap[k] = (byActionMap[k] ?? 0) + 1; });
-    const byAction = ACTION_META.map((m) => m.label).filter((l) => byActionMap[l])
+    rows.forEach((r: any) => {
+      const k = actionBucket(r.recommended_action);
+      byActionMap[k] = (byActionMap[k] ?? 0) + 1;
+    });
+    const byAction = ACTION_META.map((m) => m.label)
+      .filter((l) => byActionMap[l])
       .map((name) => ({ name, value: byActionMap[name] }));
 
     // Mahalleye göre (ilk 10)
@@ -99,7 +140,8 @@ export function ZabitaInspectionAnalytics() {
     });
     // son 30 günü sırayla üret (created_at bazlı basit dolum)
     const uniqueDays = Object.keys(byDay).sort((x, y) => {
-      const [dx, mx] = x.split(".").map(Number); const [dy, my] = y.split(".").map(Number);
+      const [dx, mx] = x.split(".").map(Number);
+      const [dy, my] = y.split(".").map(Number);
       return mx - my || dx - dy;
     });
     uniqueDays.forEach((k) => days.push({ name: k, value: byDay[k] }));
@@ -155,11 +197,20 @@ export function ZabitaInspectionAnalytics() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={a.byType}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={90} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10 }}
+                angle={-30}
+                textAnchor="end"
+                height={90}
+                interval={0}
+              />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="value" name="Denetim" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                {a.byType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {a.byType.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -169,16 +220,31 @@ export function ZabitaInspectionAnalytics() {
           <h3 className="mb-3 font-display font-semibold">Uyum / Yaptırım Dağılımı</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={a.byAction} dataKey="value" nameKey="name" innerRadius={55} outerRadius={100} label>
-                {a.byAction.map((d, i) => <Cell key={i} fill={bucketColor(d.name)} />)}
+              <Pie
+                data={a.byAction}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={55}
+                outerRadius={100}
+                label
+              >
+                {a.byAction.map((d, i) => (
+                  <Cell key={i} fill={bucketColor(d.name)} />
+                ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-1">
             {a.byAction.map((d) => (
-              <span key={d.name} className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: bucketColor(d.name) }} />
+              <span
+                key={d.name}
+                className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ background: bucketColor(d.name) }}
+                />
                 {d.name} ({d.value})
               </span>
             ))}
@@ -190,11 +256,24 @@ export function ZabitaInspectionAnalytics() {
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={a.byHood}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10 }}
+                angle={-30}
+                textAnchor="end"
+                height={80}
+                interval={0}
+              />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="Denetim" stackId="a" fill="#1e2f5a" isAnimationActive={false} />
-              <Bar dataKey="Cezalı" stackId="a" fill="#dc2626" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              <Bar
+                dataKey="Cezalı"
+                stackId="a"
+                fill="#dc2626"
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -213,7 +292,15 @@ export function ZabitaInspectionAnalytics() {
               <XAxis dataKey="name" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="value" name="Denetim" stroke="#3fa87a" strokeWidth={2} fill="url(#zabitaTrend)" isAnimationActive={false} />
+              <Area
+                type="monotone"
+                dataKey="value"
+                name="Denetim"
+                stroke="#3fa87a"
+                strokeWidth={2}
+                fill="url(#zabitaTrend)"
+                isAnimationActive={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -222,14 +309,22 @@ export function ZabitaInspectionAnalytics() {
       {a.topViolations.length > 0 && (
         <Card className="p-5">
           <h3 className="mb-1 font-display font-semibold">En Sık Karşılaşılan Eksikler</h3>
-          <p className="text-xs text-muted-foreground mb-3">Denetimlerde en çok "YOK" işaretlenen maddeler — sahada en yaygın uygunsuzluklar.</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Denetimlerde en çok "YOK" işaretlenen maddeler — sahada en yaygın uygunsuzluklar.
+          </p>
           <ResponsiveContainer width="100%" height={Math.max(220, a.topViolations.length * 34)}>
             <BarChart data={a.topViolations} layout="vertical" margin={{ left: 12, right: 24 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={260} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" name="Eksik Sayısı" fill="#c4574f" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+              <Bar
+                dataKey="value"
+                name="Eksik Sayısı"
+                fill="#c4574f"
+                radius={[0, 4, 4, 0]}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         </Card>

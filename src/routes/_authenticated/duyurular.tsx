@@ -9,9 +9,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { fetchCitizensData } from "@/lib/ai.functions";
 import {
-  Megaphone, Plus, Trash2, FileText, Calendar, Loader2,
-  Paperclip, Upload, X, ExternalLink, Image as ImageIcon, Send, CheckCircle2, Edit2
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Megaphone,
+  Plus,
+  Trash2,
+  FileText,
+  Calendar,
+  Loader2,
+  Paperclip,
+  Upload,
+  X,
+  ExternalLink,
+  Image as ImageIcon,
+  Send,
+  CheckCircle2,
+  Edit2,
+  Video,
+  Users,
+  Globe,
+  Filter,
+  Search,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/duyurular")({
@@ -23,18 +58,27 @@ export const Route = createFileRoute("/_authenticated/duyurular")({
 function DuyurularPage() {
   const { primaryRole } = useAuth();
   const queryClient = useQueryClient();
-  
-  // Yetki Kontrolü: Başkan, Admin veya Çözüm Masası yeni duyuru ekleyebilir/silebilir
-  const isAuthorized = ["baskan", "admin", "cozum_masasi"].includes(primaryRole);
+
+  // Yetki Kontrolü: Üst yönetim, müdürlükler veya çözüm masası yeni duyuru ekleyebilir/silebilir/yayınlayabilir
+  const isAuthorized = [
+    "baskan",
+    "admin",
+    "cozum_masasi",
+    "mudur",
+    "sef",
+    "mudurluk",
+    "baskan_yardimcisi",
+    "superuser",
+  ].includes(primaryRole);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [editingAnn, setEditingAnn] = useState<any | null>(null);
-  
+  const [editingAnn, setEditingAnn] = useState<Record<string, unknown> | null>(null);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  
+
   // File Upload State
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -63,10 +107,7 @@ function DuyurularPage() {
       start_date?: string;
       end_date?: string;
     }) => {
-      const { data, error } = await supabase
-        .from("announcements")
-        .insert([newAnn])
-        .select();
+      const { data, error } = await supabase.from("announcements").insert([newAnn]).select();
       if (error) throw error;
       return data;
     },
@@ -75,7 +116,7 @@ function DuyurularPage() {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Duyuru oluşturulamadı: " + error.message);
     },
   });
@@ -111,7 +152,7 @@ function DuyurularPage() {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Duyuru güncellenemedi: " + error.message);
     },
   });
@@ -126,14 +167,43 @@ function DuyurularPage() {
       toast.success("Duyuru silindi.");
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Duyuru silinemedi: " + error.message);
     },
   });
 
+  // Broadcast Modal State
+  const [broadcastAnn, setBroadcastAnn] = useState<Record<string, unknown> | null>(null);
+  const [broadcastTargetMode, setBroadcastTargetMode] = useState<"all" | "segment" | "custom">(
+    "all",
+  );
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
+  const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const getCitizens = useServerFn(fetchCitizensData);
+
+  const { data: citizens = [] } = useQuery({
+    queryKey: ["citizens-broadcast-data"],
+    queryFn: () => getCitizens({ data: {} }),
+    enabled: !!broadcastAnn,
+  });
+
+  // Filtered citizens for modal selection
+  const filteredCitizens = citizens.filter((c: Record<string, unknown>) => {
+    if (selectedLanguage !== "all" && c.language !== selectedLanguage) return false;
+    if (searchTerm.trim()) {
+      const s = searchTerm.toLowerCase();
+      const nameMatch = (c.name as string | undefined)?.toLowerCase().includes(s);
+      const phoneMatch = (c.phone as string | undefined)?.includes(s);
+      return nameMatch || phoneMatch;
+    }
+    return true;
+  });
+
   // Broadcast Mutation - WhatsApp'ta Yayınla
   const broadcastMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, phones }: { id: string; phones?: string[] }) => {
       // 1. sent_at güncelle
       const { error } = await supabase
         .from("announcements")
@@ -141,24 +211,29 @@ function DuyurularPage() {
         .eq("id", id);
       if (error) throw error;
 
-      // 2. Doğrudan bot webhook'una post et (fallback/anında gönderim)
+      // 2. Doğrudan bot webhook'una post et
       try {
         await fetch("http://localhost:3001/broadcast-announcement", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ announcementId: id }),
+          body: JSON.stringify({ announcementId: id, targetPhones: phones }),
         });
       } catch (err) {
-        console.warn("Realtime dışı doğrudan webhook tetikleme başarısız oldu (Sorun değil, bot açıksa realtime ile de alacaktır):", err);
+        console.warn(
+          "Realtime dışı doğrudan webhook tetikleme başarısız oldu (Sorun değil, bot açıksa realtime ile de alacaktır):",
+          err,
+        );
       }
     },
     onSuccess: () => {
-      toast.success("Duyuru WhatsApp üzerinden tüm vatandaşlara gönderilmeye başlandı.");
+      toast.success("Duyuru seçilen vatandaşlara WhatsApp üzerinden gönderilmeye başlandı.");
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      setBroadcastAnn(null);
+      setSelectedPhones([]);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Duyuru gönderilemedi: " + error.message);
     },
   });
@@ -174,12 +249,12 @@ function DuyurularPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleEditClick = (ann: any) => {
+  const handleEditClick = (ann: Record<string, unknown>) => {
     setEditingAnn(ann);
-    setTitle(ann.title || "");
-    setDescription(ann.description || "");
-    setStartDate(ann.start_date || "");
-    setEndDate(ann.end_date || "");
+    setTitle((ann.title as string) || "");
+    setDescription((ann.description as string) || "");
+    setStartDate((ann.start_date as string) || "");
+    setEndDate((ann.end_date as string) || "");
     setIsOpen(true);
   };
 
@@ -216,17 +291,23 @@ function DuyurularPage() {
           .getPublicUrl(filePath);
 
         fileUrl = publicUrlData.publicUrl;
-        fileType = file.type.startsWith("image/") ? "image" : file.type === "application/pdf" ? "pdf" : "other";
+        fileType = file.type.startsWith("image/")
+          ? "image"
+          : file.type.startsWith("video/")
+            ? "video"
+            : file.type === "application/pdf"
+              ? "pdf"
+              : "other";
       }
 
       if (editingAnn) {
         // Update mode
         await updateMutation.mutateAsync({
-          id: editingAnn.id,
+          id: editingAnn.id as string,
           title,
           description,
-          file_url: fileUrl || editingAnn.file_url || undefined,
-          file_type: fileType || editingAnn.file_type || undefined,
+          file_url: fileUrl || (editingAnn.file_url as string) || undefined,
+          file_type: fileType || (editingAnn.file_type as string) || undefined,
           start_date: startDate || undefined,
           end_date: endDate || undefined,
         });
@@ -241,10 +322,10 @@ function DuyurularPage() {
           end_date: endDate || undefined,
         });
       }
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error("Kaydedilirken hata oluştu: " + error.message);
+      const msg = error instanceof Error ? error.message : "Bilinmeyen hata";
+      toast.error("Kaydedilirken hata oluştu: " + msg);
     } finally {
       setUploading(false);
     }
@@ -278,7 +359,9 @@ function DuyurularPage() {
           </h3>
           <form onSubmit={handleUploadAndSave} className="space-y-4 relative z-10">
             <div>
-              <Label htmlFor="title" className="text-slate-300">Başlık (Zorunlu)</Label>
+              <Label htmlFor="title" className="text-slate-300">
+                Başlık (Zorunlu)
+              </Label>
               <Input
                 id="title"
                 value={title}
@@ -290,7 +373,9 @@ function DuyurularPage() {
             </div>
 
             <div>
-              <Label htmlFor="description" className="text-slate-300">Açıklama / Detaylar</Label>
+              <Label htmlFor="description" className="text-slate-300">
+                Açıklama / Detaylar
+              </Label>
               <textarea
                 id="description"
                 value={description}
@@ -303,7 +388,9 @@ function DuyurularPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="start_date" className="text-slate-300">Başlangıç Tarihi</Label>
+                <Label htmlFor="start_date" className="text-slate-300">
+                  Başlangıç Tarihi
+                </Label>
                 <Input
                   id="start_date"
                   type="date"
@@ -313,7 +400,9 @@ function DuyurularPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="end_date" className="text-slate-300">Bitiş Tarihi</Label>
+                <Label htmlFor="end_date" className="text-slate-300">
+                  Bitiş Tarihi
+                </Label>
                 <Input
                   id="end_date"
                   type="date"
@@ -325,7 +414,9 @@ function DuyurularPage() {
             </div>
 
             <div>
-              <Label className="text-slate-300">Görsel veya Belge Yükle (PDF, JPEG, PNG vb.)</Label>
+              <Label className="text-slate-300">
+                Görsel, Video veya Belge Yükle (PDF, JPEG, MP4 vb.)
+              </Label>
               <div className="mt-1 flex justify-center rounded-lg border border-dashed border-slate-700 px-6 py-6 bg-slate-800/40 hover:bg-slate-800/60 transition-colors">
                 <div className="text-center">
                   <Upload className="mx-auto h-8 w-8 text-slate-400" />
@@ -338,14 +429,14 @@ function DuyurularPage() {
                       <input
                         id="file-upload"
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/*,video/*,application/pdf"
                         onChange={handleFileChange}
                         className="sr-only"
                         ref={fileInputRef}
                       />
                     </label>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">PNG, JPG, PDF (maksimum 10MB)</p>
+                  <p className="text-xs text-slate-400 mt-1">Görsel, Video, PDF (maksimum 10MB)</p>
                 </div>
               </div>
               {file && (
@@ -353,11 +444,15 @@ function DuyurularPage() {
                   <div className="flex items-center gap-2 text-slate-200">
                     {file.type.startsWith("image/") ? (
                       <ImageIcon className="h-4 w-4 text-indigo-400" />
+                    ) : file.type.startsWith("video/") ? (
+                      <Video className="h-4 w-4 text-red-400" />
                     ) : (
                       <FileText className="h-4 w-4 text-orange-400" />
                     )}
                     <span className="truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
-                    <span className="text-xs text-slate-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <span className="text-xs text-slate-400">
+                      ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
                   </div>
                   <Button
                     type="button"
@@ -389,8 +484,16 @@ function DuyurularPage() {
                 disabled={uploading || createMutation.isPending || updateMutation.isPending}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center gap-2"
               >
-                {(uploading || createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
-                {uploading ? "Dosya Yükleniyor..." : (createMutation.isPending || updateMutation.isPending) ? "Kaydediliyor..." : editingAnn ? "Değişiklikleri Kaydet" : "Duyuruyu Yayınla"}
+                {(uploading || createMutation.isPending || updateMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {uploading
+                  ? "Dosya Yükleniyor..."
+                  : createMutation.isPending || updateMutation.isPending
+                    ? "Kaydediliyor..."
+                    : editingAnn
+                      ? "Değişiklikleri Kaydet"
+                      : "Duyuruyu Yayınla"}
               </Button>
             </div>
           </form>
@@ -408,7 +511,10 @@ function DuyurularPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {announcements.map((ann) => (
-            <Card key={ann.id} className="overflow-hidden flex flex-col justify-between border-0 bg-slate-900 text-slate-100 shadow-md">
+            <Card
+              key={ann.id}
+              className="overflow-hidden flex flex-col justify-between border-0 bg-slate-900 text-slate-100 shadow-md"
+            >
               <div>
                 {/* Media Preview */}
                 {ann.file_url ? (
@@ -419,6 +525,8 @@ function DuyurularPage() {
                         alt={ann.title}
                         className="w-full h-full object-cover"
                       />
+                    ) : ann.file_type === "video" ? (
+                      <video src={ann.file_url} controls className="w-full h-full object-cover" />
                     ) : ann.file_type === "pdf" ? (
                       <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
                         <FileText className="h-12 w-12 text-orange-400" />
@@ -457,7 +565,7 @@ function DuyurularPage() {
                 {/* Content */}
                 <div className="p-5 space-y-3">
                   <h4 className="font-bold text-lg leading-snug line-clamp-2">{ann.title}</h4>
-                  
+
                   {ann.description && (
                     <p className="text-sm text-slate-300 line-clamp-4 whitespace-pre-line leading-relaxed">
                       {ann.description}
@@ -469,7 +577,9 @@ function DuyurularPage() {
                     <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-950/40 p-2 rounded-md border border-slate-800">
                       <Calendar className="h-3.5 w-3.5 text-indigo-400" />
                       <span>
-                        {ann.start_date ? new Date(ann.start_date).toLocaleDateString("tr-TR") : "—"}
+                        {ann.start_date
+                          ? new Date(ann.start_date).toLocaleDateString("tr-TR")
+                          : "—"}
                         {" / "}
                         {ann.end_date ? new Date(ann.end_date).toLocaleDateString("tr-TR") : "—"}
                       </span>
@@ -485,9 +595,11 @@ function DuyurularPage() {
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        if (confirm(ann.sent_at ? "Bu duyuruyu WhatsApp üzerinden tekrar göndermek istediğinize emin misiniz?" : "Bu duyuruyu WhatsApp üzerinden tüm vatandaşlara göndermek istediğinize emin misiniz?")) {
-                          broadcastMutation.mutate(ann.id);
-                        }
+                        setBroadcastAnn(ann);
+                        setBroadcastTargetMode("all");
+                        setSelectedLanguage("all");
+                        setSelectedPhones([]);
+                        setSearchTerm("");
                       }}
                       disabled={broadcastMutation.isPending}
                       className="text-emerald-400 hover:text-white hover:bg-emerald-500/20 text-xs flex items-center gap-1 px-2.5"
@@ -501,7 +613,7 @@ function DuyurularPage() {
                       )}
                       {ann.sent_at ? "Tekrar Gönder" : "WhatsApp'ta Yayınla"}
                     </Button>
-                    
+
                     <Button
                       variant="ghost"
                       onClick={() => handleEditClick(ann)}
@@ -511,7 +623,7 @@ function DuyurularPage() {
                       Düzenle
                     </Button>
                   </div>
-                  
+
                   <Button
                     variant="ghost"
                     onClick={() => {
@@ -531,6 +643,245 @@ function DuyurularPage() {
           ))}
         </div>
       )}
+
+      {/* Broadcast Recipient Selection Modal */}
+      <Dialog open={!!broadcastAnn} onOpenChange={(open) => !open && setBroadcastAnn(null)}>
+        <DialogContent className="sm:max-w-xl bg-slate-900 text-slate-100 border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg text-emerald-400">
+              <Send className="h-5 w-5" />
+              WhatsApp Yayın Alıcı Seçimi
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              "{broadcastAnn?.title}" başlıklı duyurunun gönderileceği hedef vatandaş grubunu veya
+              kişileri belirleyin.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Mode selection cards */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setBroadcastTargetMode("all")}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  broadcastTargetMode === "all"
+                    ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                    : "border-slate-800 bg-slate-800/40 text-slate-400 hover:bg-slate-800/80"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs mb-1">
+                  <Users className="h-3.5 w-3.5" /> Tüm Vatandaşlar
+                </div>
+                <div className="text-[11px] opacity-75">Tüm kayıtlı rehbere yayınla</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastTargetMode("segment")}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  broadcastTargetMode === "segment"
+                    ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                    : "border-slate-800 bg-slate-800/40 text-slate-400 hover:bg-slate-800/80"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs mb-1">
+                  <Globe className="h-3.5 w-3.5" /> Dil / Segment
+                </div>
+                <div className="text-[11px] opacity-75">Belli dildeki vatandaşlara</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastTargetMode("custom")}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  broadcastTargetMode === "custom"
+                    ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                    : "border-slate-800 bg-slate-800/40 text-slate-400 hover:bg-slate-800/80"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs mb-1">
+                  <Filter className="h-3.5 w-3.5" /> Seçmeli Vatandaş
+                </div>
+                <div className="text-[11px] opacity-75">Listededen tek tek seç</div>
+              </button>
+            </div>
+
+            {/* Segment Filtering */}
+            {broadcastTargetMode === "segment" && (
+              <div className="space-y-2 p-3 bg-slate-800/50 rounded-lg border border-slate-800">
+                <Label className="text-xs text-slate-300">Hedef Dil Segmenti Seçin:</Label>
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-xs">
+                    <SelectValue placeholder="Dil Seçiniz" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                    <SelectItem value="all">Tüm Diller</SelectItem>
+                    <SelectItem value="tr">🇹🇷 Türkçe</SelectItem>
+                    <SelectItem value="ru">🇷🇺 Rusça (Русский)</SelectItem>
+                    <SelectItem value="en">🇬🇧 İngilizce (English)</SelectItem>
+                    <SelectItem value="de">🇩🇪 Almanca (Deutsch)</SelectItem>
+                    <SelectItem value="ar">🇦🇪 Arapça (العربية)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-slate-400">
+                  Bu kritere uyan toplam{" "}
+                  <strong className="text-emerald-400">{filteredCitizens.length}</strong> vatandaş
+                  hedeflenecek.
+                </p>
+              </div>
+            )}
+
+            {/* Custom Individual Selection */}
+            {broadcastTargetMode === "custom" && (
+              <div className="space-y-3">
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                    <Input
+                      placeholder="İsim veya telefon ara..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 bg-slate-800 border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                    <SelectTrigger className="w-36 bg-slate-800 border-slate-700 text-white text-xs">
+                      <SelectValue placeholder="Dil" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-white text-xs">
+                      <SelectItem value="all">Tüm Diller</SelectItem>
+                      <SelectItem value="tr">Türkçe</SelectItem>
+                      <SelectItem value="ru">Rusça</SelectItem>
+                      <SelectItem value="en">İngilizce</SelectItem>
+                      <SelectItem value="de">Almanca</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-between items-center text-xs text-slate-400 px-1">
+                  <span>
+                    Seçilen: <strong className="text-emerald-400">{selectedPhones.length}</strong>{" "}
+                    kişi
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPhones(
+                          filteredCitizens.map((c: Record<string, unknown>) => c.phone as string),
+                        )
+                      }
+                      className="text-indigo-400 hover:underline text-[11px]"
+                    >
+                      Tümünü Seç
+                    </button>
+                    <span>|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhones([])}
+                      className="text-slate-400 hover:underline text-[11px]"
+                    >
+                      Temizle
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 rounded-md border border-slate-800 bg-slate-950/50 p-2">
+                  {filteredCitizens.length === 0 ? (
+                    <div className="text-xs text-slate-500 text-center py-4">
+                      Vatandaş bulunamadı.
+                    </div>
+                  ) : (
+                    filteredCitizens.map((c: Record<string, unknown>) => {
+                      const phone = c.phone as string;
+                      const name = c.name as string;
+                      const language = (c.language as string) || "tr";
+                      const isSelected = selectedPhones.includes(phone);
+                      return (
+                        <label
+                          key={phone}
+                          className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors text-xs ${
+                            isSelected
+                              ? "bg-emerald-950/40 border border-emerald-800/60"
+                              : "hover:bg-slate-800/60"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedPhones((prev) => [...prev, phone]);
+                                } else {
+                                  setSelectedPhones((prev) => prev.filter((p) => p !== phone));
+                                }
+                              }}
+                            />
+                            <div>
+                              <div className="font-medium text-slate-200">{name}</div>
+                              <div className="text-[11px] text-slate-400">{phone}</div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
+                            {language}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:justify-between items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setBroadcastAnn(null)}
+              className="text-slate-400 hover:text-white text-xs"
+            >
+              İptal
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                broadcastMutation.isPending ||
+                (broadcastTargetMode === "custom" && selectedPhones.length === 0)
+              }
+              onClick={() => {
+                let targetPhonesToSubmit: string[] | undefined = undefined;
+
+                if (broadcastTargetMode === "segment") {
+                  targetPhonesToSubmit = filteredCitizens.map(
+                    (c: Record<string, unknown>) => c.phone as string,
+                  );
+                } else if (broadcastTargetMode === "custom") {
+                  targetPhonesToSubmit = selectedPhones;
+                }
+
+                broadcastMutation.mutate({
+                  id: broadcastAnn.id as string,
+                  phones: targetPhonesToSubmit,
+                });
+              }}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5"
+            >
+              {broadcastMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {broadcastTargetMode === "all"
+                ? "Tüm Vatandaşlara Gönder"
+                : broadcastTargetMode === "segment"
+                  ? `${filteredCitizens.length} Vatandaşa Gönder`
+                  : `${selectedPhones.length} Kişiye Gönder`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

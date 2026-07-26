@@ -4,11 +4,33 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { KpiCard, PageHeader, StatusBadge, PriorityBadge } from "@/components/panel-primitives";
-import { MessageSquare, CheckCircle2, Clock, TrendingUp, Building2, Bot, Sparkles, RefreshCw, MapPin, Zap, Smile, AlertTriangle, CalendarClock, ClipboardCheck } from "lucide-react";
+import {
+  MessageSquare,
+  CheckCircle2,
+  Clock,
+  TrendingUp,
+  Building2,
+  Bot,
+  Sparkles,
+  RefreshCw,
+  MapPin,
+  Zap,
+  Smile,
+  AlertTriangle,
+  CalendarClock,
+  ClipboardCheck,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useServerFn } from "@tanstack/react-start";
 import { ROLE_LABELS, STATUS_LABELS } from "@/lib/turkish";
@@ -16,8 +38,19 @@ import { generateDashboardInsight, getBotSettings } from "@/lib/ai.functions";
 import { AlanyaMap } from "@/components/AlanyaMap";
 import { ZabitaInspectionAnalytics } from "@/components/ZabitaInspectionAnalytics";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid, Legend, AreaChart, Area
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  CartesianGrid,
+  Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 
 export const Route = createFileRoute("/_authenticated/panel")({
@@ -26,16 +59,32 @@ export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({ meta: [{ title: "Ana Panel — Belediye AI" }] }),
 });
 
-const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
+const CHART_COLORS = [
+  "#1e2f5a",
+  "#3fa87a",
+  "#e08a3c",
+  "#7c4dff",
+  "#3aa4d0",
+  "#c4574f",
+  "#607d8b",
+  "#8bc34a",
+  "#ff7043",
+];
 
 function Panel() {
   const { profile, primaryRole, user, isFieldStaff } = useAuth();
   const deptId = profile?.department_id;
   // Birim yönetimi: müdür ve şef kendi biriminin verisini/analitiğini görür
   const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur" || primaryRole === "sef";
-  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
+  const isBaskanOrAdmin =
+    primaryRole === "baskan" ||
+    primaryRole === "baskan_yardimcisi" ||
+    primaryRole === "superuser" ||
+    primaryRole === "admin";
   const isZabitaMemuru = isFieldStaff; // birim görevlisi: personel veya zabıta memuru
-  const isZabitaMudur = primaryRole === "mudur" || (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));
+  const isZabitaMudur =
+    primaryRole === "mudur" ||
+    (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));
   const canSeeAnalytics = isBaskanOrAdmin || isMudurluk || isZabitaMudur;
 
   const getSettings = useServerFn(getBotSettings);
@@ -49,7 +98,9 @@ function Panel() {
     queryFn: async () => {
       let q = supabase
         .from("complaints")
-        .select("id, category, status, priority, language, neighborhood_id, assigned_department_id, satisfaction_score, created_at, resolved_at, citizen_name, complaint_text, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name, deputy_mayor_id, deputy_mayors(full_name))");
+        .select(
+          "id, category, status, priority, language, neighborhood_id, assigned_department_id, satisfaction_score, created_at, resolved_at, citizen_name, complaint_text, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name, deputy_mayor_id, deputy_mayors(full_name))",
+        );
 
       if (isMudurluk && deptId) q = q.eq("assigned_department_id", deptId);
 
@@ -95,10 +146,18 @@ function Panel() {
   const resolved = c.filter((x: any) => x.status === "cozuldu").length;
   const resolvedRes = c.filter((x: any) => x.status === "cozuldu" && x.resolved_at);
   const avgResolutionHours = resolvedRes.length
-    ? resolvedRes.reduce((sum: number, x: any) => sum + (new Date(x.resolved_at).getTime() - new Date(x.created_at).getTime()) / 36e5, 0) / resolvedRes.length
+    ? resolvedRes.reduce(
+        (sum: number, x: any) =>
+          sum + (new Date(x.resolved_at).getTime() - new Date(x.created_at).getTime()) / 36e5,
+        0,
+      ) / resolvedRes.length
     : 0;
-  const satisfaction = c.filter((x: any) => x.satisfaction_score).map((x: any) => x.satisfaction_score);
-  const avgSat = satisfaction.length ? (satisfaction.reduce((a: number, b: number) => a + b, 0) / satisfaction.length) : 0;
+  const satisfaction = c
+    .filter((x: any) => x.satisfaction_score)
+    .map((x: any) => x.satisfaction_score);
+  const avgSat = satisfaction.length
+    ? satisfaction.reduce((a: number, b: number) => a + b, 0) / satisfaction.length
+    : 0;
 
   const byStatus = groupBy(c, (x: any) => STATUS_LABELS[x.status] ?? x.status);
   const byCategory = groupBy(c, (x: any) => x.category ?? "Diğer");
@@ -115,24 +174,38 @@ function Panel() {
   const recent = c.slice(0, 8);
   const last7 = getLast7DaysTrend(c);
 
-  const deptName = isMudurluk && deptId
-    ? data?.depts?.find((d: any) => d.id === deptId)?.name ?? null
-    : null;
+  const deptName =
+    isMudurluk && deptId ? (data?.depts?.find((d: any) => d.id === deptId)?.name ?? null) : null;
 
   // Ranked lists for AI insight
-  const rankedNbrs = Object.entries(byNbr).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
-  const rankedCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
-  const rankedDepts = Object.entries(byDept).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const rankedNbrs = Object.entries(byNbr)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const rankedCats = Object.entries(byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
+  const rankedDepts = Object.entries(byDept)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count, pct: total > 0 ? (count / total) * 100 : 0 }));
   const awaitingCitizen = c.filter((x: any) => x.status === "vatandas_yaniti_bekleniyor").length;
-  const highPriorityOpen = c.filter((x: any) => x.priority === "high" && !["cozuldu", "reddedildi"].includes(x.status)).length;
+  const highPriorityOpen = c.filter(
+    (x: any) => x.priority === "high" && !["cozuldu", "reddedildi"].includes(x.status),
+  ).length;
   const inReview = c.filter((x: any) => x.status === "incelemede").length;
-  
+
   // Foreign stats
   const foreignComplaints = c.filter((x: any) => x.language && x.language !== "tr");
   const foreignTotal = foreignComplaints.length;
   const foreignResolved = foreignComplaints.filter((x: any) => x.status === "cozuldu").length;
-  const foreignSatScores = foreignComplaints.filter((x: any) => x.satisfaction_score).map((x: any) => x.satisfaction_score);
-  const foreignSatisfaction = foreignSatScores.length ? (foreignSatScores.reduce((a: number, b: number) => a + b, 0) / foreignSatScores.length) : undefined;
+  const foreignSatScores = foreignComplaints
+    .filter((x: any) => x.satisfaction_score)
+    .map((x: any) => x.satisfaction_score);
+  const foreignSatisfaction = foreignSatScores.length
+    ? foreignSatScores.reduce((a: number, b: number) => a + b, 0) / foreignSatScores.length
+    : undefined;
 
   // SLA & Crisis calculations
   const slaLimitHours = botSettings?.slaLimitHours ?? 120;
@@ -140,25 +213,29 @@ function Panel() {
   const crisisLimitCount = botSettings?.crisisLimitCount ?? 4;
 
   const now = new Date().getTime();
-  const escalatedComplaints = c.filter((x: any) =>
-    x.priority === "yuksek" &&
-    !["cozuldu", "reddedildi"].includes(x.status) &&
-    (now - new Date(x.created_at).getTime()) > slaLimitHours * 3600000
+  const escalatedComplaints = c.filter(
+    (x: any) =>
+      x.priority === "yuksek" &&
+      !["cozuldu", "reddedildi"].includes(x.status) &&
+      now - new Date(x.created_at).getTime() > slaLimitHours * 3600000,
   );
 
-  const recentCrisesGroups: { [key: string]: { count: number, neighborhood: string, category: string } } = {};
+  const recentCrisesGroups: {
+    [key: string]: { count: number; neighborhood: string; category: string };
+  } = {};
   c.forEach((x: any) => {
-    if ((now - new Date(x.created_at).getTime()) <= crisisLimitHours * 3600000) {
+    if (now - new Date(x.created_at).getTime() <= crisisLimitHours * 3600000) {
       const nbr = x.neighborhoods?.name;
       const cat = x.category;
       if (nbr && cat && !["cozuldu", "reddedildi"].includes(x.status)) {
         const key = `${nbr}-${cat}`;
-        if (!recentCrisesGroups[key]) recentCrisesGroups[key] = { count: 0, neighborhood: nbr, category: cat };
+        if (!recentCrisesGroups[key])
+          recentCrisesGroups[key] = { count: 0, neighborhood: nbr, category: cat };
         recentCrisesGroups[key].count++;
       }
     }
   });
-  const activeCrises = Object.values(recentCrisesGroups).filter(g => g.count >= crisisLimitCount);
+  const activeCrises = Object.values(recentCrisesGroups).filter((g) => g.count >= crisisLimitCount);
 
   const [aiRefreshKey, setAiRefreshKey] = useState(0);
   const { data: aiData, isLoading: aiLoading } = useQuery({
@@ -201,8 +278,8 @@ function Panel() {
           isBaskanOrAdmin
             ? `Hoş geldiniz, ${primaryRole === "baskan" ? "Başkanım" : profile?.full_name || "Yönetici"}`
             : isZabitaMemuru
-            ? `Saha Operasyon Paneli — ${profile?.full_name || "Zabıta Memuru"}`
-            : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`
+              ? `Saha Operasyon Paneli — ${profile?.full_name || "Zabıta Memuru"}`
+              : `Hoş geldiniz, ${profile?.full_name || "Kullanıcı"}`
         }
         description={`Rolünüz: ${ROLE_LABELS[primaryRole] ?? primaryRole} — ${deptName ? deptName + " — " : ""}Belediye AI Modülü`}
       />
@@ -211,33 +288,55 @@ function Panel() {
       {canSeeAnalytics && (activeCrises.length > 0 || escalatedComplaints.length > 0) && (
         <div className="space-y-3">
           {activeCrises.map((crisis, i) => (
-            <div key={`crisis-${i}`} className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5">
+            <div
+              key={`crisis-${i}`}
+              className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg flex items-start gap-3 shadow-lg shadow-red-500/5"
+            >
               <div className="bg-red-500/20 p-2 rounded-full shrink-0">
                 <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500" />
               </div>
               <div>
                 <h4 className="font-bold text-red-800 dark:text-red-400">BÖLGESEL KRİZ UYARISI</h4>
                 <p className="text-sm mt-1 text-red-950 dark:text-red-200">
-                  {crisis.neighborhood} mahallesinde son {crisisLimitHours} saat içinde {crisis.count} adet açık <strong>{crisis.category}</strong> şikayeti tespit edildi. Bu şikayetlerin önceliği otomatik olarak "Yüksek" yapıldı.
+                  {crisis.neighborhood} mahallesinde son {crisisLimitHours} saat içinde{" "}
+                  {crisis.count} adet açık <strong>{crisis.category}</strong> şikayeti tespit
+                  edildi. Bu şikayetlerin önceliği otomatik olarak "Yüksek" yapıldı.
                 </p>
               </div>
             </div>
           ))}
           {escalatedComplaints.map((esc: any) => (
-            <div key={`esc-${esc.id}`} className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-orange-500/5">
+            <div
+              key={`esc-${esc.id}`}
+              className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-orange-500/5"
+            >
               <div className="flex items-start gap-3">
                 <div className="bg-orange-500/20 p-2 rounded-full shrink-0">
                   <Clock className="h-5 w-5 text-orange-600 dark:text-orange-500" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-orange-800 dark:text-orange-400">SLA İHLALİ (ESKALASYON)</h4>
+                  <h4 className="font-bold text-orange-800 dark:text-orange-400">
+                    SLA İHLALİ (ESKALASYON)
+                  </h4>
                   <p className="text-sm mt-1 text-orange-950 dark:text-orange-200">
-                    <strong>{esc.id.substring(0,8).toUpperCase()}</strong> takip numaralı Yüksek Öncelikli şikayet ({esc.category}) {slaLimitHours >= 24 ? `${Math.round(slaLimitHours / 24)} günü` : `${slaLimitHours} saati`} aştı ve halen çözülemedi.
+                    <strong>{esc.id.substring(0, 8).toUpperCase()}</strong> takip numaralı Yüksek
+                    Öncelikli şikayet ({esc.category}){" "}
+                    {slaLimitHours >= 24
+                      ? `${Math.round(slaLimitHours / 24)} günü`
+                      : `${slaLimitHours} saati`}{" "}
+                    aştı ve halen çözülemedi.
                   </p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="border-orange-500/30 text-orange-900 dark:text-orange-400 hover:bg-orange-500/20 hover:text-orange-800 dark:hover:text-orange-300 shrink-0" asChild>
-                <Link to="/sikayetler/$id" params={{ id: esc.id }}>İncele</Link>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-orange-500/30 text-orange-900 dark:text-orange-400 hover:bg-orange-500/20 hover:text-orange-800 dark:hover:text-orange-300 shrink-0"
+                asChild
+              >
+                <Link to="/sikayetler/$id" params={{ id: esc.id }}>
+                  İncele
+                </Link>
               </Button>
             </div>
           ))}
@@ -247,256 +346,438 @@ function Panel() {
       {/* KPI Cards — saha personeli şikayet çözüm istatistikleri yerine kendi denetim özetini görür */}
       {isZabitaMemuru ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Bu Ay Denetimim" value={sahaStats?.myThisMonth ?? "—"} icon={ClipboardCheck} accent="primary" />
-          <KpiCard label="Toplam Denetimim" value={sahaStats?.myTotal ?? "—"} icon={CheckCircle2} accent="accent" />
-          <KpiCard label="Bekleyen Re-Denetim" value={sahaStats?.pendingFollowup ?? "—"} icon={CalendarClock} accent="warn" />
-          <KpiCard label="Cezalı Denetimim" value={sahaStats?.myPenalized ?? "—"} icon={AlertTriangle} accent="destructive" />
+          <KpiCard
+            label="Bu Ay Denetimim"
+            value={sahaStats?.myThisMonth ?? "—"}
+            icon={ClipboardCheck}
+            accent="primary"
+          />
+          <KpiCard
+            label="Toplam Denetimim"
+            value={sahaStats?.myTotal ?? "—"}
+            icon={CheckCircle2}
+            accent="accent"
+          />
+          <KpiCard
+            label="Bekleyen Tekrar Denetim"
+            value={sahaStats?.pendingFollowup ?? "—"}
+            icon={CalendarClock}
+            accent="warn"
+          />
+          <KpiCard
+            label="Cezalı Denetimim"
+            value={sahaStats?.myPenalized ?? "—"}
+            icon={AlertTriangle}
+            accent="destructive"
+          />
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"} value={total} icon={MessageSquare} accent="primary" />
-          <KpiCard label={isMudurluk ? "Birim Açık" : "Açık Şikayet"} value={open} icon={Clock} accent="warn" />
-          <KpiCard label={isMudurluk ? "Birim Çözülen" : "Çözülen"} value={resolved} icon={CheckCircle2} accent="accent" />
-          <KpiCard label="Ort. Çözüm" value={`${avgResolutionHours.toFixed(1)}s`} icon={TrendingUp} />
+          <KpiCard
+            label={isMudurluk ? "Birim Toplam" : "Toplam Şikayet"}
+            value={total}
+            icon={MessageSquare}
+            accent="primary"
+          />
+          <KpiCard
+            label={isMudurluk ? "Birim Açık" : "Açık Şikayet"}
+            value={open}
+            icon={Clock}
+            accent="warn"
+          />
+          <KpiCard
+            label={isMudurluk ? "Birim Çözülen" : "Çözülen"}
+            value={resolved}
+            icon={CheckCircle2}
+            accent="accent"
+          />
+          <KpiCard
+            label="Ort. Çözüm"
+            value={`${avgResolutionHours.toFixed(1)}s`}
+            icon={TrendingUp}
+          />
         </div>
       )}
 
-      {/* Zabıta Re-Denetim Takip Paneli (Ana Panelde) */}
+      {/* Zabıta Tekrar Denetim Takip Paneli (Ana Panelde) */}
       <ZabitaFollowupDashboardWidget />
 
       {/* Saha personeli analitik görmediği için sekmeler onlara gösterilmez */}
       {!isZabitaMemuru && (
-      <Tabs defaultValue="ozet" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="ozet">Genel Özet</TabsTrigger>
-          <TabsTrigger value="harita">Harita Görünümü</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="ozet" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="ozet">Genel Özet</TabsTrigger>
+            <TabsTrigger value="harita">Harita Görünümü</TabsTrigger>
+          </TabsList>
 
-        {/* ── TAB 1: GENEL ÖZET ── */}
-        <TabsContent value="ozet" className="space-y-6">
-          {/* ── ANALİZ VE GRAFİKLER BÖLÜMÜ ── */}
-          {canSeeAnalytics && (
-            <div className="space-y-6">
-              {/* AI Insight Card */}
-              {total > 0 && (
-                <Card className="p-5 border-0 bg-slate-900 text-slate-50 shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-12 bg-slate-800/40 rounded-bl-full -mr-6 -mt-6" />
-                  <div className="relative">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-full bg-primary/20 p-2">
-                      <Sparkles className="h-5 w-5 text-primary" />
+          {/* ── TAB 1: GENEL ÖZET ── */}
+          <TabsContent value="ozet" className="space-y-6">
+            {/* ── ANALİZ VE GRAFİKLER BÖLÜMÜ ── */}
+            {canSeeAnalytics && (
+              <div className="space-y-6">
+                {/* AI Insight Card */}
+                {total > 0 && (
+                  <Card className="p-5 border-0 bg-slate-900 text-slate-50 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-12 bg-slate-800/40 rounded-bl-full -mr-6 -mt-6" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-full bg-primary/20 p-2">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-display font-semibold text-lg">
+                              Yapay Zeka Yönetim Özeti
+                            </h3>
+                            <p className="text-xs text-slate-400">Verilere dayalı anlık analiz</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-slate-300 hover:text-white hover:bg-slate-800 shrink-0"
+                          onClick={() => setAiRefreshKey((k) => k + 1)}
+                          disabled={aiLoading}
+                        >
+                          <RefreshCw
+                            className={`h-4 w-4 mr-1 ${aiLoading ? "animate-spin" : ""}`}
+                          />{" "}
+                          Yenile
+                        </Button>
+                      </div>
+                      <div className="bg-white/10 rounded-lg p-4">
+                        {aiLoading ? (
+                          <div className="flex items-center gap-2 text-slate-300 animate-pulse">
+                            <Bot className="h-5 w-5" /> Analiz ediliyor…
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-relaxed text-slate-100">
+                            {aiData?.insight ?? "Henüz yeterli veri yok."}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-display font-semibold text-lg">Yapay Zeka Yönetim Özeti</h3>
-                      <p className="text-xs text-slate-400">Verilere dayalı anlık analiz</p>
-                    </div>
+                  </Card>
+                )}
+
+                {/* Extended KPIs for Admin/Baskan */}
+                {isBaskanOrAdmin && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <KpiCard
+                      label="Memnuniyet"
+                      value={`%${(avgSat * 20).toFixed(0)}`}
+                      icon={Smile}
+                      accent="accent"
+                    />
+                    <KpiCard
+                      label="En Yoğun Mahalle"
+                      value={<span className="text-lg">{topNbr}</span>}
+                      icon={MapPin}
+                    />
+                    <KpiCard
+                      label="En Yoğun Müdürlük"
+                      value={<span className="text-lg">{topDept}</span>}
+                      icon={Building2}
+                    />
+                    <KpiCard
+                      label="En Hızlı Dönüş"
+                      value="Temizlik"
+                      icon={Zap}
+                      hint="Ortalama 3 saat"
+                      accent="accent"
+                    />
                   </div>
-                  <Button size="sm" variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800 shrink-0" onClick={() => setAiRefreshKey((k) => k + 1)} disabled={aiLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-1 ${aiLoading ? "animate-spin" : ""}`} /> Yenile
-                  </Button>
-                </div>
-                <div className="bg-white/10 rounded-lg p-4">
-                  {aiLoading ? (
-                    <div className="flex items-center gap-2 text-slate-300 animate-pulse"><Bot className="h-5 w-5" /> Analiz ediliyor…</div>
+                )}
+
+                {/* Charts Row 1 */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ChartCard
+                    title={
+                      isMudurluk ? "Son 7 Gün Şikayet Trendi" : "Genel Şikayet Trendi (Son 7 Gün)"
+                    }
+                  >
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={last7}>
+                        <defs>
+                          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1e2f5a" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#1e2f5a" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#1e2f5a"
+                          fill="url(#trendGrad)"
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+
+                  {isBaskanOrAdmin ? (
+                    <BarChartCard
+                      title="Müdürlüğe Göre Şikayetler"
+                      data={toComplexChartData(c, (x) => x.departments?.name ?? "—")}
+                      colors={CHART_COLORS}
+                    />
                   ) : (
-                    <p className="text-sm leading-relaxed text-slate-100">{aiData?.insight ?? "Henüz yeterli veri yok."}</p>
+                    <ChartCard title="Duruma Göre Dağılım">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                          <Pie
+                            data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={100}
+                            label
+                          >
+                            {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map(
+                              (_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ),
+                            )}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
                   )}
                 </div>
-              </div>
-            </Card>
-          )}
 
-          {/* Extended KPIs for Admin/Baskan */}
-          {isBaskanOrAdmin && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <KpiCard label="Memnuniyet" value={`%${(avgSat * 20).toFixed(0)}`} icon={Smile} accent="accent" />
-              <KpiCard label="En Yoğun Mahalle" value={<span className="text-lg">{topNbr}</span>} icon={MapPin} />
-              <KpiCard label="En Yoğun Müdürlük" value={<span className="text-lg">{topDept}</span>} icon={Building2} />
-              <KpiCard label="En Hızlı Dönüş" value="Temizlik" icon={Zap} hint="Ortalama 3 saat" accent="accent" />
-            </div>
-          )}
+                {/* Charts Row 2 */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ChartCard title="Mahalleye Göre Şikayetler (İlk 10)">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart
+                        data={toComplexChartData(c, (x) => x.neighborhoods?.name ?? "—").slice(
+                          0,
+                          10,
+                        )}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 10 }}
+                          angle={-30}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend
+                          formatter={(value) =>
+                            value === "resolved" ? "Çözülen Şikayet" : "Açık Şikayet"
+                          }
+                        />
+                        <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                        <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
 
-          {/* Charts Row 1 */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ChartCard title={isMudurluk ? "Son 7 Gün Şikayet Trendi" : "Genel Şikayet Trendi (Son 7 Gün)"}>
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={last7}>
-                  <defs>
-                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1e2f5a" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#1e2f5a" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="count" stroke="#1e2f5a" fill="url(#trendGrad)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            {isBaskanOrAdmin ? (
-              <BarChartCard title="Müdürlüğe Göre Şikayetler" data={toComplexChartData(c, (x) => x.departments?.name ?? "—")} colors={CHART_COLORS} />
-            ) : (
-              <ChartCard title="Duruma Göre Dağılım">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
-                      {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            )}
-          </div>
-
-          {/* Charts Row 2 */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ChartCard title="Mahalleye Göre Şikayetler (İlk 10)">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={toComplexChartData(c, (x) => x.neighborhoods?.name ?? "—").slice(0, 10)}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
-                  <Bar dataKey="resolved" stackId="a" fill="#10B981" />
-                  <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-            
-            {isBaskanOrAdmin ? (
-              <ChartCard title="Duruma Göre Şikayetler">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)} dataKey="value" nameKey="name" innerRadius={50} outerRadius={100} label>
-                      {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} /><Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            ) : (
-              <ChartCard title="Kategoriye Göre Dağılım">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" height={70} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
-                    <Bar dataKey="resolved" stackId="a" fill="#10B981" />
-                    <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            )}
-          </div>
-
-          {/* Baskan Only: Extra Charts & Dept Table */}
-          {isBaskanOrAdmin && (
-            <>
-              <div className="grid gap-4 lg:grid-cols-3">
-                <ChartCard title="Kategoriye Göre">
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend formatter={(value) => value === 'resolved' ? 'Çözülen' : 'Açık'} />
-                      <Bar dataKey="resolved" stackId="a" fill="#10B981" />
-                      <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard title="Başkan Yrd. Göre">
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={toComplexChartData(c, (x) => x.departments?.deputy_mayors?.full_name ?? "—")} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={140} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend formatter={(value) => value === 'resolved' ? 'Çözülen' : 'Açık'} />
-                      <Bar dataKey="resolved" stackId="a" fill="#10B981" />
-                      <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard title="Şikayet Dili">
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie data={toComplexChartData(c, (x) => x.language ?? "tr")} dataKey="value" nameKey="name" outerRadius={80} label>
-                        {toComplexChartData(c, (x) => x.language ?? "tr").map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} /><Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              </div>
-
-              {/* Müdürlük Bazlı Performans Tablosu */}
-              <Card className="p-5">
-                <h3 className="mb-4 font-display font-semibold text-lg flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" /> Müdürlük Bazlı Performans Özeti
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="py-3 pr-4">Müdürlük</th>
-                        <th className="py-3 px-3 text-center">Toplam</th>
-                        <th className="py-3 px-3 text-center">Açık</th>
-                        <th className="py-3 px-3 text-center">Çözülen</th>
-                        <th className="py-3 px-3 text-center">İlerleme %</th>
-                        <th className="py-3 px-3 text-center">Ort. Çözüm</th>
-                        <th className="py-3 pl-3">En Yoğun Kategori</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getDeptPerformance(c, data?.depts ?? []).map((d) => (
-                        <tr key={d.name} className="border-b last:border-0 hover:bg-muted/50">
-                          <td className="py-3 pr-4 font-medium">{d.name}</td>
-                          <td className="py-3 px-3 text-center">{d.total}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className={d.open > 0 ? "text-priority-medium font-semibold" : ""}>{d.open}</span>
-                          </td>
-                          <td className="py-3 px-3 text-center text-accent font-medium">{d.resolved}</td>
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full bg-accent rounded-full" style={{ width: `${d.resolvedPct}%` }} />
-                              </div>
-                              <span className="text-xs">%{d.resolvedPct}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-center">{d.avgHours}s</td>
-                          <td className="py-3 pl-3 text-xs">{d.topCategory}</td>
-                        </tr>
-                      ))}
-                      {(data?.depts ?? []).length === 0 && (
-                        <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Henüz veri yok.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                  {isBaskanOrAdmin ? (
+                    <ChartCard title="Duruma Göre Şikayetler">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                          <Pie
+                            data={toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status)}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={100}
+                            label
+                          >
+                            {toComplexChartData(c, (x) => STATUS_LABELS[x.status] ?? x.status).map(
+                              (_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ),
+                            )}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  ) : (
+                    <ChartCard title="Kategoriye Göre Dağılım">
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 10 }}
+                            angle={-25}
+                            textAnchor="end"
+                            height={70}
+                          />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend
+                            formatter={(value) =>
+                              value === "resolved" ? "Çözülen Şikayet" : "Açık Şikayet"
+                            }
+                          />
+                          <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                          <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  )}
                 </div>
-              </Card>
-            </>
-          )}
-        </div>
-      )}
 
-          {/* Zabıta Ruhsat Denetim İstatistikleri (Genel Özet altında - Sadece Müdür/Yönetici) */}
-          {canSeeAnalytics && <ZabitaInspectionAnalytics />}
-        </TabsContent>
-        <TabsContent value="harita" className="space-y-6">
-          <AlanyaMap complaints={c} />
-        </TabsContent>
-      </Tabs>
+                {/* Baskan Only: Extra Charts & Dept Table */}
+                {isBaskanOrAdmin && (
+                  <>
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <ChartCard title="Kategoriye Göre">
+                        <ResponsiveContainer width="100%" height={240}>
+                          <BarChart data={toComplexChartData(c, (x) => x.category ?? "Diğer")}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis
+                              dataKey="name"
+                              tick={{ fontSize: 10 }}
+                              angle={-30}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                              formatter={(value) => (value === "resolved" ? "Çözülen" : "Açık")}
+                            />
+                            <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                            <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                      <ChartCard title="Başkan Yrd. Göre">
+                        <ResponsiveContainer width="100%" height={240}>
+                          <BarChart
+                            data={toComplexChartData(
+                              c,
+                              (x) => x.departments?.deputy_mayors?.full_name ?? "—",
+                            )}
+                            layout="vertical"
+                          >
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              tick={{ fontSize: 11 }}
+                              width={140}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                              formatter={(value) => (value === "resolved" ? "Çözülen" : "Açık")}
+                            />
+                            <Bar dataKey="resolved" stackId="a" fill="#10B981" />
+                            <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                      <ChartCard title="Şikayet Dili">
+                        <ResponsiveContainer width="100%" height={240}>
+                          <PieChart>
+                            <Pie
+                              data={toComplexChartData(c, (x) => x.language ?? "tr")}
+                              dataKey="value"
+                              nameKey="name"
+                              outerRadius={80}
+                              label
+                            >
+                              {toComplexChartData(c, (x) => x.language ?? "tr").map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
+
+                    {/* Müdürlük Bazlı Performans Tablosu */}
+                    <Card className="p-5">
+                      <h3 className="mb-4 font-display font-semibold text-lg flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" /> Müdürlük Bazlı Performans
+                        Özeti
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                              <th className="py-3 pr-4">Müdürlük</th>
+                              <th className="py-3 px-3 text-center">Toplam</th>
+                              <th className="py-3 px-3 text-center">Açık</th>
+                              <th className="py-3 px-3 text-center">Çözülen</th>
+                              <th className="py-3 px-3 text-center">İlerleme %</th>
+                              <th className="py-3 px-3 text-center">Ort. Çözüm</th>
+                              <th className="py-3 pl-3">En Yoğun Kategori</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getDeptPerformance(c, data?.depts ?? []).map((d) => (
+                              <tr key={d.name} className="border-b last:border-0 hover:bg-muted/50">
+                                <td className="py-3 pr-4 font-medium">{d.name}</td>
+                                <td className="py-3 px-3 text-center">{d.total}</td>
+                                <td className="py-3 px-3 text-center">
+                                  <span
+                                    className={
+                                      d.open > 0 ? "text-priority-medium font-semibold" : ""
+                                    }
+                                  >
+                                    {d.open}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center text-accent font-medium">
+                                  {d.resolved}
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-accent rounded-full"
+                                        style={{ width: `${d.resolvedPct}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs">%{d.resolvedPct}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-center">{d.avgHours}s</td>
+                                <td className="py-3 pl-3 text-xs">{d.topCategory}</td>
+                              </tr>
+                            ))}
+                            {(data?.depts ?? []).length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                                  Henüz veri yok.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Zabıta Ruhsat Denetim İstatistikleri (Genel Özet altında - Sadece Müdür/Yönetici) */}
+            {canSeeAnalytics && <ZabitaInspectionAnalytics />}
+          </TabsContent>
+          <TabsContent value="harita" className="space-y-6">
+            <AlanyaMap complaints={c} />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
@@ -512,7 +793,9 @@ function BarChartCard({ title, data, colors }: { title: string; data: any[]; col
           <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={80} />
           <YAxis tick={{ fontSize: 11 }} />
           <Tooltip content={<CustomTooltip />} />
-          <Legend formatter={(value) => value === 'resolved' ? 'Çözülen Şikayet' : 'Açık Şikayet'} />
+          <Legend
+            formatter={(value) => (value === "resolved" ? "Çözülen Şikayet" : "Açık Şikayet")}
+          />
           <Bar dataKey="resolved" stackId="a" fill="#10B981" />
           <Bar dataKey="open" stackId="a" fill="#1e2f5a" radius={[4, 4, 0, 0]} />
         </BarChart>
@@ -531,21 +814,26 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 }
 
 function groupBy<T>(arr: T[], key: (x: T) => string): Record<string, number> {
-  return arr.reduce((acc, item) => {
-    const k = key(item);
-    acc[k] = (acc[k] ?? 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  return arr.reduce(
+    (acc, item) => {
+      const k = key(item);
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 }
 
 function toChartData(obj: Record<string, number>) {
-  return Object.entries(obj).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  return Object.entries(obj)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 }
 
 // Toplam ve Çözülen sayılarını birlikte tutan grafik veri üreticisi
 function toComplexChartData(complaints: any[], keySelector: (x: any) => string) {
   const map: Record<string, { name: string; value: number; resolved: number; open: number }> = {};
-  
+
   complaints.forEach((c) => {
     const k = keySelector(c);
     if (!map[k]) {
@@ -570,12 +858,14 @@ function CustomTooltip({ active, payload }: any) {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     // Eğer kompleks veri değilse (örneğin trend analizi) düzgünce fallback et
-    const total = data.value !== undefined ? data.value : (data.count !== undefined ? data.count : 0);
+    const total = data.value !== undefined ? data.value : data.count !== undefined ? data.count : 0;
     const resolved = data.resolved !== undefined ? data.resolved : 0;
-    
+
     return (
       <div className="rounded-lg border bg-background p-3 shadow-md">
-        <p className="font-display font-medium text-sm border-b pb-1.5 mb-1.5">{data.name || data.day}</p>
+        <p className="font-display font-medium text-sm border-b pb-1.5 mb-1.5">
+          {data.name || data.day}
+        </p>
         <div className="space-y-1 text-xs">
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Şikayet Sayısı:</span>
@@ -611,52 +901,76 @@ function getLast7DaysTrend(complaints: any[]) {
 
 function getStatusProgress(status: string): number {
   switch (status) {
-    case "yeni": return 0;
-    case "incelemede": return 20;
-    case "personele_atandi": return 40;
-    case "devam_ediyor": return 60;
-    case "vatandas_yaniti_bekleniyor": return 80;
-    case "cozuldu": return 100;
-    case "reddedildi": return 100;
-    default: return 0;
+    case "yeni":
+      return 0;
+    case "incelemede":
+      return 20;
+    case "personele_atandi":
+      return 40;
+    case "devam_ediyor":
+      return 60;
+    case "vatandas_yaniti_bekleniyor":
+      return 80;
+    case "cozuldu":
+      return 100;
+    case "reddedildi":
+      return 100;
+    default:
+      return 0;
   }
 }
 
 function getDeptPerformance(complaints: any[], depts: any[]) {
-  return depts.map((dept) => {
-    const deptComplaints = complaints.filter((c: any) => c.assigned_department_id === dept.id);
-    const total = deptComplaints.length;
-    const openCount = deptComplaints.filter((x: any) => !["cozuldu", "reddedildi"].includes(x.status)).length;
-    const resolvedCount = deptComplaints.filter((x: any) => x.status === "cozuldu").length;
-    const totalProgress = deptComplaints.reduce((sum: number, c: any) => sum + getStatusProgress(c.status), 0);
-    const resolvedPct = total > 0 ? Math.round(totalProgress / total) : 0;
-    const resolvedWithTime = deptComplaints.filter((x: any) => x.status === "cozuldu" && x.resolved_at);
-    const avgHrs = resolvedWithTime.length
-      ? (resolvedWithTime.reduce((s: number, x: any) => s + (new Date(x.resolved_at).getTime() - new Date(x.created_at).getTime()) / 36e5, 0) / resolvedWithTime.length).toFixed(1)
-      : "—";
+  return depts
+    .map((dept) => {
+      const deptComplaints = complaints.filter((c: any) => c.assigned_department_id === dept.id);
+      const total = deptComplaints.length;
+      const openCount = deptComplaints.filter(
+        (x: any) => !["cozuldu", "reddedildi"].includes(x.status),
+      ).length;
+      const resolvedCount = deptComplaints.filter((x: any) => x.status === "cozuldu").length;
+      const totalProgress = deptComplaints.reduce(
+        (sum: number, c: any) => sum + getStatusProgress(c.status),
+        0,
+      );
+      const resolvedPct = total > 0 ? Math.round(totalProgress / total) : 0;
+      const resolvedWithTime = deptComplaints.filter(
+        (x: any) => x.status === "cozuldu" && x.resolved_at,
+      );
+      const avgHrs = resolvedWithTime.length
+        ? (
+            resolvedWithTime.reduce(
+              (s: number, x: any) =>
+                s + (new Date(x.resolved_at).getTime() - new Date(x.created_at).getTime()) / 36e5,
+              0,
+            ) / resolvedWithTime.length
+          ).toFixed(1)
+        : "—";
 
-    const catCounts: Record<string, number> = {};
-    deptComplaints.forEach((x: any) => {
-      const cat = x.category ?? "Diğer";
-      catCounts[cat] = (catCounts[cat] ?? 0) + 1;
-    });
-    const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+      const catCounts: Record<string, number> = {};
+      deptComplaints.forEach((x: any) => {
+        const cat = x.category ?? "Diğer";
+        catCounts[cat] = (catCounts[cat] ?? 0) + 1;
+      });
+      const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
 
-    return {
-      name: dept.name,
-      total,
-      open: openCount,
-      resolved: resolvedCount,
-      resolvedPct,
-      avgHours: avgHrs,
-      topCategory: topCat,
-    };
-  }).sort((a, b) => b.total - a.total);
+      return {
+        name: dept.name,
+        total,
+        open: openCount,
+        resolved: resolvedCount,
+        resolvedPct,
+        avgHours: avgHrs,
+        topCategory: topCat,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
 }
 
-/* ─── Zabıta Re-Denetim Takip Widget (Ana Panel) ─── */
+/* ─── Zabıta Tekrar Denetim Takip Widget (Ana Panel) ─── */
 function ZabitaFollowupDashboardWidget() {
   const { isZabitaUnit } = useAuth();
+  const [showAllLater, setShowAllLater] = useState(false);
   // Yalnızca Zabıta Müdürlüğü kadrosu görür (müdür/şef/memur).
   // Superuser, başkan ve başkan yardımcısı bu operasyonel takibi görmez.
   const isRelevant = isZabitaUnit;
@@ -718,7 +1032,7 @@ function ZabitaFollowupDashboardWidget() {
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-orange-900 dark:text-orange-200 text-sm">
-              Zabıta Re-Denetim Takibi
+              Zabıta Tekrar Denetim Takibi
             </h3>
             <p className="text-[11px] text-orange-700/70 dark:text-orange-400/60 truncate">
               İhtar verilen işyerleri otomatik takip
@@ -732,11 +1046,14 @@ function ZabitaFollowupDashboardWidget() {
             </Badge>
           )}
           {upcoming.length > 0 && (
-            <Badge className="text-xs bg-amber-500 text-white">
-              {upcoming.length} Yaklaşan
-            </Badge>
+            <Badge className="text-xs bg-amber-500 text-white">{upcoming.length} Yaklaşan</Badge>
           )}
-          <Button variant="outline" size="sm" className="h-7 text-xs border-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40" asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40"
+            asChild
+          >
             <Link to="/zabita-denetim">
               <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
               Denetim Sayfası
@@ -748,7 +1065,7 @@ function ZabitaFollowupDashboardWidget() {
         {overdue.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Süresi Dolmuş — Acil Re-Denetim Gerekli
+              <Clock className="w-3 h-3" /> Süresi Dolmuş — Acil Tekrar Denetim Gerekli
             </p>
             {overdue.map((item) => (
               <Link
@@ -757,7 +1074,9 @@ function ZabitaFollowupDashboardWidget() {
                 className="block px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm text-red-800 dark:text-red-300 truncate">{item.workplace_name}</span>
+                  <span className="font-medium text-sm text-red-800 dark:text-red-300 truncate">
+                    {item.workplace_name}
+                  </span>
                   <Badge variant="destructive" className="text-[10px] shrink-0 ml-2">
                     {Math.abs(daysDiff(item.followup_date!))} gün gecikmiş
                   </Badge>
@@ -781,7 +1100,9 @@ function ZabitaFollowupDashboardWidget() {
                 className="block px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm text-amber-800 dark:text-amber-300 truncate">{item.workplace_name}</span>
+                  <span className="font-medium text-sm text-amber-800 dark:text-amber-300 truncate">
+                    {item.workplace_name}
+                  </span>
                   <Badge className="text-[10px] bg-amber-500 text-white shrink-0 ml-2">
                     {daysDiff(item.followup_date!)} gün kaldı
                   </Badge>
@@ -798,21 +1119,36 @@ function ZabitaFollowupDashboardWidget() {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
               <Clock className="w-3 h-3" /> İlerisi
             </p>
-            {later.slice(0, 3).map((item) => (
+            {(showAllLater ? later : later.slice(0, 3)).map((item) => (
               <div
                 key={item.id}
                 className="px-3 py-1.5 rounded-md bg-muted/20 border text-muted-foreground"
               >
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-xs truncate">{item.workplace_name}</span>
-                  <span className="text-[10px] shrink-0 ml-2">{daysDiff(item.followup_date!)} gün</span>
+                  <span className="text-[10px] shrink-0 ml-2">
+                    {daysDiff(item.followup_date!)} gün
+                  </span>
                 </div>
               </div>
             ))}
-            {later.length > 3 && (
-              <p className="text-[10px] text-muted-foreground text-center">
+            {later.length > 3 && !showAllLater && (
+              <button
+                type="button"
+                onClick={() => setShowAllLater(true)}
+                className="w-full text-center text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors py-1 cursor-pointer"
+              >
                 +{later.length - 3} daha fazla…
-              </p>
+              </button>
+            )}
+            {showAllLater && later.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllLater(false)}
+                className="w-full text-center text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors py-1 cursor-pointer"
+              >
+                Daha az göster
+              </button>
             )}
           </div>
         )}

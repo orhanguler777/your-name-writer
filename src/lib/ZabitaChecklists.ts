@@ -449,13 +449,23 @@ export function calculatePenalty(inspectionTypeId: string, checklistData: Record
     if (checklistData[item.id] !== true) {
       missingItemsCount++;
       const lower = item.label.toLowerCase();
-      
+
       // Assign weight based on item severity
       if (lower.includes("ruhsat") || lower.includes("tütün") || lower.includes("tarih")) {
         penaltyPoints += 30; // Critical legal compliance
-      } else if (lower.includes("yangın") || lower.includes("sağlık") || lower.includes("hijyen") || lower.includes("bone")) {
+      } else if (
+        lower.includes("yangın") ||
+        lower.includes("sağlık") ||
+        lower.includes("hijyen") ||
+        lower.includes("bone")
+      ) {
         penaltyPoints += 20; // Health & safety
-      } else if (lower.includes("temizlik") || lower.includes("fiyat") || lower.includes("etiket") || lower.includes("önlük")) {
+      } else if (
+        lower.includes("temizlik") ||
+        lower.includes("fiyat") ||
+        lower.includes("etiket") ||
+        lower.includes("önlük")
+      ) {
         penaltyPoints += 15; // General rules
       } else {
         penaltyPoints += 10; // Standard items

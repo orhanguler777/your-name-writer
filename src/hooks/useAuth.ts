@@ -88,25 +88,26 @@ export function useAuth() {
   const hasAnyRole = (...rs: AppRole[]) => rs.some((r) => roles.includes(r));
 
   // Yetki hiyerarşisi (en üstten aşağıya). Hem yeni hem eski rol adları tanınır.
-  const primaryRole: AppRole = roles.includes("superuser") || roles.includes("admin")
-    ? "superuser"
-    : roles.includes("baskan")
-    ? "baskan"
-    : roles.includes("baskan_yardimcisi")
-    ? "baskan_yardimcisi"
-    : roles.includes("cozum_masasi")
-    ? "cozum_masasi"
-    : roles.includes("mudur")
-    ? "mudur"
-    : roles.includes("mudurluk")
-    ? "mudurluk"
-    : roles.includes("sef")
-    ? "sef"
-    : roles.includes("personel")
-    ? "personel"
-    : roles.includes("zabita_memuru") || roles.includes("zabita")
-    ? "zabita_memuru"
-    : "vatandas";
+  const primaryRole: AppRole =
+    roles.includes("superuser") || roles.includes("admin")
+      ? "superuser"
+      : roles.includes("baskan")
+        ? "baskan"
+        : roles.includes("baskan_yardimcisi")
+          ? "baskan_yardimcisi"
+          : roles.includes("cozum_masasi")
+            ? "cozum_masasi"
+            : roles.includes("mudur")
+              ? "mudur"
+              : roles.includes("mudurluk")
+                ? "mudurluk"
+                : roles.includes("sef")
+                  ? "sef"
+                  : roles.includes("personel")
+                    ? "personel"
+                    : roles.includes("zabita_memuru") || roles.includes("zabita")
+                      ? "zabita_memuru"
+                      : "vatandas";
 
   /** 4. seviye: birim/saha görevlisi (genel 'personel' veya eski 'zabita_memuru') */
   const isFieldStaff = primaryRole === "personel" || primaryRole === "zabita_memuru";
@@ -137,7 +138,7 @@ export function useAuth() {
   /**
    * Gerçekten Zabıta Müdürlüğü kadrosunda mı?
    * hasModule("zabita") üst yönetime her modülü açtığı için operasyonel
-   * zabıta bileşenlerinde (ör. re-denetim takibi) bu flag kullanılır.
+   * zabıta bileşenlerinde (ör. tekrar denetim takibi) bu flag kullanılır.
    */
   const isZabitaUnit =
     !isUstYonetim &&

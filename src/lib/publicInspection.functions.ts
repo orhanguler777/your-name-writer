@@ -16,7 +16,8 @@ function adminClient() {
   return createClient(url, key);
 }
 
-const PUBLIC_COLS = "id, workplace_name, address, inspection_type, created_at, penalty_points, recommended_action, signed_at, followup_date, followup_status";
+const PUBLIC_COLS =
+  "id, workplace_name, address, inspection_type, created_at, penalty_points, recommended_action, signed_at, followup_date, followup_status";
 
 /** Belge numarası mantığı tutanak.ts ile aynı: id'nin ilk 8 hanesi. */
 function belgeNo(id: string, createdAt: string) {

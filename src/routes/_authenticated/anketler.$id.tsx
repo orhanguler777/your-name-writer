@@ -13,10 +13,28 @@ export const Route = createFileRoute("/_authenticated/anketler/$id")({
   head: () => ({ meta: [{ title: "Anket Sonuçları — Belediye AI" }] }),
 });
 
-const CHART_COLORS = ["#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c4574f", "#607d8b", "#8bc34a", "#ff7043"];
+const CHART_COLORS = [
+  "#3fa87a",
+  "#e08a3c",
+  "#7c4dff",
+  "#3aa4d0",
+  "#c4574f",
+  "#607d8b",
+  "#8bc34a",
+  "#ff7043",
+];
 
 const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value }: any) => {
+const renderCustomizedLabel = ({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  percent,
+  name,
+  value,
+}: any) => {
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -24,7 +42,15 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
   if (percent < 0.05) return null; // Çok küçük dilimlerde label gösterme
 
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+    <text
+      x={x}
+      y={y}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight="bold"
+    >
       {`%${(percent * 100).toFixed(0)}`}
     </text>
   );
@@ -150,18 +176,29 @@ function PollDetails() {
                       animationDuration={800}
                     >
                       {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stroke="none" />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          stroke="none"
+                        />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => [`${value} Oy (%${props.payload.percentage})`, props.payload.name]}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+                    <Tooltip
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value} Oy (%${props.payload.percentage})`,
+                        props.payload.name,
+                      ]}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                        fontSize: "13px",
+                      }}
                     />
-                    <Legend 
-                      verticalAlign="bottom" 
+                    <Legend
+                      verticalAlign="bottom"
                       height={36}
                       formatter={(value, entry: any) => {
-                        const item = chartData.find(d => d.name === value);
+                        const item = chartData.find((d) => d.name === value);
                         return `${value} (${item?.votes || 0} oy)`;
                       }}
                     />
@@ -183,14 +220,16 @@ function PollDetails() {
               <div key={index} className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="font-medium">{item.name}</span>
-                  <span className="text-muted-foreground">{item.votes} Oy (%{item.percentage})</span>
+                  <span className="text-muted-foreground">
+                    {item.votes} Oy (%{item.percentage})
+                  </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                  <div 
+                  <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ 
+                    style={{
                       width: `${item.percentage}%`,
-                      backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+                      backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
                 </div>

@@ -66,7 +66,8 @@ export function InspectionSignDialog({
             Denetimi İmzala & Tamamla
           </DialogTitle>
           <DialogDescription>
-            <strong>{workplaceName || "İşyeri"}</strong> denetimi için imzaları alın. İmzalar tutanağa işlenir ve kalıcı olarak saklanır.
+            <strong>{workplaceName || "İşyeri"}</strong> denetimi için imzaları alın. İmzalar
+            tutanağa işlenir ve kalıcı olarak saklanır.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +88,11 @@ export function InspectionSignDialog({
               />
             </div>
 
-            <SignaturePad label="İşyeri Sahibi / Yetkilisi İmzası" disabled={declined} onChange={setMerchantSig} />
+            <SignaturePad
+              label="İşyeri Sahibi / Yetkilisi İmzası"
+              disabled={declined}
+              onChange={setMerchantSig}
+            />
 
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer pt-1">
               <Checkbox checked={declined} onCheckedChange={(v) => setDeclined(!!v)} />
@@ -115,8 +120,8 @@ export function InspectionSignDialog({
             </label>
           ) : (
             <p className="text-[11px] text-muted-foreground rounded-md border border-dashed p-2.5">
-              İşyeri telefonu girilmediği için tutanak WhatsApp'tan gönderilemez.
-              Numarayı forma ekleyip tekrar deneyebilirsiniz.
+              İşyeri telefonu girilmediği için tutanak WhatsApp'tan gönderilemez. Numarayı forma
+              ekleyip tekrar deneyebilirsiniz.
             </p>
           )}
         </div>
@@ -134,7 +139,7 @@ export function InspectionSignDialog({
                   merchantName: merchantName || null,
                   declined,
                 },
-                { sendWhatsapp: canSendWhatsapp && sendWhatsapp }
+                { sendWhatsapp: canSendWhatsapp && sendWhatsapp },
               )
             }
             disabled={saving}

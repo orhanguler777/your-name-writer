@@ -63,16 +63,56 @@ export const LANGUAGES: Record<string, string> = {
 
 // Keyword → department mapping for local AI fallback
 export const KEYWORD_MAP: Array<{ words: string[]; category: string; department: string }> = [
-  { words: ["çöp", "temizlik", "koku", "atık", "konteyner"], category: "Temizlik", department: "Temizlik İşleri Müdürlüğü" },
-  { words: ["yol", "asfalt", "çukur", "kaldırım"], category: "Yol / Altyapı", department: "Fen İşleri Müdürlüğü" },
-  { words: ["park", "ağaç", "bahçe", "yeşil alan", "budama"], category: "Park ve Bahçeler", department: "Park ve Bahçeler Müdürlüğü" },
-  { words: ["ruhsat", "işyeri açma", "izin"], category: "Ruhsat", department: "Ruhsat ve Denetim Müdürlüğü" },
-  { words: ["evlilik", "nikah", "evlendirme"], category: "Evlendirme", department: "Evlendirme Memurluğu" },
-  { words: ["numarataj", "adres", "kapı numarası"], category: "Numarataj", department: "Numarataj Birimi" },
-  { words: ["imar", "kaçak yapı", "inşaat"], category: "İmar", department: "İmar ve Şehircilik Müdürlüğü" },
-  { words: ["hayvan", "sokak köpeği", "kedi"], category: "Sokak Hayvanları", department: "Veteriner İşleri Müdürlüğü" },
-  { words: ["otobüs", "durak", "ulaşım", "sefer"], category: "Ulaşım", department: "Ulaşım Hizmetleri Müdürlüğü" },
-  { words: ["su", "kanalizasyon", "sızıntı", "vidanjör"], category: "Su / Kanalizasyon", department: "Su ve Kanalizasyon Müdürlüğü" },
+  {
+    words: ["çöp", "temizlik", "koku", "atık", "konteyner"],
+    category: "Temizlik",
+    department: "Temizlik İşleri Müdürlüğü",
+  },
+  {
+    words: ["yol", "asfalt", "çukur", "kaldırım"],
+    category: "Yol / Altyapı",
+    department: "Fen İşleri Müdürlüğü",
+  },
+  {
+    words: ["park", "ağaç", "bahçe", "yeşil alan", "budama"],
+    category: "Park ve Bahçeler",
+    department: "Park ve Bahçeler Müdürlüğü",
+  },
+  {
+    words: ["ruhsat", "işyeri açma", "izin"],
+    category: "Ruhsat",
+    department: "Ruhsat ve Denetim Müdürlüğü",
+  },
+  {
+    words: ["evlilik", "nikah", "evlendirme"],
+    category: "Evlendirme",
+    department: "Evlendirme Memurluğu",
+  },
+  {
+    words: ["numarataj", "adres", "kapı numarası"],
+    category: "Numarataj",
+    department: "Numarataj Birimi",
+  },
+  {
+    words: ["imar", "kaçak yapı", "inşaat"],
+    category: "İmar",
+    department: "İmar ve Şehircilik Müdürlüğü",
+  },
+  {
+    words: ["hayvan", "sokak köpeği", "kedi"],
+    category: "Sokak Hayvanları",
+    department: "Veteriner İşleri Müdürlüğü",
+  },
+  {
+    words: ["otobüs", "durak", "ulaşım", "sefer"],
+    category: "Ulaşım",
+    department: "Ulaşım Hizmetleri Müdürlüğü",
+  },
+  {
+    words: ["su", "kanalizasyon", "sızıntı", "vidanjör"],
+    category: "Su / Kanalizasyon",
+    department: "Su ve Kanalizasyon Müdürlüğü",
+  },
   { words: ["gürültü", "ses"], category: "Gürültü", department: "Zabıta Müdürlüğü" },
 ];
 
@@ -82,12 +122,13 @@ export const LOW_PRIORITY_WORDS = ["bilgi", "öğrenmek", "soru", "nasıl"];
 export function classifyLocally(text: string) {
   const t = text.toLowerCase();
   let match = KEYWORD_MAP.find((k) => k.words.some((w) => t.includes(w)));
-  if (!match) match = { words: [], category: "Diğer", department: "Kültür ve Sosyal İşler Müdürlüğü" };
+  if (!match)
+    match = { words: [], category: "Diğer", department: "Kültür ve Sosyal İşler Müdürlüğü" };
   const priority = HIGH_PRIORITY_WORDS.some((w) => t.includes(w))
     ? "yuksek"
     : LOW_PRIORITY_WORDS.some((w) => t.includes(w))
-    ? "dusuk"
-    : "orta";
+      ? "dusuk"
+      : "orta";
   return { category: match.category, department: match.department, priority, confidence: 0.72 };
 }
 

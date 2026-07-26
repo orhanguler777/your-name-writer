@@ -16,7 +16,11 @@ const DISPLAY_ROLES: { role: AppRole; label: string; desc: string }[] = [
   { role: "mudur", label: "Birim Müdürü", desc: "3. Seviye — Kendi müdürlüğü" },
   { role: "sef", label: "Şef", desc: "4. Seviye — Birim içi ara yönetim" },
   { role: "personel", label: "Müdürlük Görevlisi", desc: "5. Seviye — Her birim için genel" },
-  { role: "zabita_memuru", label: "Zabıta Memuru (Saha)", desc: "Yalnızca Zabıta Müdürlüğü — saha denetimi" },
+  {
+    role: "zabita_memuru",
+    label: "Zabıta Memuru (Saha)",
+    desc: "Yalnızca Zabıta Müdürlüğü — saha denetimi",
+  },
   { role: "cozum_masasi", label: "Çözüm Masası", desc: "Vatandaş şikayet & talep yönetimi" },
   { role: "mudurluk", label: "Müdürlük (eski)", desc: "Eski rol adı — geriye dönük uyum" },
   { role: "zabita", label: "Zabıta (eski)", desc: "Eski rol adı — geriye dönük uyum" },
@@ -83,14 +87,27 @@ export function RolePermissionsMatrixManager() {
               Dinamik Rol & Menü Yetki Matrisi (SuperUser)
             </CardTitle>
             <CardDescription className="text-xs">
-              Sistemdeki her bir rolün (Belediye Başkanı dahil) hangi menüleri göreceğini kutucukları (checkbox) işaretleyerek tek tek yönetebilirsiniz.
+              Sistemdeki her bir rolün (Belediye Başkanı dahil) hangi menüleri göreceğini
+              kutucukları (checkbox) işaretleyerek tek tek yönetebilirsiniz.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={handleReset} disabled={saving || isLoading} className="h-8 gap-1 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={saving || isLoading}
+              className="h-8 gap-1 text-xs"
+            >
               <RotateCcw className="h-3.5 w-3.5" /> Varsayılana Dön
             </Button>
-            <Button variant="default" size="sm" onClick={handleSave} disabled={saving || isLoading} className="h-8 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || isLoading}
+              className="h-8 gap-1 text-xs bg-emerald-600 hover:bg-emerald-700"
+            >
               <Save className="h-3.5 w-3.5" /> {saving ? "Kaydediliyor..." : "Matrisi Kaydet"}
             </Button>
           </div>
@@ -104,7 +121,9 @@ export function RolePermissionsMatrixManager() {
               {DISPLAY_ROLES.map((r) => (
                 <th key={r.role} className="p-3 text-center min-w-[120px] font-semibold border-l">
                   <div className="font-bold text-foreground">{r.label}</div>
-                  <div className="text-[10px] text-muted-foreground font-normal line-clamp-1">{r.desc}</div>
+                  <div className="text-[10px] text-muted-foreground font-normal line-clamp-1">
+                    {r.desc}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -140,8 +159,9 @@ export function RolePermissionsMatrixManager() {
         <div className="p-3 bg-muted/20 border-t flex items-center gap-2 text-[11px] text-muted-foreground">
           <Info className="h-4 w-4 text-primary shrink-0" />
           <span>
-            Değişiklikler <strong>“Matrisi Kaydet”</strong> ile veritabanına yazılır ve tüm kullanıcıların
-            cihazlarında geçerli olur. Kapatılan bir menü, adres çubuğundan da açılamaz.
+            Değişiklikler <strong>“Matrisi Kaydet”</strong> ile veritabanına yazılır ve tüm
+            kullanıcıların cihazlarında geçerli olur. Kapatılan bir menü, adres çubuğundan da
+            açılamaz.
           </span>
         </div>
       </CardContent>

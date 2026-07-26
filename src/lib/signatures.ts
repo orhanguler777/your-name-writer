@@ -43,13 +43,17 @@ export async function uploadSignatures(inspectionId: string, cap: SignatureCaptu
   if (cap.inspectorDataUrl) {
     const blob = await dataUrlToBlob(cap.inspectorDataUrl);
     tasks.push(
-      supabase.storage.from(BUCKET).upload(`${b}/inspector.png`, blob, { upsert: true, contentType: "image/png" })
+      supabase.storage
+        .from(BUCKET)
+        .upload(`${b}/inspector.png`, blob, { upsert: true, contentType: "image/png" }),
     );
   }
   if (cap.merchantDataUrl && !cap.declined) {
     const blob = await dataUrlToBlob(cap.merchantDataUrl);
     tasks.push(
-      supabase.storage.from(BUCKET).upload(`${b}/merchant.png`, blob, { upsert: true, contentType: "image/png" })
+      supabase.storage
+        .from(BUCKET)
+        .upload(`${b}/merchant.png`, blob, { upsert: true, contentType: "image/png" }),
     );
   }
 
@@ -62,7 +66,9 @@ export async function uploadSignatures(inspectionId: string, cap: SignatureCaptu
   };
   const metaBlob = new Blob([JSON.stringify(meta)], { type: "application/json" });
   tasks.push(
-    supabase.storage.from(BUCKET).upload(`${b}/meta.json`, metaBlob, { upsert: true, contentType: "application/json" })
+    supabase.storage
+      .from(BUCKET)
+      .upload(`${b}/meta.json`, metaBlob, { upsert: true, contentType: "application/json" }),
   );
 
   await Promise.all(tasks);
@@ -75,7 +81,8 @@ export async function uploadSignatures(inspectionId: string, cap: SignatureCaptu
 export async function loadSignatures(inspectionId?: string | null): Promise<LoadedSignatures> {
   if (!inspectionId) return { hasAny: false };
   const b = base(inspectionId);
-  const pub = (name: string) => supabase.storage.from(BUCKET).getPublicUrl(`${b}/${name}`).data.publicUrl;
+  const pub = (name: string) =>
+    supabase.storage.from(BUCKET).getPublicUrl(`${b}/${name}`).data.publicUrl;
 
   let meta: {
     merchantName?: string | null;

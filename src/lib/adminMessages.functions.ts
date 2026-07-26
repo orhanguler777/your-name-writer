@@ -45,19 +45,16 @@ export const createMayorMessageServer = createServerFn({ method: "POST" })
 
       if (deptErr) throw deptErr;
 
-      const targets = data.target === "all"
-        ? (depts ?? [])
-        : (depts ?? []).filter((d) => d.id === data.target);
+      const targets =
+        data.target === "all" ? (depts ?? []) : (depts ?? []).filter((d) => d.id === data.target);
 
       if (targets.length > 0) {
-        const { error: targetErr } = await adminSupabase
-          .from("mayor_daily_message_targets")
-          .insert(
-            targets.map((d) => ({
-              message_id: msg.id,
-              department_id: d.id,
-            }))
-          );
+        const { error: targetErr } = await adminSupabase.from("mayor_daily_message_targets").insert(
+          targets.map((d) => ({
+            message_id: msg.id,
+            department_id: d.id,
+          })),
+        );
 
         if (targetErr) throw targetErr;
       }

@@ -6,8 +6,23 @@ import { PageHeader, EmptyState } from "@/components/panel-primitives";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { PieChart, Plus, Trash2, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -43,18 +58,18 @@ function PollsList() {
     mutationFn: async () => {
       let imageUrl = null;
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
+        const fileExt = imageFile.name.split(".").pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("attachments")
           .upload(`polls/${fileName}`, imageFile);
-          
+
         if (uploadError) throw uploadError;
-        
+
         const { data: publicUrlData } = supabase.storage
           .from("attachments")
           .getPublicUrl(`polls/${fileName}`);
-          
+
         imageUrl = publicUrlData.publicUrl;
       }
 
@@ -75,24 +90,24 @@ function PollsList() {
       if (pollError) throw pollError;
 
       // 2. Create Options
-      const validOptions = options.filter(o => o.trim() !== "");
+      const validOptions = options.filter((o) => o.trim() !== "");
       if (validOptions.length < 2) throw new Error("En az 2 şık girmelisiniz.");
 
-      const optionsData = validOptions.map(opt => ({
+      const optionsData = validOptions.map((opt) => ({
         poll_id: pollData.id,
         option_text: opt.trim(),
       }));
 
-      const { error: optError } = await supabase
-        .from("poll_options")
-        .insert(optionsData);
+      const { error: optError } = await supabase.from("poll_options").insert(optionsData);
 
       if (optError) throw optError;
 
       return pollData.id;
     },
     onSuccess: () => {
-      toast.success("Anket başarıyla oluşturuldu! Listeden 'Gönder' butonuna basarak WhatsApp'a iletebilirsiniz.");
+      toast.success(
+        "Anket başarıyla oluşturuldu! Listeden 'Gönder' butonuna basarak WhatsApp'a iletebilirsiniz.",
+      );
       setIsDialogOpen(false);
       setTitle("");
       setQuestion("");
@@ -122,7 +137,7 @@ function PollsList() {
     },
     onError: (error: any) => {
       toast.error("Gönderim Hatası: " + error.message);
-    }
+    },
   });
 
   const handleAddOption = () => {
@@ -150,7 +165,7 @@ function PollsList() {
           description="Vatandaşlara gönderilen WhatsApp anketlerini buradan yönetebilirsiniz."
           icon={PieChart}
         />
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -162,21 +177,22 @@ function PollsList() {
             <DialogHeader>
               <DialogTitle>Yeni Anket Oluştur</DialogTitle>
               <DialogDescription>
-                Anket başlığını, sorusunu ve şıklarını belirleyin. Anket kaydedildiğinde WhatsApp üzerinden kullanıcılara gönderilecektir.
+                Anket başlığını, sorusunu ve şıklarını belirleyin. Anket kaydedildiğinde WhatsApp
+                üzerinden kullanıcılara gönderilecektir.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Resim (İsteğe Bağlı)</label>
                 <div className="flex items-center gap-3">
-                  <Input 
+                  <Input
                     id="poll-image-upload"
-                    type="file" 
+                    type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                   />
-                  <label 
+                  <label
                     htmlFor="poll-image-upload"
                     className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
                   >
@@ -187,36 +203,38 @@ function PollsList() {
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Anket Başlığı (WhatsApp'ta kalın görünür)</label>
-                <Input 
-                  placeholder="Örn: Eski Belediye Binası" 
+                <label className="text-sm font-medium">
+                  Anket Başlığı (WhatsApp'ta kalın görünür)
+                </label>
+                <Input
+                  placeholder="Örn: Eski Belediye Binası"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Soru</label>
-                <Input 
-                  placeholder="Eski belediye binasını ne yapalım?" 
+                <Input
+                  placeholder="Eski belediye binasını ne yapalım?"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Şıklar (En az 2)</label>
                 {options.map((opt, i) => (
                   <div key={i} className="flex gap-2">
-                    <Input 
+                    <Input
                       placeholder={`Şık ${i + 1}`}
                       value={opt}
                       onChange={(e) => handleOptionChange(i, e.target.value)}
                     />
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
+                    <Button
+                      variant="outline"
+                      size="icon"
                       onClick={() => handleRemoveOption(i)}
                       disabled={options.length <= 2}
                     >
@@ -224,7 +242,12 @@ function PollsList() {
                     </Button>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" onClick={handleAddOption} className="w-full mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddOption}
+                  className="w-full mt-2"
+                >
                   <Plus className="h-4 w-4 mr-2" /> Şık Ekle
                 </Button>
               </div>
@@ -284,13 +307,17 @@ function PollsList() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right flex items-center justify-end gap-2">
-                      <Button 
-                        variant={poll.sent_to_whatsapp ? "outline" : "default"} 
-                        size="sm" 
+                      <Button
+                        variant={poll.sent_to_whatsapp ? "outline" : "default"}
+                        size="sm"
                         onClick={() => sendPollAgain.mutate(poll.id)}
                         disabled={sendPollAgain.isPending}
                       >
-                        {sendPollAgain.isPending ? "İşleniyor..." : (poll.sent_to_whatsapp ? "Tekrar Gönder" : "Gönder")}
+                        {sendPollAgain.isPending
+                          ? "İşleniyor..."
+                          : poll.sent_to_whatsapp
+                            ? "Tekrar Gönder"
+                            : "Gönder"}
                       </Button>
                       <Link to="/anketler/$id" params={{ id: poll.id }}>
                         <Button variant="ghost" size="sm">

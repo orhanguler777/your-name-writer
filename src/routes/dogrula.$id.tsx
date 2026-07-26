@@ -27,7 +27,8 @@ function TutanakVerifyPage() {
     retry: false,
   });
 
-  const typeTitle = (t?: string | null) => ZABITA_CHECKLISTS.find((c) => c.id === t)?.title || t || "—";
+  const typeTitle = (t?: string | null) =>
+    ZABITA_CHECKLISTS.find((c) => c.id === t)?.title || t || "—";
 
   return (
     <div className="min-h-screen bg-muted/30 px-4 py-8">
@@ -104,8 +105,12 @@ function TutanakVerifyPage() {
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex gap-3 px-5 py-3">
-      <dt className="w-28 shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={`min-w-0 break-words ${highlight ? "font-semibold text-destructive" : "font-medium"}`}>
+      <dt className="w-28 shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={`min-w-0 break-words ${highlight ? "font-semibold text-destructive" : "font-medium"}`}
+      >
         {value}
       </dd>
     </div>

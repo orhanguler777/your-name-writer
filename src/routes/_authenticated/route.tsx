@@ -1,13 +1,42 @@
-import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS } from "@/lib/turkish";
 import { MENU_ITEMS_CONFIG } from "@/lib/menuPermissions";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import {
-  LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
-  MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive, Shield, QrCode,
+  LayoutDashboard,
+  MessageSquare,
+  HeadphonesIcon,
+  Building2,
+  Crown,
+  Bot,
+  MessageCircle,
+  Send,
+  Truck,
+  UserCheck,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  Loader2,
+  HelpCircle,
+  Smile,
+  Megaphone,
+  PieChart,
+  Users,
+  ClipboardCheck,
+  MapPin,
+  Archive,
+  Shield,
+  QrCode,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -90,15 +119,20 @@ function AuthedLayout() {
         }`}
       >
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-bold">B</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-bold">
+            B
+          </div>
           <div className="flex flex-col leading-tight">
             <span className="font-display text-sm font-bold">Belediye AI</span>
-            <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">Modülü V1</span>
+            <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
+              Modülü V1
+            </span>
           </div>
         </div>
         <nav className="flex flex-col gap-0.5 overflow-y-auto p-3">
           {visibleMenu.map((item) => {
-            const active = pathname === item.to || (item.to !== "/panel" && pathname.startsWith(item.to));
+            const active =
+              pathname === item.to || (item.to !== "/panel" && pathname.startsWith(item.to));
             const Icon = ICON_MAP[item.iconName] || LayoutDashboard;
             return (
               <Link
@@ -119,23 +153,39 @@ function AuthedLayout() {
         </nav>
       </aside>
 
-      {mobileOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
       {/* Main */}
       <div className="flex flex-1 flex-col min-w-0">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card px-4 md:px-6">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setMobileOpen((v) => !v)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden shrink-0"
+              onClick={() => setMobileOpen((v) => !v)}
+            >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="hidden sm:block text-xs uppercase tracking-wider text-muted-foreground">Belediye AI Modülü</span>
-              <span className="font-display font-semibold truncate text-sm sm:text-base">Yapay Zeka Destekli Yönetim Paneli</span>
+              <span className="hidden sm:block text-xs uppercase tracking-wider text-muted-foreground">
+                Belediye AI Modülü
+              </span>
+              <span className="font-display font-semibold truncate text-sm sm:text-base">
+                Yapay Zeka Destekli Yönetim Paneli
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div className="hidden text-right sm:block">
-              <div className="text-sm font-medium">{profile?.full_name || profile?.email || "Kullanıcı"}</div>
+              <div className="text-sm font-medium">
+                {profile?.full_name || profile?.email || "Kullanıcı"}
+              </div>
               <div className="text-[11px] text-muted-foreground font-medium">
                 {ROLE_LABELS[primaryRole] || primaryRole}
               </div>
@@ -152,7 +202,7 @@ function AuthedLayout() {
           <Outlet />
         </main>
       </div>
-      
+
       {/* Global Floating Bot driven by Dynamic SuperUser RBAC Matrix */}
       {isAllowed(primaryRole, "baskan-ai-bot") && <MayorBotWidget />}
     </div>

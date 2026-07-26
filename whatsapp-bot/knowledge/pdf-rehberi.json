@@ -3,28 +3,71 @@
     {
       "dosya": "nikah-evraklari.pdf",
       "goruntu_adi": "Alanya Belediyesi Nikah Evrakları Kılavuzu",
-      "konular": ["nikah", "evlilik", "evlenme", "düğün", "aile cüzdanı", "nikah başvurusu", "evlilik belgeleri", "nikah evrakları", "yabancı evliliği"],
+      "konular": [
+        "nikah",
+        "evlilik",
+        "evlenme",
+        "düğün",
+        "aile cüzdanı",
+        "nikah başvurusu",
+        "evlilik belgeleri",
+        "nikah evrakları",
+        "yabancı evliliği"
+      ],
       "aciklama": "Nikah başvurusu için gerekli evraklar, yabancı uyruklu evlilik prosedürleri, yaş sınırları ve iddet müddeti hakkında detaylı bilgi içerir.",
       "ilgili_mudurluk": "Yazı İşleri Müdürlüğü"
     },
     {
       "dosya": "Sıhhi Form.pdf",
       "goruntu_adi": "Sıhhi Müessese Ruhsat Başvuru Formu",
-      "konular": ["sıhhi", "sihhi", "bakkal", "market", "lokanta", "berber", "kuaför", "ofis", "sıhhi form", "sıhhi ruhsat"],
+      "konular": [
+        "sıhhi",
+        "sihhi",
+        "bakkal",
+        "market",
+        "lokanta",
+        "berber",
+        "kuaför",
+        "ofis",
+        "sıhhi form",
+        "sıhhi ruhsat"
+      ],
       "aciklama": "Bakkal, market, lokanta, berber, kuaför, büro vb. sıhhi işyerleri açmak için gereken ruhsat başvuru formu ve beyannamedir.",
       "ilgili_mudurluk": "Ruhsat ve Denetim Müdürlüğü"
     },
     {
       "dosya": "Gayrisıhhi Form.pdf",
       "goruntu_adi": "Gayrisıhhi Müessese Ruhsat Başvuru Formu",
-      "konular": ["gayrisıhhi", "gayrisihhi", "gsm", "imalathane", "atölye", "depo", "fırın", "fabrika", "sanayi", "oto yıkama"],
+      "konular": [
+        "gayrisıhhi",
+        "gayrisihhi",
+        "gsm",
+        "imalathane",
+        "atölye",
+        "depo",
+        "fırın",
+        "fabrika",
+        "sanayi",
+        "oto yıkama"
+      ],
       "aciklama": "İmalathane, atölye, fabrika, depo, fırın vb. çevresel etkiye sahip gayrisıhhi müesseseler için ruhsat başvuru formu ve beyannamedir.",
       "ilgili_mudurluk": "Ruhsat ve Denetim Müdürlüğü"
     },
     {
       "dosya": "Umuma Açık Form.pdf",
       "goruntu_adi": "Umuma Açık İstirahat ve Eğlence Yeri Ruhsat Başvuru Formu",
-      "konular": ["umuma açık", "eğlence yeri", "otel", "pansiyon", "kahvehane", "bar", "disko", "içkili yer", "oyun salonu", "kafe"],
+      "konular": [
+        "umuma açık",
+        "eğlence yeri",
+        "otel",
+        "pansiyon",
+        "kahvehane",
+        "bar",
+        "disko",
+        "içkili yer",
+        "oyun salonu",
+        "kafe"
+      ],
       "aciklama": "Otel, pansiyon, bar, disko, kahvehane, internet salonu gibi umuma açık istirahat ve eğlence yerleri ruhsatı için başvuru formudur.",
       "ilgili_mudurluk": "Ruhsat ve Denetim Müdürlüğü"
     },

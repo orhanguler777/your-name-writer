@@ -7,11 +7,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, ShieldCheck, Globe, Search, Send, MessageSquare, Phone, MapPin, Calendar, AlertCircle, CheckCircle2, Sparkles, Filter, PieChart } from "lucide-react";
+import {
+  Users,
+  ShieldCheck,
+  Globe,
+  Search,
+  Send,
+  MessageSquare,
+  Phone,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  Filter,
+  PieChart,
+} from "lucide-react";
 import { fetchCitizensData } from "@/lib/ai.functions";
 import { toast } from "sonner";
 
@@ -22,11 +57,31 @@ export const Route = createFileRoute("/_authenticated/vatandaslar")({
 });
 
 const LANGUAGE_LABELS: Record<string, { label: string; flag: string; bg: string }> = {
-  tr: { label: "Türkçe", flag: "🇹🇷", bg: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300" },
-  ru: { label: "Русский (Rusça)", flag: "🇷🇺", bg: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" },
-  en: { label: "English (İngilizce)", flag: "🇬🇧", bg: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300" },
-  de: { label: "Deutsch (Almanca)", flag: "🇩🇪", bg: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
-  ar: { label: "العربية (Arapça)", flag: "🇦🇪", bg: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" },
+  tr: {
+    label: "Türkçe",
+    flag: "🇹🇷",
+    bg: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  },
+  ru: {
+    label: "Русский (Rusça)",
+    flag: "🇷🇺",
+    bg: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  },
+  en: {
+    label: "English (İngilizce)",
+    flag: "🇬🇧",
+    bg: "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
+  },
+  de: {
+    label: "Deutsch (Almanca)",
+    flag: "🇩🇪",
+    bg: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  },
+  ar: {
+    label: "العربية (Arapça)",
+    flag: "🇦🇪",
+    bg: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  },
 };
 
 function formatPhoneNumber(phone: string) {
@@ -54,16 +109,21 @@ function VatandaslarPage() {
 
   const getCitizens = useServerFn(fetchCitizensData);
 
-  const { data: citizens = [], isLoading, refetch } = useQuery({
+  const {
+    data: citizens = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["citizens-data", search, selectedLanguage, kvkkFilter],
-    queryFn: () => getCitizens({ data: { search, language: selectedLanguage, kvkkStatus: kvkkFilter } }),
+    queryFn: () =>
+      getCitizens({ data: { search, language: selectedLanguage, kvkkStatus: kvkkFilter } }),
     refetchInterval: 10000,
   });
 
   // İstatistikler (Tüm liste baz alınarak hesaplanır)
   const totalCount = citizens.length;
   const kvkkApprovedCount = citizens.filter((c) => c.kvkkAccepted).length;
-  
+
   const langCounts = citizens.reduce((acc: Record<string, number>, c) => {
     const l = c.language || "tr";
     acc[l] = (acc[l] || 0) + 1;
@@ -81,9 +141,13 @@ function VatandaslarPage() {
     }
 
     const targetLangName = LANGUAGE_LABELS[campaignSegment]?.label || campaignSegment;
-    const targetCount = citizens.filter((c) => campaignSegment === "all" || c.language === campaignSegment).length;
+    const targetCount = citizens.filter(
+      (c) => campaignSegment === "all" || c.language === campaignSegment,
+    ).length;
 
-    toast.success(`🎯 "${campaignTitle}" anketi/mesajı ${targetCount} kişilik [${targetLangName}] segmentine başarıyla tanımlandı!`);
+    toast.success(
+      `🎯 "${campaignTitle}" anketi/mesajı ${targetCount} kişilik [${targetLangName}] segmentine başarıyla tanımlandı!`,
+    );
     setIsCampaignDialogOpen(false);
     setCampaignTitle("");
     setCampaignMessage("");
@@ -159,7 +223,11 @@ function VatandaslarPage() {
 
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Dil Segmenti Sekmeleri */}
-            <Tabs value={selectedLanguage} onValueChange={setSelectedLanguage} className="w-full md:w-auto">
+            <Tabs
+              value={selectedLanguage}
+              onValueChange={setSelectedLanguage}
+              className="w-full md:w-auto"
+            >
               <TabsList className="grid grid-cols-5 h-9 text-xs">
                 <TabsTrigger value="all">Tümü ({totalCount})</TabsTrigger>
                 <TabsTrigger value="tr">🇹🇷 TR ({langCounts["tr"] || 0})</TabsTrigger>
@@ -187,9 +255,14 @@ function VatandaslarPage() {
       {/* Vatandaş Listesi Tablosu */}
       <Card>
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Vatandaş listesi yükleniyor...</div>
+          <div className="p-8 text-center text-muted-foreground">
+            Vatandaş listesi yükleniyor...
+          </div>
         ) : citizens.length === 0 ? (
-          <EmptyState title="Vatandaş Bulunamadı" description="Arama kriterlerinize uyan vatandaş kaydı bulunmamaktadır." />
+          <EmptyState
+            title="Vatandaş Bulunamadı"
+            description="Arama kriterlerinize uyan vatandaş kaydı bulunmamaktadır."
+          />
         ) : (
           <Table>
             <TableHeader>
@@ -242,7 +315,9 @@ function VatandaslarPage() {
                     </TableCell>
 
                     <TableCell>
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium ${langInfo.bg}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium ${langInfo.bg}`}
+                      >
                         <span>{langInfo.flag}</span>
                         <span>{langInfo.label}</span>
                       </span>
@@ -250,11 +325,17 @@ function VatandaslarPage() {
 
                     <TableCell>
                       {citizen.kvkkAccepted ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        >
                           <CheckCircle2 className="mr-1 h-3 w-3" /> KVKK Onaylı
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                        >
                           <AlertCircle className="mr-1 h-3 w-3" /> Onay Bekliyor
                         </Badge>
                       )}
@@ -322,7 +403,8 @@ function VatandaslarPage() {
                 <div>
                   <div className="text-xs text-muted-foreground">Tercih Edilen Dil</div>
                   <div className="font-medium mt-0.5">
-                    {LANGUAGE_LABELS[selectedCitizen.language]?.flag} {LANGUAGE_LABELS[selectedCitizen.language]?.label || selectedCitizen.language}
+                    {LANGUAGE_LABELS[selectedCitizen.language]?.flag}{" "}
+                    {LANGUAGE_LABELS[selectedCitizen.language]?.label || selectedCitizen.language}
                   </div>
                 </div>
                 <div>
@@ -343,13 +425,16 @@ function VatandaslarPage() {
 
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                  <MessageSquare className="h-4 w-4 text-primary" /> Başvuru ve Şikayet Geçmişi ({selectedCitizen.history?.length || 0})
+                  <MessageSquare className="h-4 w-4 text-primary" /> Başvuru ve Şikayet Geçmişi (
+                  {selectedCitizen.history?.length || 0})
                 </h4>
                 <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                   {selectedCitizen.history?.map((item: any, idx: number) => (
                     <div key={idx} className="p-3 border rounded-md text-xs space-y-1 bg-card">
                       <div className="flex justify-between items-center">
-                        <span className="font-mono text-[10px] text-muted-foreground">#{item.id?.substring(0, 8).toUpperCase()}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          #{item.id?.substring(0, 8).toUpperCase()}
+                        </span>
                         <Badge variant="outline" className="text-[10px]">
                           {item.status}
                         </Badge>
@@ -397,7 +482,9 @@ function VatandaslarPage() {
                   <SelectItem value="ru">🇷🇺 Rusça Konuşanlar ({russianCount} kişi)</SelectItem>
                   <SelectItem value="en">🇬🇧 İngilizce Konuşanlar ({englishCount} kişi)</SelectItem>
                   <SelectItem value="de">🇩🇪 Almanca Konuşanlar ({germanCount} kişi)</SelectItem>
-                  <SelectItem value="tr">🇹🇷 Türkçe Konuşanlar ({langCounts["tr"] || 0} kişi)</SelectItem>
+                  <SelectItem value="tr">
+                    🇹🇷 Türkçe Konuşanlar ({langCounts["tr"] || 0} kişi)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -412,7 +499,9 @@ function VatandaslarPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold mb-1 block">WhatsApp Mesaj İçeriği (Hedef Dilde)</label>
+              <label className="text-xs font-semibold mb-1 block">
+                WhatsApp Mesaj İçeriği (Hedef Dilde)
+              </label>
               <textarea
                 className="w-full h-24 p-2 text-xs border rounded-md focus:ring-1 focus:ring-purple-500 bg-background"
                 placeholder="Örn: Sayın Alanya sakini, kentimizde düzenlenecek kültür etkinlikleri hakkındaki fikriniz bizim için önemlidir..."
@@ -426,7 +515,11 @@ function VatandaslarPage() {
               <div>
                 <strong>Hedef Kitle Erişimi:</strong> Bu mesaj, seçilen segmentteki{" "}
                 <span className="font-bold">
-                  {citizens.filter((c) => campaignSegment === "all" || c.language === campaignSegment).length}
+                  {
+                    citizens.filter(
+                      (c) => campaignSegment === "all" || c.language === campaignSegment,
+                    ).length
+                  }
                 </span>{" "}
                 vatandaşa WhatsApp botu üzerinden doğrudan gönderilecektir.
               </div>
@@ -437,7 +530,10 @@ function VatandaslarPage() {
             <Button variant="outline" onClick={() => setIsCampaignDialogOpen(false)}>
               İptal
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={handleSendCampaign}>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={handleSendCampaign}
+            >
               <Send className="mr-1.5 h-3.5 w-3.5" /> Segmente İlet
             </Button>
           </DialogFooter>

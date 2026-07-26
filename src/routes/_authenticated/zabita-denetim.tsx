@@ -7,10 +7,33 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Search, AlertTriangle, Save, ChevronDown, ChevronUp, XCircle, CheckCircle2, Camera, Trash2, UploadCloud, Image, MapPin, Navigation, Clock, FileText } from "lucide-react";
+import {
+  ClipboardCheck,
+  Search,
+  AlertTriangle,
+  Save,
+  ChevronDown,
+  ChevronUp,
+  XCircle,
+  CheckCircle2,
+  Camera,
+  Trash2,
+  UploadCloud,
+  Image,
+  MapPin,
+  Navigation,
+  Clock,
+  FileText,
+} from "lucide-react";
 import { ZABITA_CHECKLISTS, calculatePenalty } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, generateInspectionPdfBlob } from "@/lib/tutanak";
 import { InspectionSignDialog } from "@/components/InspectionSignDialog";
@@ -75,20 +98,28 @@ function PreviousInspectionsDropdownDetail({
           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span>Geçmiş Denetim Kayıtları ({inspections.length})</span>
         </span>
-        {open ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+        {open ? (
+          <ChevronUp className="w-4 h-4 shrink-0" />
+        ) : (
+          <ChevronDown className="w-4 h-4 shrink-0" />
+        )}
       </button>
 
       {open && (
         <div className="p-3 space-y-3 bg-card">
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">İncelemek İstediğiniz Tarihi Seçin:</Label>
+            <Label className="text-[11px] text-muted-foreground">
+              İncelemek İstediğiniz Tarihi Seçin:
+            </Label>
             <Select value={selectedId} onValueChange={setSelectedId}>
               <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder="Tarih seçiniz..." />
               </SelectTrigger>
               <SelectContent>
                 {inspections.map((ins) => {
-                  const title = ZABITA_CHECKLISTS.find((c) => c.id === ins.inspection_type)?.title || ins.inspection_type;
+                  const title =
+                    ZABITA_CHECKLISTS.find((c) => c.id === ins.inspection_type)?.title ||
+                    ins.inspection_type;
                   const pts = ins.penalty_points ?? 0;
                   return (
                     <SelectItem key={ins.id} value={ins.id} className="text-xs">
@@ -102,9 +133,16 @@ function PreviousInspectionsDropdownDetail({
 
           <div className="p-2.5 rounded border bg-muted/20 text-xs space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">{formatDate(currentInspection.created_at)} Raporu</span>
-              <Badge variant={currentInspection.penalty_points > 0 ? "destructive" : "default"} className="text-[10px] px-1.5 py-0">
-                {currentInspection.penalty_points > 0 ? `${currentInspection.penalty_points} Puan - ${currentInspection.recommended_action}` : "Temiz"}
+              <span className="font-semibold text-foreground">
+                {formatDate(currentInspection.created_at)} Raporu
+              </span>
+              <Badge
+                variant={currentInspection.penalty_points > 0 ? "destructive" : "default"}
+                className="text-[10px] px-1.5 py-0"
+              >
+                {currentInspection.penalty_points > 0
+                  ? `${currentInspection.penalty_points} Puan - ${currentInspection.recommended_action}`
+                  : "Temiz"}
               </Badge>
             </div>
 
@@ -130,12 +168,23 @@ function PreviousInspectionsDropdownDetail({
                       key={item.id}
                       className={`flex items-start gap-2 px-2 py-1.5 text-xs ${!checked ? "bg-red-50 dark:bg-red-950/20" : ""}`}
                     >
-                      <span className="text-muted-foreground font-mono w-4 shrink-0 text-[10px]">{i + 1}.</span>
-                      {checked
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
-                        : <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
-                      }
-                      <span className={!checked ? "text-red-700 dark:text-red-400 font-medium" : "text-muted-foreground"}>{item.label}</span>
+                      <span className="text-muted-foreground font-mono w-4 shrink-0 text-[10px]">
+                        {i + 1}.
+                      </span>
+                      {checked ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mt-0.5 shrink-0" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                      )}
+                      <span
+                        className={
+                          !checked
+                            ? "text-red-700 dark:text-red-400 font-medium"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {item.label}
+                      </span>
                     </div>
                   );
                 })}
@@ -160,7 +209,11 @@ function PreviousInspectionsDropdownDetail({
                       rel="noreferrer"
                       className="relative block w-12 h-12 rounded border overflow-hidden hover:opacity-80 transition-opacity shrink-0"
                     >
-                      <img src={url} alt={`Fotoğraf ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={url}
+                        alt={`Fotoğraf ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
                     </a>
                   ))}
                 </div>
@@ -265,9 +318,11 @@ function ZabitaDenetimPage() {
       },
       (err) => {
         setIsLocating(false);
-        setLocationError("Konum alınamadı: " + err.message + ". GPS servisinizin açık olduğundan emin olun.");
+        setLocationError(
+          "Konum alınamadı: " + err.message + ". GPS servisinizin açık olduğundan emin olun.",
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
@@ -287,15 +342,13 @@ function ZabitaDenetimPage() {
         const fileExt = file.name.split(".").pop();
         const filePath = `${user?.id || "anonymous"}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        const { data, error } = await supabase.storage
-          .from("attachments")
-          .upload(filePath, file);
+        const { data, error } = await supabase.storage.from("attachments").upload(filePath, file);
 
         if (error) throw error;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from("attachments")
-          .getPublicUrl(filePath);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("attachments").getPublicUrl(filePath);
 
         urls.push(publicUrl);
       }
@@ -311,7 +364,6 @@ function ZabitaDenetimPage() {
   const removeImage = (urlToRemove: string) => {
     setUploadedImages((prev) => prev.filter((url) => url !== urlToRemove));
   };
-
 
   // Sorgu kutusu yalnızca geçmiş denetimleri arar; forma kopyalama yapmaz.
   useEffect(() => {
@@ -416,32 +468,37 @@ function ZabitaDenetimPage() {
 
       const penalty = calculatePenalty(form.inspection_type, checklistData);
 
-      const { data, error } = await supabase.from("workplace_inspections").insert({
-        workplace_name: form.workplace_name,
-        owner_name: form.owner_name || null,
-        address: form.address || null,
-        tax_office: form.tax_office || null,
-        tax_number: form.tax_number || null,
-        phone: form.phone || null,
-        inspection_type: form.inspection_type,
-        checklist: checklistData,
-        notes: form.notes || null,
-        inspector_id: user.id,
-        images: uploadedImages,
-        penalty_points: penalty.penaltyPoints,
-        recommended_action: penalty.recommendedAction,
-        latitude: coords?.lat ?? null,
-        longitude: coords?.lng ?? null,
-        // Otomatik Re-Denetim Takip Sistemi: Eksikli denetimlere 15 gün sonra takip tarihi atar
-        followup_date: penalty.penaltyPoints > 0
-          ? new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
-          : null,
-        followup_status: penalty.penaltyPoints > 0 ? "pending" : "none",
-      }).select("id").single();
+      const { data, error } = await supabase
+        .from("workplace_inspections")
+        .insert({
+          workplace_name: form.workplace_name,
+          owner_name: form.owner_name || null,
+          address: form.address || null,
+          tax_office: form.tax_office || null,
+          tax_number: form.tax_number || null,
+          phone: form.phone || null,
+          inspection_type: form.inspection_type,
+          checklist: checklistData,
+          notes: form.notes || null,
+          inspector_id: user.id,
+          images: uploadedImages,
+          penalty_points: penalty.penaltyPoints,
+          recommended_action: penalty.recommendedAction,
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
+          // Otomatik Tekrar Denetim Takip Sistemi: Eksikli denetimlere 15 gün sonra takip tarihi atar
+          followup_date:
+            penalty.penaltyPoints > 0
+              ? new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+              : null,
+          followup_status: penalty.penaltyPoints > 0 ? "pending" : "none",
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
 
-      // Re-denetim döngüsünü kapat: bu ziyaret zaten aynı işyeri için bekleyen
+      // Tekrar denetim döngüsünü kapat: bu ziyaret zaten aynı işyeri için bekleyen
       // takibin karşılığı. Kapatılmazsa kayıt sonsuza kadar "bekliyor" kalıyor
       // ve takip listesi aynı işyerini tekrar tekrar gösteriyordu.
       const closedStatus = penalty.penaltyPoints > 0 ? "unresolved" : "resolved";
@@ -453,12 +510,12 @@ function ZabitaDenetimPage() {
         .neq("id", data?.id ?? "")
         .select("id");
       if (closeErr) {
-        console.warn("Bekleyen re-denetim kayıtları kapatılamadı:", closeErr.message);
+        console.warn("Bekleyen tekrar denetim kayıtları kapatılamadı:", closeErr.message);
       } else if (closedRows && closedRows.length > 0) {
         toast.info(
           penalty.penaltyPoints > 0
-            ? `${closedRows.length} bekleyen re-denetim kapatıldı — eksikler devam ediyor, yeni takip açıldı.`
-            : `${closedRows.length} bekleyen re-denetim kapatıldı — eksikler giderilmiş.`
+            ? `${closedRows.length} bekleyen tekrar denetim kapatıldı — eksikler devam ediyor, yeni takip açıldı.`
+            : `${closedRows.length} bekleyen tekrar denetim kapatıldı — eksikler giderilmiş.`,
         );
       }
 
@@ -473,7 +530,10 @@ function ZabitaDenetimPage() {
           } as any)
           .eq("id", data.id);
         if (extraErr) {
-          console.warn("Ruhsat/POS bilgisi kaydedilemedi (migration gerekli olabilir):", extraErr.message);
+          console.warn(
+            "Ruhsat/POS bilgisi kaydedilemedi (migration gerekli olabilir):",
+            extraErr.message,
+          );
           toast.warning("Ruhsat / POS numarası kaydedilemedi — veritabanı güncellemesi bekliyor.");
         }
       }
@@ -482,7 +542,10 @@ function ZabitaDenetimPage() {
       if (data?.id) {
         const signedAt = new Date().toISOString();
         try {
-          if (capture && (capture.inspectorDataUrl || capture.merchantDataUrl || capture.declined)) {
+          if (
+            capture &&
+            (capture.inspectorDataUrl || capture.merchantDataUrl || capture.declined)
+          ) {
             await uploadSignatures(data.id, capture);
           }
 
@@ -525,7 +588,10 @@ function ZabitaDenetimPage() {
             })
             .eq("id", data.id);
           if (updErr) {
-            console.warn("Tutanak meta güncellenemedi (migration gerekli olabilir):", updErr.message);
+            console.warn(
+              "Tutanak meta güncellenemedi (migration gerekli olabilir):",
+              updErr.message,
+            );
           }
 
           // İmzalı tutanağı esnafın WhatsApp numarasına gönder (memur onay verdiyse)
@@ -538,12 +604,14 @@ function ZabitaDenetimPage() {
               toast.success(`Tutanak WhatsApp'tan gönderildi (${sendRes.to ?? form.phone}).`);
             } else {
               toast.warning(
-                `Tutanak WhatsApp'tan gönderilemedi: ${sendRes.reason}. Tutanak Arşivi'nden tekrar deneyebilirsiniz.`
+                `Tutanak WhatsApp'tan gönderilemedi: ${sendRes.reason}. Tutanak Arşivi'nden tekrar deneyebilirsiniz.`,
               );
             }
           }
         } catch (e: any) {
-          toast.warning("Denetim kaydedildi ancak imza/tutanak arşivlenemedi: " + (e?.message || ""));
+          toast.warning(
+            "Denetim kaydedildi ancak imza/tutanak arşivlenemedi: " + (e?.message || ""),
+          );
         }
       }
     },
@@ -609,18 +677,25 @@ function ZabitaDenetimPage() {
                   value={searchName}
                   onChange={(e) => setSearchName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">En az 3 harf girildiğinde geçmiş denetimler sorgulanır.</p>
+                <p className="text-xs text-muted-foreground">
+                  En az 3 harf girildiğinde geçmiş denetimler sorgulanır.
+                </p>
               </div>
 
-              {isChecking && <div className="text-sm text-muted-foreground animate-pulse">Sorgulanıyor...</div>}
+              {isChecking && (
+                <div className="text-sm text-muted-foreground animate-pulse">Sorgulanıyor...</div>
+              )}
 
               {hasRecentInspection && (
-                <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
+                <Alert
+                  variant="destructive"
+                  className="bg-destructive/10 border-destructive/20 text-destructive"
+                >
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>Uyarı!</AlertTitle>
                   <AlertDescription className="text-sm mt-1">
-                    Bu işyeri son <strong>{recentInspections.thresholdDays} gün</strong> içinde denetlenmiş.
-                    Bilgiler otomatik yüklendi, geçmiş eksikler sağda vurgulanmıştır.
+                    Bu işyeri son <strong>{recentInspections.thresholdDays} gün</strong> içinde
+                    denetlenmiş. Bilgiler otomatik yüklendi, geçmiş eksikler sağda vurgulanmıştır.
                   </AlertDescription>
                 </Alert>
               )}
@@ -634,25 +709,43 @@ function ZabitaDenetimPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label>İşyeri Adı <span className="text-red-500">*</span></Label>
-                <Input value={form.workplace_name} onChange={(e) => setForm((f) => ({ ...f, workplace_name: e.target.value }))} />
+                <Label>
+                  İşyeri Adı <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.workplace_name}
+                  onChange={(e) => setForm((f) => ({ ...f, workplace_name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Sahibi / Sorumlusu</Label>
-                <Input value={form.owner_name} onChange={(e) => setForm((f) => ({ ...f, owner_name: e.target.value }))} />
+                <Input
+                  value={form.owner_name}
+                  onChange={(e) => setForm((f) => ({ ...f, owner_name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Telefon</Label>
-                <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="0XXX XXX XX XX" />
+                <Input
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="0XXX XXX XX XX"
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label>Vergi Dairesi</Label>
-                  <Input value={form.tax_office} onChange={(e) => setForm((f) => ({ ...f, tax_office: e.target.value }))} />
+                  <Input
+                    value={form.tax_office}
+                    onChange={(e) => setForm((f) => ({ ...f, tax_office: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Vergi No</Label>
-                  <Input value={form.tax_number} onChange={(e) => setForm((f) => ({ ...f, tax_number: e.target.value }))} />
+                  <Input
+                    value={form.tax_number}
+                    onChange={(e) => setForm((f) => ({ ...f, tax_number: e.target.value }))}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -707,14 +800,21 @@ function ZabitaDenetimPage() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label>Denetim Türü <span className="text-red-500">*</span></Label>
-                <Select value={form.inspection_type} onValueChange={(val) => setForm((f) => ({ ...f, inspection_type: val }))}>
+                <Label>
+                  Denetim Türü <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={form.inspection_type}
+                  onValueChange={(val) => setForm((f) => ({ ...f, inspection_type: val }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Türü seçiniz..." />
                   </SelectTrigger>
                   <SelectContent>
                     {ZABITA_CHECKLISTS.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -739,14 +839,19 @@ function ZabitaDenetimPage() {
                     {isLocating ? "Alınıyor..." : "Yenile"}
                   </Button>
                 </Label>
-                
+
                 {coords ? (
                   <div className="mt-1.5 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-xs text-emerald-800 dark:text-emerald-300 flex flex-wrap items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span className="font-mono text-[11px] truncate">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
+                      <span className="font-mono text-[11px] truncate">
+                        {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                      </span>
                     </div>
-                    <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                    >
                       Konum Doğrulandı
                     </Badge>
                   </div>
@@ -771,32 +876,45 @@ function ZabitaDenetimPage() {
             <Card className="h-full flex flex-col items-center justify-center p-12 text-center text-muted-foreground border-dashed bg-muted/20">
               <ClipboardCheck className="w-12 h-12 mb-4 text-muted-foreground/50" />
               <p>Lütfen denetim türü seçiniz.</p>
-              <p className="text-sm mt-2 max-w-sm">Tür seçildikten sonra ilgili işyerine ait denetim maddeleri burada listelenecektir.</p>
+              <p className="text-sm mt-2 max-w-sm">
+                Tür seçildikten sonra ilgili işyerine ait denetim maddeleri burada listelenecektir.
+              </p>
             </Card>
           ) : (
             <Card className="h-full flex flex-col">
               <CardHeader className="bg-primary/5 pb-4 border-b space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div>
-                    <CardTitle className="text-lg">{selectedChecklist.title} Denetim Formu</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">Aşağıdaki kriterlerin işyerinde bulunup bulunmadığını işaretleyiniz.</p>
+                    <CardTitle className="text-lg">
+                      {selectedChecklist.title} Denetim Formu
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Aşağıdaki kriterlerin işyerinde bulunup bulunmadığını işaretleyiniz.
+                    </p>
                   </div>
-                  {hasRecentInspection && recentInspections?.data && recentInspections.data.length > 0 && (
-                    <div className="w-full sm:max-w-xs shrink-0">
-                      <PreviousInspectionsDropdownDetail
-                        inspections={recentInspections.data}
-                        onLoadIntoForm={(inspection) => {
-                          if (inspection.checklist) {
-                            setChecklistData(inspection.checklist as Record<string, boolean>);
-                          }
-                          if (inspection.inspection_type) {
-                            setForm((f) => ({ ...f, inspection_type: inspection.inspection_type }));
-                          }
-                          toast.success(`${new Date(inspection.created_at).toLocaleDateString("tr-TR")} tarihli denetim verileri forma yüklendi.`);
-                        }}
-                      />
-                    </div>
-                  )}
+                  {hasRecentInspection &&
+                    recentInspections?.data &&
+                    recentInspections.data.length > 0 && (
+                      <div className="w-full sm:max-w-xs shrink-0">
+                        <PreviousInspectionsDropdownDetail
+                          inspections={recentInspections.data}
+                          onLoadIntoForm={(inspection) => {
+                            if (inspection.checklist) {
+                              setChecklistData(inspection.checklist as Record<string, boolean>);
+                            }
+                            if (inspection.inspection_type) {
+                              setForm((f) => ({
+                                ...f,
+                                inspection_type: inspection.inspection_type,
+                              }));
+                            }
+                            toast.success(
+                              `${new Date(inspection.created_at).toLocaleDateString("tr-TR")} tarihli denetim verileri forma yüklendi.`,
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
                 </div>
 
                 {/* Ceza ve Yaptırım Değerlendirme Kartı (Üst Kısım) */}
@@ -807,26 +925,43 @@ function ZabitaDenetimPage() {
                   const isWarning = penalty.penaltyPoints > 0;
 
                   return (
-                    <div className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 transition-colors ${
-                      isSevere
-                        ? "bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-300"
-                        : isMedium
-                        ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300"
-                        : isWarning
-                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-900 dark:text-yellow-300"
-                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
-                    }`}>
+                    <div
+                      className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 transition-colors ${
+                        isSevere
+                          ? "bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-300"
+                          : isMedium
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-300"
+                            : isWarning
+                              ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-900 dark:text-yellow-300"
+                              : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
+                      }`}
+                    >
                       <div className="flex items-start gap-3 min-w-0">
-                        <div className={`p-1.5 rounded-full shrink-0 ${
-                          isSevere ? "bg-red-500 text-white" : isMedium ? "bg-amber-500 text-white" : isWarning ? "bg-yellow-500 text-white" : "bg-emerald-500 text-white"
-                        }`}>
+                        <div
+                          className={`p-1.5 rounded-full shrink-0 ${
+                            isSevere
+                              ? "bg-red-500 text-white"
+                              : isMedium
+                                ? "bg-amber-500 text-white"
+                                : isWarning
+                                  ? "bg-yellow-500 text-white"
+                                  : "bg-emerald-500 text-white"
+                          }`}
+                        >
                           <AlertTriangle className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-semibold flex flex-wrap items-center gap-x-2">
-                            <span>Otomatik Ceza Puanı: <strong className="text-sm font-bold">{penalty.penaltyPoints} Puan</strong></span>
+                            <span>
+                              Otomatik Ceza Puanı:{" "}
+                              <strong className="text-sm font-bold">
+                                {penalty.penaltyPoints} Puan
+                              </strong>
+                            </span>
                             {penalty.missingItemsCount > 0 && (
-                              <span className="text-[11px] opacity-80">({penalty.missingItemsCount} eksik madde)</span>
+                              <span className="text-[11px] opacity-80">
+                                ({penalty.missingItemsCount} eksik madde)
+                              </span>
                             )}
                           </div>
                           <div className="text-xs opacity-90 mt-0.5 break-words">
@@ -835,7 +970,10 @@ function ZabitaDenetimPage() {
                         </div>
                       </div>
                       {/* Yaptırım rozeti mobilde gizli: aynı bilgi zaten üstteki satırda yazıyor */}
-                      <Badge variant={isSevere ? "destructive" : "outline"} className="hidden sm:inline-flex shrink-0 text-xs px-2.5 py-1 font-semibold">
+                      <Badge
+                        variant={isSevere ? "destructive" : "outline"}
+                        className="hidden sm:inline-flex shrink-0 text-xs px-2.5 py-1 font-semibold"
+                      >
                         {penalty.recommendedAction}
                       </Badge>
                     </div>
@@ -872,7 +1010,9 @@ function ZabitaDenetimPage() {
                         className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800"
                         onClick={() => {
                           if (recentInspections.data[0].checklist) {
-                            setChecklistData(recentInspections.data[0].checklist as Record<string, boolean>);
+                            setChecklistData(
+                              recentInspections.data[0].checklist as Record<string, boolean>,
+                            );
                             toast.info("En son denetimdeki tüm maddeler aktarıldı.");
                           }
                         }}
@@ -932,10 +1072,12 @@ function ZabitaDenetimPage() {
                 <div className="divide-y max-h-[600px] overflow-y-auto">
                   {selectedChecklist.items.map((item, index) => {
                     const sameTypeInspection = recentInspections?.data?.find(
-                      (ins: any) => ins.inspection_type === form.inspection_type
+                      (ins: any) => ins.inspection_type === form.inspection_type,
                     );
-                    const lastChecklist = sameTypeInspection?.checklist as Record<string, any> | undefined;
-                    const wasMissingLastTime = sameTypeInspection && lastChecklist?.[item.id] !== true;
+                    const lastChecklist = sameTypeInspection?.checklist as
+                      Record<string, any> | undefined;
+                    const wasMissingLastTime =
+                      sameTypeInspection && lastChecklist?.[item.id] !== true;
 
                     return (
                       <div
@@ -944,12 +1086,14 @@ function ZabitaDenetimPage() {
                           checklistData[item.id]
                             ? "bg-green-50/50 dark:bg-green-950/10 border-l-green-500"
                             : wasMissingLastTime
-                            ? "bg-red-50/70 dark:bg-red-950/20 border-l-red-500"
-                            : "hover:bg-muted/30 border-l-transparent"
+                              ? "bg-red-50/70 dark:bg-red-950/20 border-l-red-500"
+                              : "hover:bg-muted/30 border-l-transparent"
                         }`}
                         onClick={() => handleCheckboxChange(item.id, !checklistData[item.id])}
                       >
-                        <span className="text-muted-foreground font-mono w-6 shrink-0">{index + 1}.</span>
+                        <span className="text-muted-foreground font-mono w-6 shrink-0">
+                          {index + 1}.
+                        </span>
                         <div className="flex-1 space-y-1">
                           <span className="text-sm leading-relaxed block">{item.label}</span>
                           {wasMissingLastTime && (
@@ -965,7 +1109,12 @@ function ZabitaDenetimPage() {
                             onCheckedChange={(val) => handleCheckboxChange(item.id, !!val)}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <Label htmlFor={`item-${item.id}`} className="cursor-pointer text-xs uppercase text-muted-foreground">VAR</Label>
+                          <Label
+                            htmlFor={`item-${item.id}`}
+                            className="cursor-pointer text-xs uppercase text-muted-foreground"
+                          >
+                            VAR
+                          </Label>
                         </div>
                       </div>
                     );
@@ -1006,14 +1155,23 @@ function ZabitaDenetimPage() {
                             disabled={isUploading}
                           />
                         </Button>
-                        <span className="text-xs text-muted-foreground">İstediğiniz kadar fotoğraf ekleyebilirsiniz.</span>
+                        <span className="text-xs text-muted-foreground">
+                          İstediğiniz kadar fotoğraf ekleyebilirsiniz.
+                        </span>
                       </div>
 
                       {uploadedImages.length > 0 && (
                         <div className="flex flex-wrap gap-2 p-2 bg-background border rounded-lg">
                           {uploadedImages.map((url, i) => (
-                            <div key={i} className="relative group w-20 h-20 rounded border overflow-hidden shrink-0">
-                              <img src={url} alt={`Yüklenen Fotoğraf ${i + 1}`} className="w-full h-full object-cover" />
+                            <div
+                              key={i}
+                              className="relative group w-20 h-20 rounded border overflow-hidden shrink-0"
+                            >
+                              <img
+                                src={url}
+                                alt={`Yüklenen Fotoğraf ${i + 1}`}
+                                className="w-full h-full object-cover"
+                              />
                               <button
                                 type="button"
                                 onClick={() => removeImage(url)}
@@ -1032,16 +1190,29 @@ function ZabitaDenetimPage() {
               </CardContent>
               <CardFooter className="p-4 border-t bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
-                  {Object.values(checklistData).filter(Boolean).length} / {selectedChecklist.items.length} madde işaretlendi
+                  {Object.values(checklistData).filter(Boolean).length} /{" "}
+                  {selectedChecklist.items.length} madde işaretlendi
                 </span>
                 <div className="flex gap-3 w-full sm:w-auto">
-                  <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setForm({ ...form, inspection_type: "" })}>Vazgeç</Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                    onClick={() => setForm({ ...form, inspection_type: "" })}
+                  >
+                    Vazgeç
+                  </Button>
                   <Button
                     onClick={() => setSignOpen(true)}
                     disabled={saveMutation.isPending || !form.workplace_name}
                     className="gap-2 flex-1 sm:flex-none"
                   >
-                    {saveMutation.isPending ? "Kaydediliyor..." : <><Save className="w-4 h-4" /> İmzala ve Kaydet</>}
+                    {saveMutation.isPending ? (
+                      "Kaydediliyor..."
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" /> İmzala ve Kaydet
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardFooter>
@@ -1058,7 +1229,9 @@ function ZabitaDenetimPage() {
         defaultMerchantName={form.owner_name}
         merchantPhone={form.phone}
         saving={saveMutation.isPending}
-        onConfirm={(capture, opts) => saveMutation.mutate({ capture, sendWhatsapp: opts.sendWhatsapp })}
+        onConfirm={(capture, opts) =>
+          saveMutation.mutate({ capture, sendWhatsapp: opts.sendWhatsapp })
+        }
       />
     </div>
   );

@@ -103,11 +103,11 @@
   --sidebar-ring: oklch(0.62 0.14 155);
 
   /* Durum renkleri */
-  --status-yeni: oklch(0.6 0.18 250);        /* mavi */
-  --status-devam: oklch(0.72 0.18 55);       /* turuncu */
-  --status-beklemede: oklch(0.55 0.2 300);   /* mor */
-  --status-cozuldu: oklch(0.62 0.14 155);    /* yeşil */
-  --status-reddedildi: oklch(0.58 0.24 27);  /* kırmızı */
+  --status-yeni: oklch(0.6 0.18 250); /* mavi */
+  --status-devam: oklch(0.72 0.18 55); /* turuncu */
+  --status-beklemede: oklch(0.55 0.2 300); /* mor */
+  --status-cozuldu: oklch(0.62 0.14 155); /* yeşil */
+  --status-reddedildi: oklch(0.58 0.24 27); /* kırmızı */
 
   --priority-high: oklch(0.58 0.24 27);
   --priority-medium: oklch(0.72 0.18 55);
@@ -137,12 +137,21 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
 }

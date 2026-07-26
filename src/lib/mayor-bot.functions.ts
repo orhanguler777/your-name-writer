@@ -4,10 +4,12 @@ import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 
 const Input = z.object({
-  messages: z.array(z.object({
-    role: z.enum(["user", "assistant"]),
-    content: z.string(),
-  })),
+  messages: z.array(
+    z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string(),
+    }),
+  ),
 });
 
 export const askMayorBot = createServerFn({ method: "POST" })
@@ -17,15 +19,43 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Pull compact snapshots for grounding
-    const [{ data: complaints }, { data: depts }, { data: nbrs }, { data: vehicles }, { data: attendance }, { data: openComplaints }] = await Promise.all([
-      supabaseAdmin.from("complaints").select("category, status, priority, satisfaction_score, complaint_text, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)").limit(1000),
+    const [
+      { data: complaints },
+      { data: depts },
+      { data: nbrs },
+      { data: vehicles },
+      { data: attendance },
+      { data: openComplaints },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("complaints")
+        .select(
+          "category, status, priority, satisfaction_score, complaint_text, created_at, resolved_at, assigned_department_id, neighborhood_id, neighborhoods(name), departments!complaints_assigned_department_id_fkey(name)",
+        )
+        .limit(1000),
       supabaseAdmin.from("departments").select("id, name, deputy_mayors(full_name)"),
       supabaseAdmin.from("neighborhoods").select("id, name, mukhtar_name, mukhtar_phone"),
-      supabaseAdmin.from("vehicles").select("plate_number, status, maintenance_start_date, maintenance_reason, departments(name)"),
-      supabaseAdmin.from("personnel_attendance").select("date, is_late, has_overtime, missing_checkout, personnel(department_id, departments(name))").limit(300),
-      supabaseAdmin.from("complaints")
+      supabaseAdmin
+        .from("vehicles")
+        .select(
+          "plate_number, status, maintenance_start_date, maintenance_reason, departments(name)",
+        ),
+      supabaseAdmin
+        .from("personnel_attendance")
+        .select(
+          "date, is_late, has_overtime, missing_checkout, personnel(department_id, departments(name))",
+        )
+        .limit(300),
+      supabaseAdmin
+        .from("complaints")
         .select("id, complaint_text, category, neighborhoods(name), created_at")
-        .in("status", ["yeni", "incelemede", "personele_atandi", "devam_ediyor", "vatandas_yaniti_bekleniyor"])
+        .in("status", [
+          "yeni",
+          "incelemede",
+          "personele_atandi",
+          "devam_ediyor",
+          "vatandas_yaniti_bekleniyor",
+        ])
         .order("created_at", { ascending: false })
         .limit(30),
     ]);
@@ -35,12 +65,17 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const byNbr = tally(complaints ?? [], (c: any) => c.neighborhoods?.name);
     const byDept = tally(complaints ?? [], (c: any) => c.departments?.name);
     const byStatus = tally(complaints ?? [], (c: any) => c.status);
-    
+
     // Memnuniyet hesaplama
-    const ratedComplaints = (complaints ?? []).filter((c: any) => c.satisfaction_score !== null && c.satisfaction_score !== undefined);
+    const ratedComplaints = (complaints ?? []).filter(
+      (c: any) => c.satisfaction_score !== null && c.satisfaction_score !== undefined,
+    );
     const totalRated = ratedComplaints.length;
-    const totalSatScore = ratedComplaints.reduce((acc: number, c: any) => acc + (c.satisfaction_score || 0), 0);
-    const avgSatisfactionScore = totalRated > 0 ? (totalSatScore / totalRated) : 0;
+    const totalSatScore = ratedComplaints.reduce(
+      (acc: number, c: any) => acc + (c.satisfaction_score || 0),
+      0,
+    );
+    const avgSatisfactionScore = totalRated > 0 ? totalSatScore / totalRated : 0;
     const happyCount = ratedComplaints.filter((c: any) => (c.satisfaction_score || 0) >= 4).length;
     const satisfactionRate = totalRated > 0 ? (happyCount / totalRated) * 100 : 0;
 
@@ -84,18 +119,31 @@ export const askMayorBot = createServerFn({ method: "POST" })
       }
     });
     const deptAvg: Record<string, number> = {};
-    Object.keys(avgResHours).forEach((k) => { deptAvg[k] = avgResHours[k] / cntRes[k]; });
+    Object.keys(avgResHours).forEach((k) => {
+      deptAvg[k] = avgResHours[k] / cntRes[k];
+    });
 
-    const inMaintenance = (vehicles ?? []).filter((v: any) => v.status === "bakimda").map((v: any) => `${v.plate_number} (${v.departments?.name ?? "—"}, sebep: ${v.maintenance_reason})`);
-    const lateByDept = tally((attendance ?? []).filter((a: any) => a.is_late), (a: any) => a.personnel?.departments?.name);
+    const inMaintenance = (vehicles ?? [])
+      .filter((v: any) => v.status === "bakimda")
+      .map(
+        (v: any) =>
+          `${v.plate_number} (${v.departments?.name ?? "—"}, sebep: ${v.maintenance_reason})`,
+      );
+    const lateByDept = tally(
+      (attendance ?? []).filter((a: any) => a.is_late),
+      (a: any) => a.personnel?.departments?.name,
+    );
 
-    const openIssues = (openComplaints ?? []).map((c: any) =>
-      `[ID: ${c.id}] Mahalle: ${c.neighborhoods?.name ?? "Bilinmiyor"} | Kategori: ${c.category} | Metin: ${c.complaint_text}`
-    ).join("\n");
+    const openIssues = (openComplaints ?? [])
+      .map(
+        (c: any) =>
+          `[ID: ${c.id}] Mahalle: ${c.neighborhoods?.name ?? "Bilinmiyor"} | Kategori: ${c.category} | Metin: ${c.complaint_text}`,
+      )
+      .join("\n");
 
     const mukhtarsList = (nbrs ?? [])
       .filter((n: any) => n.mukhtar_name)
-      .map((n: any) => `${n.name}: ${n.mukhtar_name} (${n.mukhtar_phone || '—'})`)
+      .map((n: any) => `${n.name}: ${n.mukhtar_name} (${n.mukhtar_phone || "—"})`)
       .join(", ");
 
     const context = `
@@ -122,7 +170,15 @@ ${openIssues}
 
     const key = process.env.OPENAI_API_KEY;
     if (!key) {
-      return { answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, { total, byNbr, byDept, deptAvg, inMaintenance }) };
+      return {
+        answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, {
+          total,
+          byNbr,
+          byDept,
+          deptAvg,
+          inMaintenance,
+        }),
+      };
     }
 
     try {
@@ -152,24 +208,54 @@ ${context}`;
       });
 
       // log
-      await supabaseAdmin.from("ai_bot_logs").insert({
-        user_id: null, question: data.messages[data.messages.length - 1].content, answer: r.text,
-      }).then(() => {}, () => {});
+      await supabaseAdmin
+        .from("ai_bot_logs")
+        .insert({
+          user_id: null,
+          question: data.messages[data.messages.length - 1].content,
+          answer: r.text,
+        })
+        .then(
+          () => {},
+          () => {},
+        );
 
       return { answer: r.text };
     } catch (e: any) {
-      return { answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, { total, byNbr, byDept, deptAvg, inMaintenance }) };
+      return {
+        answer: buildLocalAnswer(data.messages[data.messages.length - 1].content, {
+          total,
+          byNbr,
+          byDept,
+          deptAvg,
+          inMaintenance,
+        }),
+      };
     }
   });
 
 function tally<T>(arr: T[], key: (x: T) => string | undefined): Record<string, number> {
-  return arr.reduce((acc, x) => {
-    const k = key(x); if (!k) return acc;
-    acc[k] = (acc[k] ?? 0) + 1; return acc;
-  }, {} as Record<string, number>);
+  return arr.reduce(
+    (acc, x) => {
+      const k = key(x);
+      if (!k) return acc;
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 }
 
-function buildLocalAnswer(q: string, d: { total: number; byNbr: Record<string, number>; byDept: Record<string, number>; deptAvg: Record<string, number>; inMaintenance: string[] }): string {
+function buildLocalAnswer(
+  q: string,
+  d: {
+    total: number;
+    byNbr: Record<string, number>;
+    byDept: Record<string, number>;
+    deptAvg: Record<string, number>;
+    inMaintenance: string[];
+  },
+): string {
   const topNbr = Object.entries(d.byNbr).sort((a, b) => b[1] - a[1])[0];
   const topDept = Object.entries(d.byDept).sort((a, b) => b[1] - a[1])[0];
   const fastest = Object.entries(d.deptAvg).sort((a, b) => a[1] - b[1])[0];

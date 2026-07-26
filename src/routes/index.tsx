@@ -25,7 +25,10 @@ function Landing() {
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">V1</div>
             </div>
           </div>
-          <Link to="/auth" className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <Link
+            to="/auth"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
             Panele Giriş <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -34,7 +37,8 @@ function Landing() {
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="max-w-3xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Yapay Zeka Destekli Belediye Yönetimi
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Yapay Zeka Destekli Belediye
+            Yönetimi
           </div>
           <h1 className="font-display text-5xl font-bold leading-tight tracking-tight md:text-6xl">
             Vatandaş şikayetlerini <span className="text-accent">yapay zeka</span> ile yönlendirin.
@@ -44,7 +48,10 @@ function Landing() {
             başkanlık için gerçek zamanlı analitiklere erişin.
           </p>
           <div className="mt-8 flex gap-3">
-            <Link to="/auth" className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground hover:bg-primary/90">
+            <Link
+              to="/auth"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground hover:bg-primary/90"
+            >
               Hemen Başla <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -52,10 +59,26 @@ function Landing() {
 
         <div className="mt-16 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: MessageSquare, title: "AI Şikayet Sınıflandırma", desc: "Kategoriyi, önceliği ve müdürlüğü otomatik tespit eder." },
-            { icon: Crown, title: "Başkan Paneli", desc: "KPI kartları, grafikler ve günlük yönetim özeti." },
-            { icon: Bot, title: "Başkan AI Bot", desc: "Doğal dille belediye verileri hakkında soru sorun." },
-            { icon: Truck, title: "Araç & Personel Takibi", desc: "Bakım süreleri, geç girişler ve fazla mesai analizi." },
+            {
+              icon: MessageSquare,
+              title: "AI Şikayet Sınıflandırma",
+              desc: "Kategoriyi, önceliği ve müdürlüğü otomatik tespit eder.",
+            },
+            {
+              icon: Crown,
+              title: "Başkan Paneli",
+              desc: "KPI kartları, grafikler ve günlük yönetim özeti.",
+            },
+            {
+              icon: Bot,
+              title: "Başkan AI Bot",
+              desc: "Doğal dille belediye verileri hakkında soru sorun.",
+            },
+            {
+              icon: Truck,
+              title: "Araç & Personel Takibi",
+              desc: "Bakım süreleri, geç girişler ve fazla mesai analizi.",
+            },
           ].map((f) => (
             <div key={f.title} className="rounded-lg border bg-card p-5">
               <f.icon className="mb-3 h-6 w-6 text-accent" />

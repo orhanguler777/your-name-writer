@@ -96,7 +96,10 @@ export function WorkplaceQrDialog({
     if (!qr) return;
     const a = document.createElement("a");
     a.href = qr;
-    a.download = `karekod-${workplaceName.replace(/[^\wğüşıöçĞÜŞİÖÇ ]/gi, "").trim().replace(/\s+/g, "-")}.png`;
+    a.download = `karekod-${workplaceName
+      .replace(/[^\wğüşıöçĞÜŞİÖÇ ]/gi, "")
+      .trim()
+      .replace(/\s+/g, "-")}.png`;
     a.click();
   };
 

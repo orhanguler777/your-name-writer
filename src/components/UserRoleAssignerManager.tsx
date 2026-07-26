@@ -8,7 +8,13 @@ import { ROLE_LABELS } from "@/lib/turkish";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Users, ShieldAlert, UserCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,7 +61,10 @@ export function assignableRolesFor(
   list.push({ role: "vatandas", label: "Vatandaş (yetkisiz)" });
 
   if (!list.some((r) => r.role === currentRole)) {
-    list.unshift({ role: currentRole, label: `${ROLE_LABELS[currentRole] || currentRole} (mevcut)` });
+    list.unshift({
+      role: currentRole,
+      label: `${ROLE_LABELS[currentRole] || currentRole} (mevcut)`,
+    });
   }
   return list;
 }
@@ -91,7 +100,9 @@ export function UserRoleAssignerManager() {
       const moduleMap = new Map((departments ?? []).map((d: any) => [d.id, d.modules ?? []]));
 
       const users = (profiles ?? []).map((u) => {
-        const uRoles = (userRoles ?? []).filter((r) => r.user_id === u.id).map((r) => r.role as AppRole);
+        const uRoles = (userRoles ?? [])
+          .filter((r) => r.user_id === u.id)
+          .map((r) => r.role as AppRole);
         return {
           ...u,
           roles: uRoles,
@@ -131,11 +142,19 @@ export function UserRoleAssignerManager() {
     }
   };
 
-  const handleDepartmentChange = async (userId: string, currentRole: AppRole, departmentId: string) => {
+  const handleDepartmentChange = async (
+    userId: string,
+    currentRole: AppRole,
+    departmentId: string,
+  ) => {
     setUpdatingUserId(userId);
     try {
       const res = await updateRoleFn({
-        data: { userId, role: currentRole, departmentId: departmentId === "none" ? null : departmentId },
+        data: {
+          userId,
+          role: currentRole,
+          departmentId: departmentId === "none" ? null : departmentId,
+        },
       });
       if (!res.success) throw new Error(res.error || "Birim güncellenemedi");
       toast.success("Kullanıcının birimi güncellendi.");
@@ -157,7 +176,8 @@ export function UserRoleAssignerManager() {
               Kullanıcı Rol & Birim Atama Yönetimi (SuperUser)
             </CardTitle>
             <CardDescription className="text-xs">
-              Sistemdeki tüm kayıtlı kullanıcıların rollerini (Zabıta Memuru, Müdür, Başkan vb.) tek tıkla değiştirebilirsiniz.
+              Sistemdeki tüm kayıtlı kullanıcıların rollerini (Zabıta Memuru, Müdür, Başkan vb.) tek
+              tıkla değiştirebilirsiniz.
             </CardDescription>
           </div>
           <Badge variant="outline" className="text-xs">
@@ -187,7 +207,9 @@ export function UserRoleAssignerManager() {
                 return (
                   <tr key={u.id} className="hover:bg-muted/20 transition-colors">
                     <td className="p-3">
-                      <div className="font-bold text-foreground">{u.full_name || "— (İsimsiz)"}</div>
+                      <div className="font-bold text-foreground">
+                        {u.full_name || "— (İsimsiz)"}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">{u.email}</div>
                     </td>
                     <td className="p-3">
@@ -205,9 +227,13 @@ export function UserRoleAssignerManager() {
                           <SelectValue placeholder="Birim seçin" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none" className="text-xs">— Birim yok —</SelectItem>
+                          <SelectItem value="none" className="text-xs">
+                            — Birim yok —
+                          </SelectItem>
                           {usersData.departments.map((d: any) => (
-                            <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                            <SelectItem key={d.id} value={d.id} className="text-xs">
+                              {d.name}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

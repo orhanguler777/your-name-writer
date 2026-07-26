@@ -5,7 +5,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { PageHeader, EmptyState } from "@/components/panel-primitives";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { HelpCircle, Search, Phone, Clock, MessageSquare, Building2 } from "lucide-react";
 import { fetchBilgiTalepleri } from "@/lib/ai.functions";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +27,7 @@ function BilgiTalepleriPage() {
   const [search, setSearch] = useState("");
   const fetchLogs = useServerFn(fetchBilgiTalepleri);
   const { profile, primaryRole } = useAuth();
-  
+
   const isMudurluk = primaryRole === "mudurluk";
   const departmentId = profile?.department_id;
 
@@ -31,11 +38,12 @@ function BilgiTalepleriPage() {
   });
 
   // İstatistikler
-  const totalToday = logs?.filter((l: any) => {
-    const d = new Date(l.created_at);
-    const today = new Date();
-    return d.toDateString() === today.toDateString();
-  }).length ?? 0;
+  const totalToday =
+    logs?.filter((l: any) => {
+      const d = new Date(l.created_at);
+      const today = new Date();
+      return d.toDateString() === today.toDateString();
+    }).length ?? 0;
 
   const totalAll = logs?.length ?? 0;
 
@@ -71,7 +79,9 @@ function BilgiTalepleriPage() {
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-2xl font-bold">{logs?.filter((l: any) => l.related_filters?.department).length ?? 0}</div>
+            <div className="text-2xl font-bold">
+              {logs?.filter((l: any) => l.related_filters?.department).length ?? 0}
+            </div>
             <div className="text-xs text-muted-foreground">Müdürlüğe Yönlendirilen</div>
           </div>
         </Card>
@@ -120,7 +130,13 @@ function BilgiTalepleriPage() {
                   <TableRow key={log.id}>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       <div>{date.toLocaleDateString("tr-TR")}</div>
-                      <div className="font-semibold text-foreground/80">{date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+                      <div className="font-semibold text-foreground/80">
+                        {date.toLocaleTimeString("tr-TR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium text-sm">{filters.citizen_name || "—"}</div>

@@ -8,9 +8,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, Search, FileCheck2, AlertTriangle, Archive, PenLine, MessageCircle } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  FileText,
+  Download,
+  Search,
+  FileCheck2,
+  AlertTriangle,
+  Archive,
+  PenLine,
+  MessageCircle,
+} from "lucide-react";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, downloadFromUrl, tutanakBelgeNo } from "@/lib/tutanak";
 import { loadSignatures } from "@/lib/signatures";
@@ -181,11 +203,15 @@ function TutanakArsiviPage() {
           <div>
             <Label className="text-xs">Denetim Türü</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tümü</SelectItem>
                 {ZABITA_CHECKLISTS.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.title}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -193,7 +219,9 @@ function TutanakArsiviPage() {
           <div>
             <Label className="text-xs">Durum</Label>
             <Select value={durum} onValueChange={setDurum}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tümü</SelectItem>
                 <SelectItem value="cezali">Cezalı</SelectItem>
@@ -204,7 +232,9 @@ function TutanakArsiviPage() {
           <div>
             <Label className="text-xs">İmza</Label>
             <Select value={imza} onValueChange={setImza}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tümü</SelectItem>
                 <SelectItem value="imzali">İmzalı / Arşivli</SelectItem>
@@ -214,7 +244,12 @@ function TutanakArsiviPage() {
           </div>
           <div>
             <Label className="text-xs">Başlangıç</Label>
-            <Input type="date" className="h-9" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input
+              type="date"
+              className="h-9"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
           </div>
           <div>
             <Label className="text-xs">Bitiş</Label>
@@ -251,18 +286,26 @@ function TutanakArsiviPage() {
                 const signed = !!(r.tutanak_url || r.signed_at);
                 return (
                   <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">{tutanakBelgeNo({ id: r.id } as any)}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {tutanakBelgeNo({ id: r.id } as any)}
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium text-sm">{r.workplace_name}</div>
-                      {r.owner_name && <div className="text-[11px] text-muted-foreground">{r.owner_name}</div>}
+                      {r.owner_name && (
+                        <div className="text-[11px] text-muted-foreground">{r.owner_name}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs">{typeTitle(r.inspection_type)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(r.created_at)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {fmtDate(r.created_at)}
+                    </TableCell>
                     <TableCell>
                       {pts > 0 ? (
                         <div>
                           <div className="text-xs font-semibold text-destructive">{pts} Puan</div>
-                          <div className="text-[10px] text-muted-foreground">{r.recommended_action}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {r.recommended_action}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-xs text-emerald-600 font-medium">Temiz</span>
@@ -270,11 +313,16 @@ function TutanakArsiviPage() {
                     </TableCell>
                     <TableCell>
                       {signed ? (
-                        <Badge variant="outline" className="text-[10px] gap-1 text-emerald-700 border-emerald-300">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] gap-1 text-emerald-700 border-emerald-300"
+                        >
                           <FileCheck2 className="w-3 h-3" /> {r.tutanak_url ? "Arşivli" : "İmzalı"}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground">İmzasız</Badge>
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          İmzasız
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -299,7 +347,11 @@ function TutanakArsiviPage() {
                           disabled={busyId === r.id}
                           onClick={() => handleGet(r)}
                         >
-                          {r.tutanak_url ? <Download className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                          {r.tutanak_url ? (
+                            <Download className="w-3.5 h-3.5" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5" />
+                          )}
                           {r.tutanak_url ? "İndir" : "Oluştur"}
                         </Button>
                       </div>
@@ -309,7 +361,10 @@ function TutanakArsiviPage() {
               })}
               {!isLoading && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-10 text-sm text-muted-foreground"
+                  >
                     Filtrelere uygun belge bulunamadı.
                   </TableCell>
                 </TableRow>

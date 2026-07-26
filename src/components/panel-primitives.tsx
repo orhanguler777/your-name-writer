@@ -14,7 +14,11 @@ const STATUS_STYLE: Record<string, string> = {
 export function StatusBadge({ status }: { status: string }) {
   const token = statusToken(status);
   const label = STATUS_LABELS[status] ?? status;
-  return <Badge variant="outline" className={STATUS_STYLE[token]}>{label}</Badge>;
+  return (
+    <Badge variant="outline" className={STATUS_STYLE[token]}>
+      {label}
+    </Badge>
+  );
 }
 
 const PRIORITY_STYLE: Record<string, string> = {
@@ -24,16 +28,34 @@ const PRIORITY_STYLE: Record<string, string> = {
 };
 
 export function PriorityBadge({ priority }: { priority: string }) {
-  return <Badge variant="outline" className={PRIORITY_STYLE[priority] ?? ""}>{PRIORITY_LABELS[priority] ?? priority}</Badge>;
+  return (
+    <Badge variant="outline" className={PRIORITY_STYLE[priority] ?? ""}>
+      {PRIORITY_LABELS[priority] ?? priority}
+    </Badge>
+  );
 }
 
 export function KpiCard({
-  label, value, icon: Icon, hint, accent,
+  label,
+  value,
+  icon: Icon,
+  hint,
+  accent,
 }: {
-  label: string; value: ReactNode; icon: React.ComponentType<{ className?: string }>;
-  hint?: string; accent?: "primary" | "accent" | "destructive" | "warn";
+  label: string;
+  value: ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
+  hint?: string;
+  accent?: "primary" | "accent" | "destructive" | "warn";
 }) {
-  const accentClass = accent === "accent" ? "text-accent" : accent === "destructive" ? "text-destructive" : accent === "warn" ? "text-priority-medium" : "text-primary";
+  const accentClass =
+    accent === "accent"
+      ? "text-accent"
+      : accent === "destructive"
+        ? "text-destructive"
+        : accent === "warn"
+          ? "text-priority-medium"
+          : "text-primary";
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between gap-2">
@@ -50,7 +72,17 @@ export function KpiCard({
   );
 }
 
-export function PageHeader({ title, description, actions, icon: Icon }: { title: string; description?: string; actions?: ReactNode; icon?: React.ComponentType<{ className?: string }> }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  icon: Icon,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  icon?: React.ComponentType<{ className?: string }>;
+}) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
@@ -65,8 +97,14 @@ export function PageHeader({ title, description, actions, icon: Icon }: { title:
   );
 }
 
-export function EmptyState({ title, description, icon: Icon }: {
-  title: string; description?: string; icon?: React.ComponentType<{ className?: string }>;
+export function EmptyState({
+  title,
+  description,
+  icon: Icon,
+}: {
+  title: string;
+  description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card px-6 py-16 text-center">

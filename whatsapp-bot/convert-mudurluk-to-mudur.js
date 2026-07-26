@@ -9,28 +9,35 @@
  *   node convert-mudurluk-to-mudur.js          → sadece raporlar (değişiklik yapmaz)
  *   node convert-mudurluk-to-mudur.js --apply  → uygular
  */
-import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const APPLY = process.argv.includes('--apply');
+const APPLY = process.argv.includes("--apply");
 
 /** Müdürlük adını e-posta önekine çevirir (hesapları açan seed script'iyle aynı kural). */
 function toCleanPrefix(name) {
   return name
     .toLowerCase()
-    .replace(' müdürlüğü', '').replace(' mudurlugu', '')
-    .replace(' birimi', '').replace(' memurluğu', '')
-    .replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ğ/g, 'g')
-    .replace(/ç/g, 'c').replace(/ö/g, 'o').replace(/ü/g, 'u')
-    .replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+    .replace(" müdürlüğü", "")
+    .replace(" mudurlugu", "")
+    .replace(" birimi", "")
+    .replace(" memurluğu", "")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ç/g, "c")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 async function run() {
   const [{ data: roles }, { data: profiles }, { data: depts }] = await Promise.all([
-    supabase.from('user_roles').select('user_id, role'),
-    supabase.from('profiles').select('id, email, full_name, department_id'),
-    supabase.from('departments').select('id, name'),
+    supabase.from("user_roles").select("user_id, role"),
+    supabase.from("profiles").select("id, email, full_name, department_id"),
+    supabase.from("departments").select("id, name"),
   ]);
 
   const deptName = new Map((depts ?? []).map((d) => [d.id, d.name]));
@@ -41,13 +48,15 @@ async function run() {
   });
 
   // Dönüştürülecekler: 'mudurluk' rolü olup daha üst kademesi olmayanlar
-  const UPPER = ['admin', 'superuser', 'baskan', 'baskan_yardimcisi', 'cozum_masasi'];
+  const UPPER = ["admin", "superuser", "baskan", "baskan_yardimcisi", "cozum_masasi"];
   const targets = (profiles ?? []).filter((p) => {
     const rs = rolesByUser.get(p.id) ?? [];
-    return rs.includes('mudurluk') && !rs.some((r) => UPPER.includes(r));
+    return rs.includes("mudurluk") && !rs.some((r) => UPPER.includes(r));
   });
 
-  console.log(`${APPLY ? '⚙️  UYGULANIYOR' : '🔍 ÖN İZLEME (değişiklik yapılmıyor)'} — ${targets.length} hesap\n`);
+  console.log(
+    `${APPLY ? "⚙️  UYGULANIYOR" : "🔍 ÖN İZLEME (değişiklik yapılmıyor)"} — ${targets.length} hesap\n`,
+  );
 
   // E-posta önekinden doğru müdürlüğü bul (hesap adları müdürlük adından üretilmişti)
   const deptByPrefix = new Map((depts ?? []).map((d) => [toCleanPrefix(d.name), d]));
@@ -59,7 +68,7 @@ async function run() {
   for (const p of targets) {
     const rs = rolesByUser.get(p.id) ?? [];
     const dept = p.department_id ? deptName.get(p.department_id) : null;
-    const prefix = String(p.email ?? '').split('@')[0];
+    const prefix = String(p.email ?? "").split("@")[0];
     const expected = deptByPrefix.get(prefix) ?? null;
     // Beklenen birim biliniyor ve mevcut birim farklıysa onarılacak
     const needsFix = !!expected && expected.id !== p.department_id;
@@ -67,24 +76,31 @@ async function run() {
     if (needsFix) fixedDept++;
 
     rows.push({
-      'E-posta': p.email,
-      Birim: dept ?? '— BİRİM YOK —',
-      'Birim düzeltmesi': needsFix ? `→ ${expected.name}` : '',
-      'Eski roller': rs.join(', '),
-      'Yeni rol': 'mudur',
+      "E-posta": p.email,
+      Birim: dept ?? "— BİRİM YOK —",
+      "Birim düzeltmesi": needsFix ? `→ ${expected.name}` : "",
+      "Eski roller": rs.join(", "),
+      "Yeni rol": "mudur",
     });
 
     if (APPLY && needsFix) {
       const { error: dErr } = await supabase
-        .from('profiles').update({ department_id: expected.id }).eq('id', p.id);
+        .from("profiles")
+        .update({ department_id: expected.id })
+        .eq("id", p.id);
       if (dErr) console.error(`⚠️ ${p.email} birim düzeltilemedi: ${dErr.message}`);
     }
 
     if (APPLY) {
       // Tek kademe = tek rol
-      const { error: delErr } = await supabase.from('user_roles').delete().eq('user_id', p.id);
-      if (delErr) { console.error(`❌ ${p.email}: ${delErr.message}`); continue; }
-      const { error: insErr } = await supabase.from('user_roles').insert({ user_id: p.id, role: 'mudur' });
+      const { error: delErr } = await supabase.from("user_roles").delete().eq("user_id", p.id);
+      if (delErr) {
+        console.error(`❌ ${p.email}: ${delErr.message}`);
+        continue;
+      }
+      const { error: insErr } = await supabase
+        .from("user_roles")
+        .insert({ user_id: p.id, role: "mudur" });
       if (insErr) console.error(`❌ ${p.email}: ${insErr.message}`);
     }
   }
@@ -94,13 +110,20 @@ async function run() {
     console.log(`🔧 ${fixedDept} hesabın birimi e-posta önekine göre düzeltilecek/düzeltildi.`);
   }
   if (noDept > 0) {
-    console.log(`⚠️  ${noDept} hesabın birimi tanımlı değil — Rol & Birim Atama ekranından birim seçilmeli.`);
+    console.log(
+      `⚠️  ${noDept} hesabın birimi tanımlı değil — Rol & Birim Atama ekranından birim seçilmeli.`,
+    );
   }
   if (!APPLY) {
-    console.log('\nUygulamak için:  node convert-mudurluk-to-mudur.js --apply');
+    console.log("\nUygulamak için:  node convert-mudurluk-to-mudur.js --apply");
   } else {
-    console.log('\n✅ Tamamlandı. Etkilenen kullanıcılar yeniden giriş yaptığında yeni menülerini görür.');
+    console.log(
+      "\n✅ Tamamlandı. Etkilenen kullanıcılar yeniden giriş yaptığında yeni menülerini görür.",
+    );
   }
 }
 
-run().catch((e) => { console.error('❌', e.message); process.exit(1); });
+run().catch((e) => {
+  console.error("❌", e.message);
+  process.exit(1);
+});

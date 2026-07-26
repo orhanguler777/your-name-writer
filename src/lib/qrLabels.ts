@@ -21,7 +21,7 @@ function esc(v: unknown) {
  */
 export async function buildLabelSheetHtml(
   workplaces: LabelWorkplace[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
 ): Promise<string> {
   const cells: string[] = [];
 

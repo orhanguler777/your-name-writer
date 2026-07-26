@@ -18,7 +18,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
   if (typeof (ctx as any).roundRect === "function") {
     ctx.beginPath();
     (ctx as any).roundRect(x, y, w, h, r);
@@ -40,7 +47,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
  */
 export async function qrWithLogoDataUrl(
   text: string,
-  opts: { size?: number; logoRatio?: number } = {}
+  opts: { size?: number; logoRatio?: number } = {},
 ): Promise<string> {
   const size = opts.size ?? 480;
   const logoRatio = opts.logoRatio ?? 0.22;
@@ -113,7 +120,9 @@ export function workplaceQrUrl(workplaceName: string): string {
  * Okunan karekod adresini çözer. Belediyeye ait değilse null döner.
  * Hem işyeri etiketi (/isyeri/<ad>) hem tutanak karekodu (/dogrula/<id>) desteklenir.
  */
-export function parseQrTarget(raw: string): { kind: "workplace"; name: string } | { kind: "tutanak"; id: string } | null {
+export function parseQrTarget(
+  raw: string,
+): { kind: "workplace"; name: string } | { kind: "tutanak"; id: string } | null {
   const text = raw.trim();
   try {
     const url = new URL(text);
@@ -124,12 +133,17 @@ export function parseQrTarget(raw: string): { kind: "workplace"; name: string } 
     if (typeof window !== "undefined") allowed.add(window.location.host);
     const base = publicBaseUrl();
     if (base) {
-      try { allowed.add(new URL(base).host); } catch { /* geçersiz yapılandırma */ }
+      try {
+        allowed.add(new URL(base).host);
+      } catch {
+        /* geçersiz yapılandırma */
+      }
     }
     if (allowed.size > 0 && !allowed.has(url.host)) return null;
 
     const isyeri = url.pathname.match(/\/isyeri\/(.+)$/);
-    if (isyeri) return { kind: "workplace", name: normalizeWorkplaceName(decodeURIComponent(isyeri[1])) };
+    if (isyeri)
+      return { kind: "workplace", name: normalizeWorkplaceName(decodeURIComponent(isyeri[1])) };
     const dogrula = url.pathname.match(/\/dogrula\/([0-9a-f-]{36})$/i);
     if (dogrula) return { kind: "tutanak", id: dogrula[1] };
     return null;

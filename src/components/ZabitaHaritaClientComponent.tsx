@@ -110,11 +110,11 @@ export function ZabitaHaritaClientComponent({
     }
     // Alanya kara sınırları içinde gerçekçi noktalar (Atatürk Blv, Saray, Çarşı, Şekerhane, Kızlar Pınarı)
     const offsets = [
-      { lat: 36.5450, lng: 31.9950 }, // Çarşı / Atatürk Bulvarı
-      { lat: 36.5485, lng: 31.9880 }, // Kızlar Pınarı / Otogar civarı
-      { lat: 36.5490, lng: 32.0010 }, // Şekerhane / Hacet
-      { lat: 36.5510, lng: 31.9960 }, // Saray Mahallesi
-      { lat: 36.5440, lng: 32.0040 }, // Güller Pınarı
+      { lat: 36.545, lng: 31.995 }, // Çarşı / Atatürk Bulvarı
+      { lat: 36.5485, lng: 31.988 }, // Kızlar Pınarı / Otogar civarı
+      { lat: 36.549, lng: 32.001 }, // Şekerhane / Hacet
+      { lat: 36.551, lng: 31.996 }, // Saray Mahallesi
+      { lat: 36.544, lng: 32.004 }, // Güller Pınarı
     ];
     return offsets[index % offsets.length];
   };
@@ -122,11 +122,13 @@ export function ZabitaHaritaClientComponent({
   const provider = MAP_PROVIDERS[activeProvider];
 
   return (
-    <Card className={`flex flex-col overflow-hidden border-sidebar-border bg-slate-950 text-white shadow-2xl transition-all duration-300 ${
-      isFullscreen
-        ? "fixed inset-2 z-[9999] h-[calc(100vh-16px)] w-[calc(100vw-16px)]"
-        : "lg:col-span-2 h-[650px] relative"
-    }`}>
+    <Card
+      className={`flex flex-col overflow-hidden border-sidebar-border bg-slate-950 text-white shadow-2xl transition-all duration-300 ${
+        isFullscreen
+          ? "fixed inset-2 z-[9999] h-[calc(100vh-16px)] w-[calc(100vw-16px)]"
+          : "lg:col-span-2 h-[650px] relative"
+      }`}
+    >
       {/* Harita Başlığı ve Katman Seçici Butonlar */}
       <CardHeader className="pb-3 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 bg-slate-950/90 backdrop-blur-md">
         <div>
@@ -134,7 +136,9 @@ export function ZabitaHaritaClientComponent({
             <MapPin className="w-4 h-4 text-emerald-400" />
             Alanya İnteraktif Coğrafi Zabıta Haritası
           </CardTitle>
-          <p className="text-xs text-slate-400 mt-0.5">Canlı uydu görüntüsü ve işyeri denetim noktaları</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Canlı uydu görüntüsü ve işyeri denetim noktaları
+          </p>
         </div>
 
         {/* Katman Değiştirici Buton Grubu ve Tam Ekran / Kapat Düğmesi */}
@@ -195,11 +199,12 @@ export function ZabitaHaritaClientComponent({
             maxZoom={19}
           />
 
-          {selectedInspection && (() => {
-            const idx = filtered.findIndex((i) => i.id === selectedInspection.id);
-            const coords = getCoords(selectedInspection, idx >= 0 ? idx : 0);
-            return <RecenterMap lat={coords.lat} lng={coords.lng} />;
-          })()}
+          {selectedInspection &&
+            (() => {
+              const idx = filtered.findIndex((i) => i.id === selectedInspection.id);
+              const coords = getCoords(selectedInspection, idx >= 0 ? idx : 0);
+              return <RecenterMap lat={coords.lat} lng={coords.lng} />;
+            })()}
 
           {filtered.map((item, idx) => {
             const coords = getCoords(item, idx);
@@ -219,14 +224,28 @@ export function ZabitaHaritaClientComponent({
                   <div className="p-1 space-y-1.5 max-w-[230px]">
                     <h4 className="font-bold text-sm text-slate-900 border-b pb-1 flex items-center justify-between">
                       {item.workplace_name}
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded text-white font-medium ${hasPenalty ? "bg-red-500" : "bg-emerald-500"}`}>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded text-white font-medium ${hasPenalty ? "bg-red-500" : "bg-emerald-500"}`}
+                      >
                         {hasPenalty ? `${item.penalty_points} Puan` : "Temiz"}
                       </span>
                     </h4>
                     <div className="text-xs text-slate-700 space-y-0.5">
-                      {item.owner_name && <div><strong>Sahibi:</strong> {item.owner_name}</div>}
-                      {item.phone && <div><strong>Tel:</strong> {item.phone}</div>}
-                      {item.address && <div className="text-[11px] truncate"><strong>Adres:</strong> {item.address}</div>}
+                      {item.owner_name && (
+                        <div>
+                          <strong>Sahibi:</strong> {item.owner_name}
+                        </div>
+                      )}
+                      {item.phone && (
+                        <div>
+                          <strong>Tel:</strong> {item.phone}
+                        </div>
+                      )}
+                      {item.address && (
+                        <div className="text-[11px] truncate">
+                          <strong>Adres:</strong> {item.address}
+                        </div>
+                      )}
                       {item.recommended_action && (
                         <div className="mt-1 text-[11px] font-bold text-red-600">
                           Yaptırım: {item.recommended_action}
@@ -242,7 +261,9 @@ export function ZabitaHaritaClientComponent({
                       >
                         <Navigation className="w-3 h-3" /> Navigasyon
                       </a>
-                      <span className="text-slate-400">{new Date(item.created_at).toLocaleDateString("tr-TR")}</span>
+                      <span className="text-slate-400">
+                        {new Date(item.created_at).toLocaleDateString("tr-TR")}
+                      </span>
                     </div>
                   </div>
                 </Popup>
@@ -261,7 +282,8 @@ export function ZabitaHaritaClientComponent({
                     {selectedInspection.workplace_name}
                     {selectedInspection.penalty_points > 0 ? (
                       <Badge variant="destructive" className="text-xs">
-                        {selectedInspection.recommended_action || "Cezalı"} ({selectedInspection.penalty_points} Puan)
+                        {selectedInspection.recommended_action || "Cezalı"} (
+                        {selectedInspection.penalty_points} Puan)
                       </Badge>
                     ) : (
                       <Badge variant="default" className="text-xs bg-emerald-600">
@@ -270,9 +292,18 @@ export function ZabitaHaritaClientComponent({
                     )}
                   </h3>
                   <p className="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span>Sahibi: <strong>{selectedInspection.owner_name || "—"}</strong></span>
-                    <span>Telefon: <strong>{selectedInspection.phone || "—"}</strong></span>
-                    <span>Tarih: <strong>{new Date(selectedInspection.created_at).toLocaleDateString("tr-TR")}</strong></span>
+                    <span>
+                      Sahibi: <strong>{selectedInspection.owner_name || "—"}</strong>
+                    </span>
+                    <span>
+                      Telefon: <strong>{selectedInspection.phone || "—"}</strong>
+                    </span>
+                    <span>
+                      Tarih:{" "}
+                      <strong>
+                        {new Date(selectedInspection.created_at).toLocaleDateString("tr-TR")}
+                      </strong>
+                    </span>
                   </p>
                 </div>
 
@@ -288,10 +319,17 @@ export function ZabitaHaritaClientComponent({
             </div>
           ) : (
             <div className="p-3 text-center text-xs text-slate-300 bg-slate-950/85 backdrop-blur-md rounded-lg border border-slate-800 shadow-xl pointer-events-auto flex items-center justify-between">
-              <span>Pinlerin veya listedeki işyerlerinin üzerine tıklayarak canlı konum ve detayları inceleyin.</span>
+              <span>
+                Pinlerin veya listedeki işyerlerinin üzerine tıklayarak canlı konum ve detayları
+                inceleyin.
+              </span>
               <div className="flex items-center gap-3 text-[11px]">
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow" /> Uygun</span>
-                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow" /> Cezalı</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow" /> Uygun
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow" /> Cezalı
+                </span>
               </div>
             </div>
           )}

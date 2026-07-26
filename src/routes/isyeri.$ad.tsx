@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicWorkplace } from "@/lib/publicInspection.functions";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
-import { ShieldCheck, AlertTriangle, CalendarClock, MapPin, Building2, Loader2 } from "lucide-react";
+import {
+  ShieldCheck,
+  AlertTriangle,
+  CalendarClock,
+  MapPin,
+  Building2,
+  Loader2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/isyeri/$ad")({
   ssr: false,
@@ -50,8 +57,8 @@ function PublicWorkplacePage() {
             <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" />
             <h1 className="font-semibold">Kayıt bulunamadı</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              <strong className="break-words">{decodeURIComponent(ad)}</strong> adına kayıtlı bir zabıta denetimi
-              bulunamadı. Karekod güncel olmayabilir.
+              <strong className="break-words">{decodeURIComponent(ad)}</strong> adına kayıtlı bir
+              zabıta denetimi bulunamadı. Karekod güncel olmayabilir.
             </p>
           </div>
         ) : (
@@ -95,7 +102,9 @@ function PublicWorkplacePage() {
 
               <div className="space-y-3 p-5">
                 <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">İşyeri</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    İşyeri
+                  </div>
                   <div className="font-semibold break-words">{data.workplace.name}</div>
                 </div>
 
@@ -108,11 +117,17 @@ function PublicWorkplacePage() {
 
                 <div className="grid grid-cols-2 gap-3 border-t pt-3 text-sm">
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Denetim Türü</div>
-                    <div className="font-medium">{typeTitle(data.workplace.lastInspectionType)}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Denetim Türü
+                    </div>
+                    <div className="font-medium">
+                      {typeTitle(data.workplace.lastInspectionType)}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Toplam Denetim</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Toplam Denetim
+                    </div>
                     <div className="font-medium">{data.workplace.totalInspections}</div>
                   </div>
                 </div>
@@ -122,7 +137,8 @@ function PublicWorkplacePage() {
                     <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
                       Tespit edilen eksikler için{" "}
-                      <strong>{fmtDate(data.workplace.followupDate)}</strong> tarihine kadar süre verilmiştir.
+                      <strong>{fmtDate(data.workplace.followupDate)}</strong> tarihine kadar süre
+                      verilmiştir.
                     </span>
                   </div>
                 )}
@@ -130,8 +146,9 @@ function PublicWorkplacePage() {
             </div>
 
             <p className="px-2 text-center text-[11px] leading-relaxed text-muted-foreground">
-              Bu sayfa Alanya Belediyesi Zabıta Müdürlüğü denetim kayıtlarından otomatik üretilmiştir.
-              Şikayet ve bildirimleriniz için belediyemizin WhatsApp hattını kullanabilirsiniz.
+              Bu sayfa Alanya Belediyesi Zabıta Müdürlüğü denetim kayıtlarından otomatik
+              üretilmiştir. Şikayet ve bildirimleriniz için belediyemizin WhatsApp hattını
+              kullanabilirsiniz.
             </p>
           </>
         )}

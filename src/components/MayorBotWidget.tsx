@@ -22,7 +22,11 @@ function MarkdownText({ text }: { text: string }) {
         const match = part.match(/\[(.*?)\]\((.*?)\)/);
         if (match) {
           return (
-            <Link key={i} to={match[2]} className="text-blue-300 font-semibold underline hover:text-blue-200 ml-1 mr-1">
+            <Link
+              key={i}
+              to={match[2]}
+              className="text-blue-300 font-semibold underline hover:text-blue-200 ml-1 mr-1"
+            >
               {match[1]}
             </Link>
           );
@@ -52,21 +56,31 @@ export function MayorBotWidget() {
   const send = async (text?: string) => {
     const q = (text ?? input).trim();
     if (!q) return;
-    
+
     const userMsg = { role: "user" as const, content: q };
     const newHistory = [...messages, userMsg];
-    
+
     setMessages(newHistory);
     setInput("");
     setLoading(true);
-    
+
     try {
-      const r = await ask({ data: { messages: newHistory.filter(m => m.role === "user" || m.content !== "Merhaba başkanım. Nasıl yardımcı olabilirim?") } });
+      const r = await ask({
+        data: {
+          messages: newHistory.filter(
+            (m) =>
+              m.role === "user" || m.content !== "Merhaba başkanım. Nasıl yardımcı olabilirim?",
+          ),
+        },
+      });
       setMessages((m) => [...m, { role: "assistant", content: r.answer }]);
     } catch (e: any) {
-      setMessages((m) => [...m, { role: "assistant", content: "Üzgünüm, cevap üretilemedi: " + e.message }]);
-    } finally { 
-      setLoading(false); 
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Üzgünüm, cevap üretilemedi: " + e.message },
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,9 +88,9 @@ export function MayorBotWidget() {
     <>
       {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <Button 
+        <Button
           onClick={() => setIsOpen(!isOpen)}
-          size="icon" 
+          size="icon"
           className="h-16 w-16 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground relative"
         >
           {isOpen ? <X className="h-7 w-7" /> : <Bot className="h-7 w-7" />}
@@ -99,14 +113,18 @@ export function MayorBotWidget() {
               <p className="text-[10px] opacity-80">Belediye Veri Asistanı</p>
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
             {messages.map((m, i) => (
               <div key={i} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full mt-1 ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>
+                <div
+                  className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full mt-1 ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}
+                >
                   {m.role === "user" ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
                 </div>
-                <div className={`rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-slate-800 text-slate-100 rounded-tl-none"}`}>
+                <div
+                  className={`rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-slate-800 text-slate-100 rounded-tl-none"}`}
+                >
                   <MarkdownText text={m.content} />
                 </div>
               </div>
@@ -127,10 +145,10 @@ export function MayorBotWidget() {
           <div className="p-3 border-t bg-background space-y-3">
             {messages.length === 1 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {SUGGESTIONS.map(s => (
-                  <button 
-                    key={s} 
-                    onClick={() => send(s)} 
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
                     disabled={loading}
                     className="text-[10px] bg-muted hover:bg-muted/80 text-muted-foreground px-2 py-1 rounded-full transition-colors"
                   >
@@ -139,11 +157,17 @@ export function MayorBotWidget() {
                 ))}
               </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
-              <Input 
-                value={input} 
-                onChange={(e) => setInput(e.target.value)} 
-                placeholder="Başkanım, sorunuz nedir?" 
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send();
+              }}
+              className="flex gap-2"
+            >
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Başkanım, sorunuz nedir?"
                 disabled={loading}
                 className="text-sm"
               />

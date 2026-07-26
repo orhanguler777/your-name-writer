@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { QrCode, Printer, Search, Loader2, ScanLine, CameraOff, RefreshCw } from "lucide-react";
 import { RequireZabita } from "@/components/RequireZabita";
 import { WorkplaceQrDialog } from "@/components/WorkplaceQrDialog";
@@ -43,7 +49,8 @@ interface WorkplaceRow {
   inspectionCount: number;
 }
 
-const typeTitle = (id?: string | null) => ZABITA_CHECKLISTS.find((c) => c.id === id)?.title || id || "—";
+const typeTitle = (id?: string | null) =>
+  ZABITA_CHECKLISTS.find((c) => c.id === id)?.title || id || "—";
 
 function ZabitaKarekodPage() {
   const [tab, setTab] = useState("arsiv");
@@ -68,10 +75,7 @@ function ZabitaKarekodPage() {
         </TabsContent>
 
         <TabsContent value="oku">
-          <ScanTab
-            scannedName={scannedName}
-            onScanned={setScannedName}
-          />
+          <ScanTab scannedName={scannedName} onScanned={setScannedName} />
         </TabsContent>
       </Tabs>
     </div>
@@ -168,12 +172,10 @@ function LabelArchiveTab() {
     try {
       const html = await buildLabelSheetHtml(
         list.map((w) => ({ name: w.name, address: w.address, licenseNumber: w.licenseNumber })),
-        (done, total) => setPrinting({ done, total })
+        (done, total) => setPrinting({ done, total }),
       );
       openLabelSheet(html);
-      toast.success(
-        `${list.length} etiket hazırlandı (${Math.ceil(list.length / 12)} sayfa A4).`
-      );
+      toast.success(`${list.length} etiket hazırlandı (${Math.ceil(list.length / 12)} sayfa A4).`);
     } catch (e: any) {
       toast.error(e?.message || "Etiketler hazırlanamadı.");
     } finally {
@@ -201,7 +203,9 @@ function LabelArchiveTab() {
           <div className="space-y-1.5">
             <Label className="text-xs">Uyum Durumu</Label>
             <Select value={uyum} onValueChange={setUyum}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tümü</SelectItem>
                 <SelectItem value="uygun">Uygun</SelectItem>
@@ -212,11 +216,15 @@ function LabelArchiveTab() {
           <div className="space-y-1.5">
             <Label className="text-xs">Son Denetim Türü</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tümü</SelectItem>
                 {ZABITA_CHECKLISTS.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.title}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -224,7 +232,7 @@ function LabelArchiveTab() {
           <div className="flex items-end">
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <Checkbox checked={onlyFollowup} onCheckedChange={(v) => setOnlyFollowup(!!v)} />
-              Sadece re-denetim bekleyenler
+              Sadece tekrar denetim bekleyenler
             </label>
           </div>
         </div>
@@ -243,7 +251,12 @@ function LabelArchiveTab() {
             </Badge>
           )}
           {selected.size > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelected(new Set())}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setSelected(new Set())}
+            >
               Seçimi temizle
             </Button>
           )}
@@ -254,9 +267,14 @@ function LabelArchiveTab() {
           className="gap-2 w-full sm:w-auto"
         >
           {printing ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor ({printing.done}/{printing.total})</>
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Hazırlanıyor ({printing.done}/
+              {printing.total})
+            </>
           ) : (
-            <><Printer className="h-4 w-4" /> Seçili Etiketleri Yazdır</>
+            <>
+              <Printer className="h-4 w-4" /> Seçili Etiketleri Yazdır
+            </>
           )}
         </Button>
       </Card>
@@ -284,13 +302,20 @@ function LabelArchiveTab() {
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-medium break-words">{w.name}</span>
                     {w.penaltyPoints > 0 ? (
-                      <Badge variant="destructive" className="text-[10px]">{w.penaltyPoints} Puan</Badge>
+                      <Badge variant="destructive" className="text-[10px]">
+                        {w.penaltyPoints} Puan
+                      </Badge>
                     ) : (
-                      <Badge className="bg-emerald-500 text-[10px] text-white hover:bg-emerald-500">Temiz</Badge>
+                      <Badge className="bg-emerald-500 text-[10px] text-white hover:bg-emerald-500">
+                        Temiz
+                      </Badge>
                     )}
                     {w.followupPending && (
-                      <Badge variant="outline" className="border-amber-400 text-[10px] text-amber-700 dark:text-amber-400">
-                        Re-denetim bekliyor
+                      <Badge
+                        variant="outline"
+                        className="border-amber-400 text-[10px] text-amber-700 dark:text-amber-400"
+                      >
+                        Tekrar denetim bekliyor
                       </Badge>
                     )}
                   </div>
@@ -298,8 +323,8 @@ function LabelArchiveTab() {
                     {[w.owner, w.address].filter(Boolean).join(" · ") || "—"}
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground/80">
-                    {typeTitle(w.lastType)} · Son denetim {new Date(w.lastAt).toLocaleDateString("tr-TR")} ·{" "}
-                    {w.inspectionCount} kayıt
+                    {typeTitle(w.lastType)} · Son denetim{" "}
+                    {new Date(w.lastAt).toLocaleDateString("tr-TR")} · {w.inspectionCount} kayıt
                     {w.licenseNumber ? ` · Ruhsat ${w.licenseNumber}` : ""}
                   </div>
                 </div>
@@ -396,7 +421,9 @@ function ScanTab({
 
       // Android/Chromium: tarayıcının yerleşik okuyucusu. iOS Safari'de yok → jsQR
       const detector =
-        "BarcodeDetector" in window ? new (window as any).BarcodeDetector({ formats: ["qr_code"] }) : null;
+        "BarcodeDetector" in window
+          ? new (window as any).BarcodeDetector({ formats: ["qr_code"] })
+          : null;
       const jsQR = detector ? null : (await import("jsqr")).default;
 
       const canvas = document.createElement("canvas");
@@ -430,8 +457,9 @@ function ScanTab({
       setError(
         e?.name === "NotAllowedError"
           ? "Kamera izni verilmedi. Tarayıcı ayarlarından izin verip tekrar deneyin."
-          : "Kamera açılamadı: " + (e?.message || "bilinmeyen hata") +
-            " (kamera için HTTPS gerekir, localhost hariç)"
+          : "Kamera açılamadı: " +
+              (e?.message || "bilinmeyen hata") +
+              " (kamera için HTTPS gerekir, localhost hariç)",
       );
     }
   };
@@ -469,7 +497,14 @@ function ScanTab({
               </Button>
             )}
             {scannedName && (
-              <Button variant="outline" className="gap-2" onClick={() => { onScanned(null); void start(); }}>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  onScanned(null);
+                  void start();
+                }}
+              >
                 <RefreshCw className="h-4 w-4" /> Yeni
               </Button>
             )}
@@ -483,7 +518,9 @@ function ScanTab({
 
           {/* Kamera yoksa / etiket okunmuyorsa elle giriş */}
           <div className="w-full max-w-sm space-y-1.5 border-t pt-3">
-            <Label className="text-xs text-muted-foreground">Karekod okunmuyorsa işyeri adını yazın</Label>
+            <Label className="text-xs text-muted-foreground">
+              Karekod okunmuyorsa işyeri adını yazın
+            </Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Örn. VAHA MARKET"
@@ -499,7 +536,10 @@ function ScanTab({
               <Button
                 variant="outline"
                 disabled={manual.trim().length < 2}
-                onClick={() => { stop(); onScanned(normalizeWorkplaceName(manual)); }}
+                onClick={() => {
+                  stop();
+                  onScanned(normalizeWorkplaceName(manual));
+                }}
               >
                 Bul
               </Button>

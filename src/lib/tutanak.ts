@@ -74,7 +74,7 @@ async function toDataUrl(url?: string | null): Promise<string | null> {
 /** Tutanağın tam HTML belgesini üretir. embedImages: görselleri data URL'e gömer (PDF için). */
 export async function buildInspectionReportHtml(
   data: TutanakData,
-  opts: { embedImages?: boolean; autoPrint?: boolean } = {}
+  opts: { embedImages?: boolean; autoPrint?: boolean } = {},
 ): Promise<string> {
   const category = ZABITA_CHECKLISTS.find((c) => c.id === data.inspection_type);
   const items = category?.items ?? [];
@@ -108,7 +108,11 @@ export async function buildInspectionReportHtml(
     qrDataUrl = await qrWithLogoDataUrl(qrPayload, { size: 240 });
   } catch {
     try {
-      qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 240, errorCorrectionLevel: "H" });
+      qrDataUrl = await QRCode.toDataURL(qrPayload, {
+        margin: 1,
+        width: 240,
+        errorCorrectionLevel: "H",
+      });
     } catch {
       qrDataUrl = "";
     }
@@ -271,17 +275,21 @@ export async function buildInspectionReportHtml(
 
     <div class="signs">
       <div class="s">
-        ${inspectorSig
-          ? `<div class="sig-img"><img src="${esc(inspectorSig)}" alt="imza" /></div>`
-          : `<div class="blank"></div>`}
+        ${
+          inspectorSig
+            ? `<div class="sig-img"><img src="${esc(inspectorSig)}" alt="imza" /></div>`
+            : `<div class="blank"></div>`
+        }
         <div class="line">Denetleyen Zabıta Görevlisi<br/><span class="who">${esc(data.inspectorName) || "(Ad Soyad / İmza)"}</span></div>
       </div>
       <div class="s">
-        ${data.declined
-          ? `<div class="declined">İMZADAN İMTİNA EDİLDİ</div>`
-          : merchantSig
-          ? `<div class="sig-img"><img src="${esc(merchantSig)}" alt="imza" /></div>`
-          : `<div class="blank"></div>`}
+        ${
+          data.declined
+            ? `<div class="declined">İMZADAN İMTİNA EDİLDİ</div>`
+            : merchantSig
+              ? `<div class="sig-img"><img src="${esc(merchantSig)}" alt="imza" /></div>`
+              : `<div class="blank"></div>`
+        }
         <div class="line">İşyeri Sahibi / Yetkilisi<br/><span class="who">${esc(data.merchantSignedName) || "(Ad Soyad / İmza)"}</span></div>
       </div>
     </div>
@@ -302,7 +310,9 @@ export async function openInspectionReport(data: TutanakData): Promise<void> {
   const html = await buildInspectionReportHtml(data, { embedImages: false, autoPrint: true });
   const win = window.open("", "_blank", "width=900,height=1000");
   if (!win) {
-    throw new Error("Yazdırma penceresi açılamadı. Tarayıcı açılır pencere (popup) engelini kaldırın.");
+    throw new Error(
+      "Yazdırma penceresi açılamadı. Tarayıcı açılır pencere (popup) engelini kaldırın.",
+    );
   }
   win.document.open();
   win.document.write(html);
@@ -313,7 +323,9 @@ export async function openInspectionReport(data: TutanakData): Promise<void> {
  * Tutanağı gerçek bir PDF dosyası (Blob) olarak üretir — arşivleme ve indirme için.
  * html2canvas ile birebir HTML görünümünü rasterize edip jsPDF ile A4 (çok sayfalı) PDF'e döker.
  */
-export async function generateInspectionPdfBlob(data: TutanakData): Promise<{ blob: Blob; belgeNo: string }> {
+export async function generateInspectionPdfBlob(
+  data: TutanakData,
+): Promise<{ blob: Blob; belgeNo: string }> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
     import("jspdf"),
@@ -344,8 +356,12 @@ export async function generateInspectionPdfBlob(data: TutanakData): Promise<{ bl
     });
     await Promise.all(
       Array.from(doc.images).map((img) =>
-        img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = () => r(null); })
-      )
+        img.complete
+          ? Promise.resolve()
+          : new Promise((r) => {
+              img.onload = img.onerror = () => r(null);
+            }),
+      ),
     );
     await new Promise((r) => setTimeout(r, 120));
 
