@@ -15,6 +15,7 @@ import { ZABITA_CHECKLISTS, calculatePenalty } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, generateInspectionPdfBlob } from "@/lib/tutanak";
 import { InspectionSignDialog } from "@/components/InspectionSignDialog";
 import { uploadSignatures, uploadTutanakPdf, type SignatureCapture } from "@/lib/signatures";
+import { sendTutanakWhatsapp, isSendablePhone } from "@/lib/whatsappTutanak";
 import { useAuth } from "@/hooks/useAuth";
 import { RequireZabita } from "@/components/RequireZabita";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -393,7 +394,10 @@ function ZabitaDenetimPage() {
   }, [recentInspections?.data]);
 
   const saveMutation = useMutation({
-    mutationFn: async (capture?: SignatureCapture) => {
+    mutationFn: async ({
+      capture,
+      sendWhatsapp,
+    }: { capture?: SignatureCapture; sendWhatsapp?: boolean } = {}) => {
       if (!user) throw new Error("Oturum bulunamadı");
 
       const penalty = calculatePenalty(form.inspection_type, checklistData);
@@ -487,6 +491,21 @@ function ZabitaDenetimPage() {
             .eq("id", data.id);
           if (updErr) {
             console.warn("Tutanak meta güncellenemedi (migration gerekli olabilir):", updErr.message);
+          }
+
+          // İmzalı tutanağı esnafın WhatsApp numarasına gönder (memur onay verdiyse)
+          if (sendWhatsapp && isSendablePhone(form.phone)) {
+            const sendRes = await sendTutanakWhatsapp(data.id, {
+              phone: form.phone,
+              pdfUrl: tutanakUrl,
+            });
+            if (sendRes.ok) {
+              toast.success(`Tutanak WhatsApp'tan gönderildi (${sendRes.to ?? form.phone}).`);
+            } else {
+              toast.warning(
+                `Tutanak WhatsApp'tan gönderilemedi: ${sendRes.reason}. Tutanak Arşivi'nden tekrar deneyebilirsiniz.`
+              );
+            }
           }
         } catch (e: any) {
           toast.warning("Denetim kaydedildi ancak imza/tutanak arşivlenemedi: " + (e?.message || ""));
@@ -1001,8 +1020,9 @@ function ZabitaDenetimPage() {
         workplaceName={form.workplace_name}
         inspectorName={profile?.full_name || profile?.email}
         defaultMerchantName={form.owner_name}
+        merchantPhone={form.phone}
         saving={saveMutation.isPending}
-        onConfirm={(capture) => saveMutation.mutate(capture)}
+        onConfirm={(capture, opts) => saveMutation.mutate({ capture, sendWhatsapp: opts.sendWhatsapp })}
       />
     </div>
   );

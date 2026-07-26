@@ -12,8 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SignaturePad } from "@/components/SignaturePad";
-import { PenLine } from "lucide-react";
+import { PenLine, MessageCircle } from "lucide-react";
 import type { SignatureCapture } from "@/lib/signatures";
+import { isSendablePhone } from "@/lib/whatsappTutanak";
 
 export function InspectionSignDialog({
   open,
@@ -21,6 +22,7 @@ export function InspectionSignDialog({
   workplaceName,
   inspectorName,
   defaultMerchantName,
+  merchantPhone,
   saving,
   onConfirm,
 }: {
@@ -29,13 +31,18 @@ export function InspectionSignDialog({
   workplaceName: string;
   inspectorName?: string | null;
   defaultMerchantName?: string | null;
+  /** İşyeri telefonu — doluysa tutanak WhatsApp'tan gönderilebilir */
+  merchantPhone?: string | null;
   saving?: boolean;
-  onConfirm: (capture: SignatureCapture) => void;
+  onConfirm: (capture: SignatureCapture, opts: { sendWhatsapp: boolean }) => void;
 }) {
   const [inspectorSig, setInspectorSig] = useState<string | null>(null);
   const [merchantSig, setMerchantSig] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState("");
   const [declined, setDeclined] = useState(false);
+  const [sendWhatsapp, setSendWhatsapp] = useState(true);
+
+  const canSendWhatsapp = isSendablePhone(merchantPhone);
 
   // Dialog her açıldığında alanları sıfırla
   useEffect(() => {
@@ -44,6 +51,7 @@ export function InspectionSignDialog({
       setMerchantSig(null);
       setMerchantName(defaultMerchantName || "");
       setDeclined(false);
+      setSendWhatsapp(true);
     }
   }, [open, defaultMerchantName]);
 
@@ -84,6 +92,31 @@ export function InspectionSignDialog({
               İşyeri yetkilisi imzadan imtina etti (tutanağa işlenecek)
             </label>
           </div>
+
+          {/* Tutanağın esnafa WhatsApp'tan iletilmesi */}
+          {canSendWhatsapp ? (
+            <label className="flex items-start gap-2 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 p-3 cursor-pointer">
+              <Checkbox
+                checked={sendWhatsapp}
+                onCheckedChange={(v) => setSendWhatsapp(!!v)}
+                className="mt-0.5"
+              />
+              <span className="text-xs">
+                <span className="font-medium flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  İmzalı tutanağı WhatsApp'tan gönder
+                </span>
+                <span className="text-muted-foreground block mt-0.5">
+                  {merchantPhone} numarasına PDF olarak iletilir.
+                </span>
+              </span>
+            </label>
+          ) : (
+            <p className="text-[11px] text-muted-foreground rounded-md border border-dashed p-2.5">
+              İşyeri telefonu girilmediği için tutanak WhatsApp'tan gönderilemez.
+              Numarayı forma ekleyip tekrar deneyebilirsiniz.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="gap-2">
@@ -92,12 +125,15 @@ export function InspectionSignDialog({
           </Button>
           <Button
             onClick={() =>
-              onConfirm({
-                inspectorDataUrl: inspectorSig,
-                merchantDataUrl: merchantSig,
-                merchantName: merchantName || null,
-                declined,
-              })
+              onConfirm(
+                {
+                  inspectorDataUrl: inspectorSig,
+                  merchantDataUrl: merchantSig,
+                  merchantName: merchantName || null,
+                  declined,
+                },
+                { sendWhatsapp: canSendWhatsapp && sendWhatsapp }
+              )
             }
             disabled={saving}
             className="gap-2"

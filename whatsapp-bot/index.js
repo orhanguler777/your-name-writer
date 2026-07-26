@@ -169,6 +169,21 @@ function addBotMessageId(id) {
   }
 }
 
+/** Serbest formatlı telefonu WhatsApp JID'ine çevirir (TR numaraları için 90 öneki). */
+function toWhatsappJid(phone) {
+  if (!phone) return null;
+  const raw = String(phone).trim();
+  if (raw.includes('@')) return raw;
+
+  let clean = raw.replace(/\D/g, '');
+  if (clean.startsWith('00')) clean = clean.substring(2);
+  if (clean.startsWith('0') && clean.length === 11) clean = '90' + clean.substring(1);
+  if (clean.length === 10 && clean.startsWith('5')) clean = '90' + clean;
+  if (clean.length < 10) return null;
+
+  return `${clean}@s.whatsapp.net`;
+}
+
 // Bot ayarlarını json dosyasından yükler
 function getBotSettings() {
   const defaults = {
@@ -1532,6 +1547,90 @@ async function startBot() {
           await broadcastAnnouncement(activeSock, announcement);
         } catch (error) {
           console.error('⚠️ Broadcast webhook hatası:', error.message);
+          if (!res.headersSent) {
+            res.status(500).json({ status: 'error', reason: error.message });
+          }
+        }
+      });
+
+      // ── Zabıta Tutanağı Gönderim Endpoint'i ──
+      // Denetim sonrası imzalı tutanak PDF'ini esnafın telefonuna WhatsApp'tan iletir.
+      app.post('/send-inspection-pdf', async (req, res) => {
+        try {
+          const { inspectionId, phone: phoneOverride, pdfUrl: pdfUrlOverride } = req.body || {};
+          if (!inspectionId) {
+            return res.status(400).json({ status: 'error', reason: 'inspectionId gerekli' });
+          }
+
+          const activeSock = global.currentSock;
+          if (!activeSock) {
+            return res.status(503).json({ status: 'error', reason: 'WhatsApp bağlantısı aktif değil' });
+          }
+
+          const { data: ins, error: insErr } = await supabase
+            .from('workplace_inspections')
+            .select('*')
+            .eq('id', inspectionId)
+            .single();
+
+          if (insErr || !ins) {
+            return res.status(404).json({ status: 'error', reason: 'Denetim kaydı bulunamadı' });
+          }
+
+          const rawPhone = phoneOverride || ins.phone;
+          const jid = toWhatsappJid(rawPhone);
+          if (!jid) {
+            return res.status(400).json({ status: 'error', reason: 'Geçerli bir işyeri telefonu yok' });
+          }
+
+          // PDF adresi: istemciden gelen URL yalnızca kendi storage'ımıza aitse kabul edilir
+          let pdfUrl = ins.tutanak_url || null;
+          if (pdfUrlOverride && process.env.SUPABASE_URL && pdfUrlOverride.startsWith(process.env.SUPABASE_URL)) {
+            pdfUrl = pdfUrlOverride;
+          }
+          if (!pdfUrl) {
+            return res.status(400).json({ status: 'error', reason: 'Bu denetim için arşivlenmiş tutanak PDF\'i yok' });
+          }
+
+          const pdfRes = await fetch(pdfUrl);
+          if (!pdfRes.ok) {
+            return res.status(502).json({ status: 'error', reason: `Tutanak PDF'i indirilemedi (${pdfRes.status})` });
+          }
+          const buffer = Buffer.from(await pdfRes.arrayBuffer());
+
+          const tarih = new Date(ins.created_at).toLocaleDateString('tr-TR', {
+            day: 'numeric', month: 'long', year: 'numeric',
+          });
+          const puan = ins.penalty_points ?? 0;
+          const sonuc = puan > 0
+            ? `⚠️ Ceza Puanı: *${puan}*\nUygulanan Yaptırım: *${ins.recommended_action || '—'}*`
+            : '✅ Denetimde mevzuata aykırı bir husus tespit edilmemiştir.';
+          const takip = ins.followup_date
+            ? `\n\n🗓️ Re-denetim tarihi: *${new Date(ins.followup_date).toLocaleDateString('tr-TR')}*\nEksikliklerin bu tarihe kadar giderilmesi gerekmektedir.`
+            : '';
+
+          const messageText =
+            `📋 *İŞYERİ DENETİM TUTANAĞI*\n\n` +
+            `Sayın ${ins.owner_name || 'İşyeri Yetkilisi'},\n` +
+            `*${ins.workplace_name}* isimli işyerinizde *${tarih}* tarihinde yapılan denetime ait imzalı tutanak ekte iletilmiştir.\n\n` +
+            `${sonuc}${takip}\n\n` +
+            `_Alanya Belediyesi Zabıta Müdürlüğü_`;
+
+          const sentText = await activeSock.sendMessage(jid, { text: messageText });
+          if (sentText?.key?.id) addBotMessageId(sentText.key.id);
+
+          const fileName = `Denetim-Tutanagi-${String(ins.workplace_name || 'isyeri').replace(/[^\wğüşıöçĞÜŞİÖÇ ]/gi, '').trim().replace(/\s+/g, '-')}.pdf`;
+          const sentDoc = await activeSock.sendMessage(jid, {
+            document: buffer,
+            mimetype: 'application/pdf',
+            fileName,
+          });
+          if (sentDoc?.key?.id) addBotMessageId(sentDoc.key.id);
+
+          console.log(`   📤 Tutanak WhatsApp ile gönderildi: ${ins.workplace_name} → ${jid}`);
+          res.json({ status: 'sent', to: jid.split('@')[0] });
+        } catch (error) {
+          console.error('⚠️ Tutanak gönderim hatası:', error.message);
           if (!res.headersSent) {
             res.status(500).json({ status: 'error', reason: error.message });
           }

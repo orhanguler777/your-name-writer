@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, Search, FileCheck2, AlertTriangle, Archive, PenLine } from "lucide-react";
+import { FileText, Download, Search, FileCheck2, AlertTriangle, Archive, PenLine, MessageCircle } from "lucide-react";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, downloadFromUrl, tutanakBelgeNo } from "@/lib/tutanak";
 import { loadSignatures } from "@/lib/signatures";
+import { sendTutanakWhatsapp, isSendablePhone } from "@/lib/whatsappTutanak";
 import { RequireZabita } from "@/components/RequireZabita";
 import { toast } from "sonner";
 
@@ -42,6 +43,7 @@ function TutanakArsiviPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["tutanak-arsivi"],
@@ -85,6 +87,18 @@ function TutanakArsiviPage() {
     const sealed = rows.filter((r: any) => (r.penalty_points ?? 0) > 85).length;
     return { total, signed, penalized, sealed };
   }, [rows]);
+
+  /** Arşivdeki imzalı tutanağı esnafın WhatsApp numarasına (yeniden) gönderir. */
+  const handleWhatsapp = async (r: any) => {
+    try {
+      setSendingId(r.id);
+      const res = await sendTutanakWhatsapp(r.id, { phone: r.phone, pdfUrl: r.tutanak_url });
+      if (res.ok) toast.success(`Tutanak WhatsApp'tan gönderildi (${res.to ?? r.phone}).`);
+      else toast.error("Gönderilemedi: " + res.reason);
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const handleGet = async (r: any) => {
     try {
@@ -264,16 +278,31 @@ function TutanakArsiviPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant={r.tutanak_url ? "default" : "outline"}
-                        className="h-7 text-xs gap-1.5"
-                        disabled={busyId === r.id}
-                        onClick={() => handleGet(r)}
-                      >
-                        {r.tutanak_url ? <Download className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                        {r.tutanak_url ? "İndir" : "Oluştur"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {r.tutanak_url && isSendablePhone(r.phone) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                            disabled={sendingId === r.id}
+                            title={`${r.phone} numarasına WhatsApp'tan gönder`}
+                            onClick={() => handleWhatsapp(r)}
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            {sendingId === r.id ? "Gönderiliyor..." : "WhatsApp"}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={r.tutanak_url ? "default" : "outline"}
+                          className="h-7 text-xs gap-1.5"
+                          disabled={busyId === r.id}
+                          onClick={() => handleGet(r)}
+                        >
+                          {r.tutanak_url ? <Download className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                          {r.tutanak_url ? "İndir" : "Oluştur"}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
