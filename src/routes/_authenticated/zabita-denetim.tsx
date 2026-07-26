@@ -427,6 +427,27 @@ function ZabitaDenetimPage() {
 
       if (error) throw error;
 
+      // Re-denetim döngüsünü kapat: bu ziyaret zaten aynı işyeri için bekleyen
+      // takibin karşılığı. Kapatılmazsa kayıt sonsuza kadar "bekliyor" kalıyor
+      // ve takip listesi aynı işyerini tekrar tekrar gösteriyordu.
+      const closedStatus = penalty.penaltyPoints > 0 ? "unresolved" : "resolved";
+      const { data: closedRows, error: closeErr } = await supabase
+        .from("workplace_inspections")
+        .update({ followup_status: closedStatus })
+        .ilike("workplace_name", form.workplace_name.trim())
+        .eq("followup_status", "pending")
+        .neq("id", data?.id ?? "")
+        .select("id");
+      if (closeErr) {
+        console.warn("Bekleyen re-denetim kayıtları kapatılamadı:", closeErr.message);
+      } else if (closedRows && closedRows.length > 0) {
+        toast.info(
+          penalty.penaltyPoints > 0
+            ? `${closedRows.length} bekleyen re-denetim kapatıldı — eksikler devam ediyor, yeni takip açıldı.`
+            : `${closedRows.length} bekleyen re-denetim kapatıldı — eksikler giderilmiş.`
+        );
+      }
+
       // Ruhsat / POS bilgileri ayrı yazılır: ilgili migration henüz uygulanmadıysa
       // ana kayıt kaybolmasın diye insert'e dahil edilmez.
       if (data?.id && (form.license_number || form.pos_device_number)) {

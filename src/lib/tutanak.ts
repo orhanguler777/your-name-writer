@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { ZABITA_CHECKLISTS, calculatePenalty } from "./ZabitaChecklists";
 import { ALANYA_LOGO_DATA_URL } from "./alanya-logo";
+import { qrWithLogoDataUrl, tutanakQrUrl } from "./qr";
 
 export interface TutanakData {
   id?: string | null;
@@ -89,21 +90,28 @@ export async function buildInspectionReportHtml(
   const municipality = data.municipalityName || "ALANYA BELEDİYE BAŞKANLIĞI";
   const dateStr = fmtDateTime(data.created_at);
 
-  const qrPayload =
-    `T.C. ${municipality} - ZABITA MÜDÜRLÜĞÜ\n` +
-    `İŞYERİ DENETİM TUTANAĞI\n` +
-    `Belge No: ${belgeNo}\n` +
-    `İşyeri: ${data.workplace_name}\n` +
-    `Denetim Türü: ${category?.title ?? data.inspection_type}\n` +
-    `Tarih: ${dateStr}\n` +
-    `Ceza Puanı: ${penaltyPoints}\n` +
-    `Yaptırım: ${recommendedAction}`;
+  // Karekod, belgeyi elinde tutanın doğrulayabilmesi için doğrulama sayfasına gider.
+  // Kayıt henüz oluşmadıysa (önizleme) düz metin özete düşülür.
+  const qrPayload = data.id
+    ? tutanakQrUrl(data.id)
+    : `T.C. ${municipality} - ZABITA MÜDÜRLÜĞÜ\n` +
+      `İŞYERİ DENETİM TUTANAĞI\n` +
+      `Belge No: ${belgeNo}\n` +
+      `İşyeri: ${data.workplace_name}\n` +
+      `Denetim Türü: ${category?.title ?? data.inspection_type}\n` +
+      `Tarih: ${dateStr}\n` +
+      `Ceza Puanı: ${penaltyPoints}\n` +
+      `Yaptırım: ${recommendedAction}`;
 
   let qrDataUrl = "";
   try {
-    qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 240, errorCorrectionLevel: "M" });
+    qrDataUrl = await qrWithLogoDataUrl(qrPayload, { size: 240 });
   } catch {
-    qrDataUrl = "";
+    try {
+      qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 240, errorCorrectionLevel: "H" });
+    } catch {
+      qrDataUrl = "";
+    }
   }
 
   const hasGps = data.latitude != null && data.longitude != null;

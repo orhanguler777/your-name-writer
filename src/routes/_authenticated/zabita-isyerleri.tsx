@@ -7,13 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Search, Phone, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, FileText, Download } from "lucide-react";
+import { Building2, Search, Phone, ChevronDown, ChevronUp, CheckCircle2, XCircle, Camera, FileText, Download, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ZABITA_CHECKLISTS } from "@/lib/ZabitaChecklists";
 import { openInspectionReport, downloadFromUrl, tutanakBelgeNo } from "@/lib/tutanak";
 import { loadSignatures } from "@/lib/signatures";
 import { RequireZabita } from "@/components/RequireZabita";
+import { WorkplaceQrDialog } from "@/components/WorkplaceQrDialog";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -207,6 +208,7 @@ function InspectionExpandRow({ row, allWorkplaceInspections }: { row: any; allWo
 function ZabitaIsyerleriPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [qrWorkplace, setQrWorkplace] = useState<{ name: string; address?: string | null } | null>(null);
 
   // Get all inspections and deduplicated unique workplaces
   const { data: inspectionData, isLoading } = useQuery({
@@ -379,7 +381,21 @@ function ZabitaIsyerleriPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap text-xs text-muted-foreground">
-                          {new Date(row.created_at).toLocaleDateString("tr-TR")}
+                          <div className="flex items-center justify-end gap-2">
+                            <span>{new Date(row.created_at).toLocaleDateString("tr-TR")}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 shrink-0"
+                              title="İşyeri karekodu (etiket)"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQrWorkplace({ name: row.workplace_name, address: row.address });
+                              }}
+                            >
+                              <QrCode className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                       {isExpanded && <InspectionExpandRow key={`${row.id}-expand`} row={row} allWorkplaceInspections={allInspections} />}
@@ -391,6 +407,13 @@ function ZabitaIsyerleriPage() {
           </div>
         )}
       </Card>
+
+      <WorkplaceQrDialog
+        open={!!qrWorkplace}
+        onOpenChange={(v) => !v && setQrWorkplace(null)}
+        workplaceName={qrWorkplace?.name ?? ""}
+        address={qrWorkplace?.address}
+      />
     </div>
   );
 }

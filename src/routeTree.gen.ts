@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IsyeriAdRouteImport } from './routes/isyeri.$ad'
+import { Route as DogrulaIdRouteImport } from './routes/dogrula.$id'
 import { Route as AuthenticatedZabitaIsyerleriRouteImport } from './routes/_authenticated/zabita-isyerleri'
 import { Route as AuthenticatedZabitaHaritaRouteImport } from './routes/_authenticated/zabita-harita'
 import { Route as AuthenticatedZabitaDenetimRouteImport } from './routes/_authenticated/zabita-denetim'
@@ -48,6 +50,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IsyeriAdRoute = IsyeriAdRouteImport.update({
+  id: '/isyeri/$ad',
+  path: '/isyeri/$ad',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DogrulaIdRoute = DogrulaIdRouteImport.update({
+  id: '/dogrula/$id',
+  path: '/dogrula/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedZabitaIsyerleriRoute =
@@ -202,6 +214,8 @@ export interface FileRoutesByFullPath {
   '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
   '/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
   '/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
+  '/dogrula/$id': typeof DogrulaIdRoute
+  '/isyeri/$ad': typeof IsyeriAdRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/anketler/': typeof AuthenticatedAnketlerIndexRoute
@@ -229,6 +243,8 @@ export interface FileRoutesByTo {
   '/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
   '/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
   '/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
+  '/dogrula/$id': typeof DogrulaIdRoute
+  '/isyeri/$ad': typeof IsyeriAdRoute
   '/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/anketler': typeof AuthenticatedAnketlerIndexRoute
@@ -258,6 +274,8 @@ export interface FileRoutesById {
   '/_authenticated/zabita-denetim': typeof AuthenticatedZabitaDenetimRoute
   '/_authenticated/zabita-harita': typeof AuthenticatedZabitaHaritaRoute
   '/_authenticated/zabita-isyerleri': typeof AuthenticatedZabitaIsyerleriRoute
+  '/dogrula/$id': typeof DogrulaIdRoute
+  '/isyeri/$ad': typeof IsyeriAdRoute
   '/_authenticated/anketler/$id': typeof AuthenticatedAnketlerIdRoute
   '/_authenticated/sikayetler/$id': typeof AuthenticatedSikayetlerIdRoute
   '/_authenticated/anketler/': typeof AuthenticatedAnketlerIndexRoute
@@ -287,6 +305,8 @@ export interface FileRouteTypes {
     | '/zabita-denetim'
     | '/zabita-harita'
     | '/zabita-isyerleri'
+    | '/dogrula/$id'
+    | '/isyeri/$ad'
     | '/anketler/$id'
     | '/sikayetler/$id'
     | '/anketler/'
@@ -314,6 +334,8 @@ export interface FileRouteTypes {
     | '/zabita-denetim'
     | '/zabita-harita'
     | '/zabita-isyerleri'
+    | '/dogrula/$id'
+    | '/isyeri/$ad'
     | '/anketler/$id'
     | '/sikayetler/$id'
     | '/anketler'
@@ -342,6 +364,8 @@ export interface FileRouteTypes {
     | '/_authenticated/zabita-denetim'
     | '/_authenticated/zabita-harita'
     | '/_authenticated/zabita-isyerleri'
+    | '/dogrula/$id'
+    | '/isyeri/$ad'
     | '/_authenticated/anketler/$id'
     | '/_authenticated/sikayetler/$id'
     | '/_authenticated/anketler/'
@@ -352,6 +376,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DogrulaIdRoute: typeof DogrulaIdRoute
+  IsyeriAdRoute: typeof IsyeriAdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -375,6 +401,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/isyeri/$ad': {
+      id: '/isyeri/$ad'
+      path: '/isyeri/$ad'
+      fullPath: '/isyeri/$ad'
+      preLoaderRoute: typeof IsyeriAdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dogrula/$id': {
+      id: '/dogrula/$id'
+      path: '/dogrula/$id'
+      fullPath: '/dogrula/$id'
+      preLoaderRoute: typeof DogrulaIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/zabita-isyerleri': {
@@ -600,6 +640,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DogrulaIdRoute: DogrulaIdRoute,
+  IsyeriAdRoute: IsyeriAdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
