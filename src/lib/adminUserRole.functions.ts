@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 const AssignRoleInput = z.object({
   userId: z.string().uuid(),
   role: z.string(),
+  /** Birim (müdürlük) ataması — verilmezse kullanıcının mevcut birimi korunur. */
+  departmentId: z.string().uuid().nullable().optional(),
 });
 
 export const updateUserRoleServer = createServerFn({ method: "POST" })
@@ -14,41 +16,36 @@ export const updateUserRoleServer = createServerFn({ method: "POST" })
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceRoleKey) {
-      // Fallback: try updating using standard client if service role key is missing
       return { success: false, error: "SUPABASE_SERVICE_ROLE_KEY missing on server." };
     }
 
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
 
     try {
-      // 1. Delete existing roles
+      // Tek kademe = tek rol: önce mevcut rolleri temizle
       const { error: delErr } = await adminSupabase
         .from("user_roles")
         .delete()
         .eq("user_id", data.userId);
-
       if (delErr) throw delErr;
 
-      // 2. Map role name to DB expected value
-      const dbRole = data.role === "superuser" ? "admin" : data.role === "zabita_memuru" ? "zabita" : data.role === "mudur" ? "mudurluk" : data.role;
-
-      // 3. Insert new role via Service Role (bypassing RLS)
+      // Rol adı olduğu gibi yazılır. (Eskiden mudur→mudurluk, superuser→admin,
+      // zabita_memuru→zabita'ya düşürülüyordu; yeni roller artık enum'da mevcut
+      // olduğu için bu dönüşüm sessizce yetki kaybına yol açıyordu.)
       const { error: insErr } = await adminSupabase
         .from("user_roles")
-        .insert({
-          user_id: data.userId,
-          role: dbRole as any,
-        });
-
+        .insert({ user_id: data.userId, role: data.role as any });
       if (insErr) throw insErr;
 
-      // 4. If assigning Zabıta or Müdür, automatically assign department_id if needed
-      if (data.role === "zabita_memuru" || data.role === "mudur") {
-        const { data: depts } = await adminSupabase.from("departments").select("id, name");
-        const zabitaDept = depts?.find((d) => d.name.toLowerCase().includes("zabıta"));
-        if (zabitaDept) {
-          await adminSupabase.from("profiles").update({ department_id: zabitaDept.id }).eq("id", data.userId);
-        }
+      // Birim yalnızca AÇIKÇA belirtildiğinde değiştirilir.
+      // (Eskiden mudur/zabita_memuru atanınca kullanıcı otomatik Zabıta
+      // Müdürlüğü'ne taşınıyordu — diğer müdürlüklerin ataması bozuluyordu.)
+      if (data.departmentId !== undefined) {
+        const { error: dErr } = await adminSupabase
+          .from("profiles")
+          .update({ department_id: data.departmentId })
+          .eq("id", data.userId);
+        if (dErr) throw dErr;
       }
 
       return { success: true };

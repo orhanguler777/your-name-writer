@@ -24,6 +24,19 @@ const ASSIGNABLE_ROLES: { role: AppRole; label: string }[] = [
   { role: "vatandas", label: "Vatandaş" },
 ];
 
+/** Kullanıcının rollerinden kademesini belirler (en üstten aşağıya). */
+function resolvePrimaryRole(roles: AppRole[]): AppRole {
+  if (roles.includes("superuser") || roles.includes("admin")) return "superuser";
+  if (roles.includes("baskan")) return "baskan";
+  if (roles.includes("baskan_yardimcisi")) return "baskan_yardimcisi";
+  if (roles.includes("cozum_masasi")) return "cozum_masasi";
+  if (roles.includes("mudur")) return "mudur";
+  if (roles.includes("mudurluk")) return "mudurluk";
+  if (roles.includes("personel")) return "personel";
+  if (roles.includes("zabita_memuru") || roles.includes("zabita")) return "zabita_memuru";
+  return "vatandas";
+}
+
 export function UserRoleAssignerManager() {
   const qc = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
@@ -40,15 +53,18 @@ export function UserRoleAssignerManager() {
 
       const deptMap = new Map((departments ?? []).map((d) => [d.id, d.name]));
 
-      return (profiles ?? []).map((u) => {
+      const users = (profiles ?? []).map((u) => {
         const uRoles = (userRoles ?? []).filter((r) => r.user_id === u.id).map((r) => r.role as AppRole);
         return {
           ...u,
           roles: uRoles,
-          primaryRole: uRoles[0] || "vatandas",
+          // Hiyerarşiye göre belirlenir; dizideki ilk eleman yanıltıcı olabiliyordu
+          primaryRole: resolvePrimaryRole(uRoles),
           departmentName: u.department_id ? deptMap.get(u.department_id) || "—" : "—",
         };
       });
+
+      return { users, departments: departments ?? [] };
     },
   });
 
@@ -57,20 +73,37 @@ export function UserRoleAssignerManager() {
     try {
       const res = await updateRoleFn({ data: { userId, role: newRole } });
       if (!res.success) {
-        // Fallback: Try client-side update if server function key missing
+        // Yedek yol: sunucu anahtarı yoksa istemciden dene.
+        // Rol adı olduğu gibi yazılır — eskiden burada mudur→mudurluk gibi
+        // sessiz düşürme yapılıyordu ve seçilen yetki kaydedilmiyordu.
         await supabase.from("user_roles").delete().eq("user_id", userId);
-        const dbRole = newRole === "superuser" ? "admin" : newRole === "zabita_memuru" ? "zabita" : newRole === "mudur" ? "mudurluk" : newRole;
         const { error } = await supabase.from("user_roles").insert({
           user_id: userId,
-          role: dbRole as any,
+          role: newRole as any,
         });
         if (error) throw new Error(res.error || error.message);
       }
 
-      toast.success("Kullanıcı rolü başarıyla güncellendi!");
+      toast.success("Kullanıcı rolü güncellendi.");
       qc.invalidateQueries({ queryKey: ["admin-all-users-with-roles"] });
     } catch (e: any) {
       toast.error("Rol güncellenirken hata oluştu: " + (e.message || e));
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleDepartmentChange = async (userId: string, currentRole: AppRole, departmentId: string) => {
+    setUpdatingUserId(userId);
+    try {
+      const res = await updateRoleFn({
+        data: { userId, role: currentRole, departmentId: departmentId === "none" ? null : departmentId },
+      });
+      if (!res.success) throw new Error(res.error || "Birim güncellenemedi");
+      toast.success("Kullanıcının birimi güncellendi.");
+      qc.invalidateQueries({ queryKey: ["admin-all-users-with-roles"] });
+    } catch (e: any) {
+      toast.error("Birim güncellenirken hata oluştu: " + (e.message || e));
     } finally {
       setUpdatingUserId(null);
     }
@@ -90,7 +123,7 @@ export function UserRoleAssignerManager() {
             </CardDescription>
           </div>
           <Badge variant="outline" className="text-xs">
-            {usersData?.length || 0} Kayıtlı Kullanıcı
+            {usersData?.users.length || 0} Kayıtlı Kullanıcı
           </Badge>
         </div>
       </CardHeader>
@@ -105,13 +138,13 @@ export function UserRoleAssignerManager() {
             <thead>
               <tr className="border-b bg-muted/60 text-muted-foreground">
                 <th className="p-3 font-semibold">Ad Soyad / E-posta</th>
-                <th className="p-3 font-semibold">Mevcut Birim</th>
                 <th className="p-3 font-semibold">Mevcut Rol</th>
+                <th className="p-3 font-semibold">Birim (Müdürlük)</th>
                 <th className="p-3 font-semibold text-right">Rol Atama & Değiştir</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {usersData?.map((u) => {
+              {usersData?.users.map((u) => {
                 const isBusy = updatingUserId === u.id;
                 return (
                   <tr key={u.id} className="hover:bg-muted/20 transition-colors">
@@ -120,12 +153,26 @@ export function UserRoleAssignerManager() {
                       <div className="text-[11px] text-muted-foreground">{u.email}</div>
                     </td>
                     <td className="p-3">
-                      <span className="bg-muted px-2 py-0.5 rounded text-[11px] font-medium">{u.departmentName}</span>
-                    </td>
-                    <td className="p-3">
                       <Badge variant="secondary" className="text-[10px]">
                         {ROLE_LABELS[u.primaryRole] || u.primaryRole}
                       </Badge>
+                    </td>
+                    <td className="p-3">
+                      <Select
+                        disabled={isBusy}
+                        value={u.department_id ?? "none"}
+                        onValueChange={(val) => handleDepartmentChange(u.id, u.primaryRole, val)}
+                      >
+                        <SelectTrigger className="w-[210px] h-8 text-xs">
+                          <SelectValue placeholder="Birim seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs">— Birim yok —</SelectItem>
+                          {usersData.departments.map((d: any) => (
+                            <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end items-center gap-2">
