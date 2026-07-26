@@ -16,7 +16,7 @@ const DISPLAY_ROLES: { role: AppRole; label: string; desc: string }[] = [
   { role: "mudur", label: "Birim Müdürü", desc: "3. Seviye — Kendi müdürlüğü" },
   { role: "sef", label: "Şef", desc: "4. Seviye — Birim içi ara yönetim" },
   { role: "personel", label: "Müdürlük Görevlisi", desc: "5. Seviye — Her birim için genel" },
-  { role: "zabita_memuru", label: "Zabıta Memuru (eski)", desc: "Eski rol adı — geriye dönük uyum" },
+  { role: "zabita_memuru", label: "Zabıta Memuru (Saha)", desc: "Yalnızca Zabıta Müdürlüğü — saha denetimi" },
   { role: "cozum_masasi", label: "Çözüm Masası", desc: "Vatandaş şikayet & talep yönetimi" },
   { role: "mudurluk", label: "Müdürlük (eski)", desc: "Eski rol adı — geriye dönük uyum" },
   { role: "zabita", label: "Zabıta (eski)", desc: "Eski rol adı — geriye dönük uyum" },

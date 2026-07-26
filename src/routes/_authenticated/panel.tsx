@@ -34,7 +34,7 @@ function Panel() {
   // Birim yönetimi: müdür ve şef kendi biriminin verisini/analitiğini görür
   const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur" || primaryRole === "sef";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
-  const isZabitaMemuru = isFieldStaff; // 4. seviye: personel veya (eski) zabita_memuru
+  const isZabitaMemuru = isFieldStaff; // birim görevlisi: personel veya zabıta memuru
   const isZabitaMudur = primaryRole === "mudur" || (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));
   const canSeeAnalytics = isBaskanOrAdmin || isMudurluk || isZabitaMudur;
 
