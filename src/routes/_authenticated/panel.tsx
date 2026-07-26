@@ -656,9 +656,10 @@ function getDeptPerformance(complaints: any[], depts: any[]) {
 
 /* ─── Zabıta Re-Denetim Takip Widget (Ana Panel) ─── */
 function ZabitaFollowupDashboardWidget() {
-  const { isZabita } = useAuth();
-  // Yalnızca zabıta görebilir; başkan/admin dahil diğer roller görmez.
-  const isRelevant = isZabita;
+  const { isZabitaUnit } = useAuth();
+  // Yalnızca Zabıta Müdürlüğü kadrosu görür (müdür/şef/memur).
+  // Superuser, başkan ve başkan yardımcısı bu operasyonel takibi görmez.
+  const isRelevant = isZabitaUnit;
 
   const followupQuery = useQuery({
     queryKey: ["dashboard-followup-inspections"],

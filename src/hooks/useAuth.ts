@@ -130,6 +130,21 @@ export function useAuth() {
 
   const isZabita = hasModule("zabita");
 
+  /** Üst yönetim (superuser/admin/başkan/başkan yrd.) — tüm modülleri görür */
+  const isUstYonetim =
+    primaryRole === "superuser" || primaryRole === "baskan" || primaryRole === "baskan_yardimcisi";
+
+  /**
+   * Gerçekten Zabıta Müdürlüğü kadrosunda mı?
+   * hasModule("zabita") üst yönetime her modülü açtığı için operasyonel
+   * zabıta bileşenlerinde (ör. re-denetim takibi) bu flag kullanılır.
+   */
+  const isZabitaUnit =
+    !isUstYonetim &&
+    (modules.includes("zabita") ||
+      primaryRole === "zabita_memuru" ||
+      (profile?.departments?.name?.toLowerCase().includes("zabıta") ?? false));
+
   return {
     session,
     user,
@@ -141,6 +156,7 @@ export function useAuth() {
     hasRole,
     hasAnyRole,
     isZabita,
+    isZabitaUnit,
     isFieldStaff,
     modules,
     hasModule,
