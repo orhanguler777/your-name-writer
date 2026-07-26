@@ -7,7 +7,7 @@ import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import {
   LayoutDashboard, MessageSquare, HeadphonesIcon, Building2, Crown, Bot,
   MessageCircle, Send, Truck, UserCheck, Settings, LogOut, Menu, X, Loader2,
-  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive, Shield,
+  HelpCircle, Smile, Megaphone, PieChart, Users, ClipboardCheck, MapPin, Archive, Shield, QrCode,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2,
   MapPin,
   Archive,
+  QrCode,
   Smile,
   Bot,
   Send,

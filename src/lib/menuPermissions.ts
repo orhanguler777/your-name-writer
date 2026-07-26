@@ -34,6 +34,7 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   { id: "zabita-denetim", to: "/zabita-denetim", label: "İşyeri Denetimi", iconName: "ClipboardCheck", defaultRoles: ["superuser", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "zabita-isyerleri", to: "/zabita-isyerleri", label: "İşyeri Listesi", iconName: "Building2", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "zabita-harita", to: "/zabita-harita", label: "Saha Haritası", iconName: "MapPin", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-karekod", to: "/zabita-karekod", label: "Karekod Yönetimi", iconName: "QrCode", defaultRoles: ["superuser", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "memnuniyet", to: "/memnuniyet", label: "Memnuniyet Analizi", iconName: "Smile", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
   { id: "baskan-ai-bot", to: "/baskan-ai-bot", label: "Başkan AI Bot", iconName: "Bot", defaultRoles: ["superuser", "baskan"] },

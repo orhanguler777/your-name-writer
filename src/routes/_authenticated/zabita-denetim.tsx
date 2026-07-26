@@ -25,6 +25,10 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/zabita-denetim")({
   ssr: false,
+  // Karekod okutulduğunda "Yeniden Denetle" ile işyeri adı ön dolu gelir
+  validateSearch: (search: Record<string, unknown>) => ({
+    isyeri: typeof search.isyeri === "string" ? search.isyeri : undefined,
+  }),
   component: () => (
     <RequireZabita>
       <ZabitaDenetimPage />
@@ -314,6 +318,16 @@ function ZabitaDenetimPage() {
     const handler = setTimeout(() => setDebouncedSearch(searchName), 500);
     return () => clearTimeout(handler);
   }, [searchName]);
+
+  // Karekod okutulduğunda gelen ?isyeri= parametresi: sorguyu doldurup
+  // geçmiş kaydı otomatik forma çeker (mevcut otomatik doldurma mantığı devralır).
+  const { isyeri: isyeriParam } = Route.useSearch();
+  useEffect(() => {
+    if (isyeriParam && !searchName) {
+      setSearchName(isyeriParam);
+      setForm((f) => (f.workplace_name ? f : { ...f, workplace_name: isyeriParam }));
+    }
+  }, [isyeriParam]);
 
   // Check recent inspections (collision detection)
   const { data: recentInspections, isLoading: isChecking } = useQuery({
