@@ -1606,7 +1606,7 @@ async function startBot() {
             ? `⚠️ Ceza Puanı: *${puan}*\nUygulanan Yaptırım: *${ins.recommended_action || '—'}*`
             : '✅ Denetimde mevzuata aykırı bir husus tespit edilmemiştir.';
           const takip = ins.followup_date
-            ? `\n\n🗓️ Re-denetim tarihi: *${new Date(ins.followup_date).toLocaleDateString('tr-TR')}*\nEksikliklerin bu tarihe kadar giderilmesi gerekmektedir.`
+            ? `\n\n🗓️ Tekrar denetim tarihi: *${new Date(ins.followup_date).toLocaleDateString('tr-TR')}*\nEksikliklerin bu tarihe kadar giderilmesi gerekmektedir.`
             : '';
 
           const messageText =
