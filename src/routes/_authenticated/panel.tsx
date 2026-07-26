@@ -31,7 +31,8 @@ const CHART_COLORS = ["#1e2f5a", "#3fa87a", "#e08a3c", "#7c4dff", "#3aa4d0", "#c
 function Panel() {
   const { profile, primaryRole, user, isFieldStaff } = useAuth();
   const deptId = profile?.department_id;
-  const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur";
+  // Birim yönetimi: müdür ve şef kendi biriminin verisini/analitiğini görür
+  const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur" || primaryRole === "sef";
   const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser" || primaryRole === "admin";
   const isZabitaMemuru = isFieldStaff; // 4. seviye: personel veya (eski) zabita_memuru
   const isZabitaMudur = primaryRole === "mudur" || (primaryRole === "mudurluk" && profile?.departments?.name?.toLowerCase().includes("zabıta"));

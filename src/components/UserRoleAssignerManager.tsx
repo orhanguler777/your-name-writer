@@ -12,17 +12,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, ShieldAlert, UserCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const ASSIGNABLE_ROLES: { role: AppRole; label: string }[] = [
+/** Birimi OLAN kullanıcılar için birim içi kademeler */
+const UNIT_ROLES: { role: AppRole; label: string }[] = [
+  { role: "mudur", label: "Birim Müdürü" },
+  { role: "sef", label: "Şef" },
+  { role: "personel", label: "Müdürlük Görevlisi" },
+];
+
+/** Yalnızca ilgili modüle sahip birimlerde çıkan özel roller */
+const MODULE_ROLES: { role: AppRole; label: string; module: string }[] = [
+  { role: "zabita_memuru", label: "Zabıta Memuru (Saha)", module: "zabita" },
+];
+
+/** Birimi OLMAYAN kullanıcılar için kurum geneli roller */
+const TOP_ROLES: { role: AppRole; label: string }[] = [
   { role: "superuser", label: "Sistem Yöneticisi (SuperUser)" },
   { role: "baskan", label: "Belediye Başkanı" },
   { role: "baskan_yardimcisi", label: "Başkan Yardımcısı" },
-  { role: "mudur", label: "Birim Müdürü" },
-  { role: "personel", label: "Birim Görevlisi" },
-  { role: "zabita_memuru", label: "Zabıta Memuru (eski)" },
   { role: "cozum_masasi", label: "Çözüm Masası" },
-  { role: "mudurluk", label: "Müdürlük Kullanıcısı" },
-  { role: "vatandas", label: "Vatandaş" },
 ];
+
+/**
+ * Kullanıcıya atanabilecek rolleri bağlama göre belirler:
+ * birimi varsa birim içi kademeler (+ birimin modülüne özel roller),
+ * birimi yoksa kurum geneli roller. Mevcut rol listede yoksa eklenir ki
+ * açılır menü boş görünmesin.
+ */
+export function assignableRolesFor(
+  departmentModules: string[] | null | undefined,
+  hasDepartment: boolean,
+  currentRole: AppRole,
+): { role: AppRole; label: string }[] {
+  const list = hasDepartment
+    ? [
+        ...UNIT_ROLES,
+        ...MODULE_ROLES.filter((m) => (departmentModules ?? []).includes(m.module)).map(
+          ({ role, label }) => ({ role, label }),
+        ),
+      ]
+    : [...TOP_ROLES];
+
+  list.push({ role: "vatandas", label: "Vatandaş (yetkisiz)" });
+
+  if (!list.some((r) => r.role === currentRole)) {
+    list.unshift({ role: currentRole, label: `${ROLE_LABELS[currentRole] || currentRole} (mevcut)` });
+  }
+  return list;
+}
 
 /** Kullanıcının rollerinden kademesini belirler (en üstten aşağıya). */
 function resolvePrimaryRole(roles: AppRole[]): AppRole {
@@ -48,10 +84,11 @@ export function UserRoleAssignerManager() {
       const [{ data: profiles }, { data: userRoles }, { data: departments }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, department_id, created_at"),
         supabase.from("user_roles").select("user_id, role"),
-        supabase.from("departments").select("id, name"),
+        supabase.from("departments").select("id, name, modules"),
       ]);
 
       const deptMap = new Map((departments ?? []).map((d) => [d.id, d.name]));
+      const moduleMap = new Map((departments ?? []).map((d: any) => [d.id, d.modules ?? []]));
 
       const users = (profiles ?? []).map((u) => {
         const uRoles = (userRoles ?? []).filter((r) => r.user_id === u.id).map((r) => r.role as AppRole);
@@ -61,6 +98,7 @@ export function UserRoleAssignerManager() {
           // Hiyerarşiye göre belirlenir; dizideki ilk eleman yanıltıcı olabiliyordu
           primaryRole: resolvePrimaryRole(uRoles),
           departmentName: u.department_id ? deptMap.get(u.department_id) || "—" : "—",
+          departmentModules: (u.department_id ? moduleMap.get(u.department_id) : []) as string[],
         };
       });
 
@@ -179,14 +217,18 @@ export function UserRoleAssignerManager() {
                         {isBusy && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                         <Select
                           disabled={isBusy}
-                          defaultValue={u.primaryRole}
+                          value={u.primaryRole}
                           onValueChange={(val) => handleRoleChange(u.id, val as AppRole)}
                         >
                           <SelectTrigger className="w-[200px] h-8 text-xs">
                             <SelectValue placeholder="Rol Seçin" />
                           </SelectTrigger>
                           <SelectContent align="end">
-                            {ASSIGNABLE_ROLES.map((r) => (
+                            {assignableRolesFor(
+                              u.departmentModules,
+                              !!u.department_id,
+                              u.primaryRole,
+                            ).map((r) => (
                               <SelectItem key={r.role} value={r.role} className="text-xs">
                                 {r.label}
                               </SelectItem>

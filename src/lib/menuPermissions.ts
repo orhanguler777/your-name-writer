@@ -3,6 +3,7 @@ export type AppRole =
   | "baskan"
   | "baskan_yardimcisi"
   | "mudur"
+  | "sef"
   | "personel"
   | "zabita_memuru"
   | "vatandas"
@@ -26,21 +27,21 @@ export interface MenuItemConfig {
 }
 
 export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
-  { id: "panel", to: "/panel", label: "Ana Panel", iconName: "LayoutDashboard", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk", "zabita_memuru", "zabita"] },
-  { id: "sikayetler", to: "/sikayetler", label: "Şikayetler", iconName: "MessageSquare", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
-  { id: "bilgi-talepleri", to: "/bilgi-talepleri", label: "Bilgi Talepleri", iconName: "HelpCircle", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi", "mudurluk"] },
+  { id: "panel", to: "/panel", label: "Ana Panel", iconName: "LayoutDashboard", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin", "cozum_masasi", "mudurluk", "zabita_memuru", "zabita"] },
+  { id: "sikayetler", to: "/sikayetler", label: "Şikayetler", iconName: "MessageSquare", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin", "cozum_masasi", "mudurluk"] },
+  { id: "bilgi-talepleri", to: "/bilgi-talepleri", label: "Bilgi Talepleri", iconName: "HelpCircle", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin", "cozum_masasi", "mudurluk"] },
   { id: "cozum-masasi", to: "/cozum-masasi", label: "Çözüm Masası", iconName: "HeadphonesIcon", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
-  { id: "zabita-denetim", to: "/zabita-denetim", label: "İşyeri Denetimi", iconName: "ClipboardCheck", defaultRoles: ["superuser", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
-  { id: "zabita-isyerleri", to: "/zabita-isyerleri", label: "İşyeri Listesi", iconName: "Building2", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
-  { id: "zabita-harita", to: "/zabita-harita", label: "Saha Haritası", iconName: "MapPin", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
-  { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-denetim", to: "/zabita-denetim", label: "İşyeri Denetimi", iconName: "ClipboardCheck", defaultRoles: ["superuser", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-isyerleri", to: "/zabita-isyerleri", label: "İşyeri Listesi", iconName: "Building2", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "zabita-harita", to: "/zabita-harita", label: "Saha Haritası", iconName: "MapPin", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
+  { id: "tutanak-arsivi", to: "/tutanak-arsivi", label: "Tutanak Arşivi", iconName: "Archive", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "sef", "zabita_memuru", "zabita"], module: "zabita" },
   { id: "memnuniyet", to: "/memnuniyet", label: "Memnuniyet Analizi", iconName: "Smile", defaultRoles: ["superuser", "baskan", "admin", "cozum_masasi"] },
   { id: "baskan-ai-bot", to: "/baskan-ai-bot", label: "Başkan AI Bot", iconName: "Bot", defaultRoles: ["superuser", "baskan"] },
-  { id: "gunluk-mesajlar", to: "/gunluk-mesajlar", label: "Günlük Mesajlar", iconName: "Send", defaultRoles: ["superuser", "baskan", "admin", "mudur", "mudurluk", "zabita_memuru", "zabita"] },
-  { id: "arac-bakim", to: "/arac-bakim", label: "Araç Bakım", iconName: "Truck", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "admin", "mudurluk"] },
-  { id: "personel-analizi", to: "/personel-analizi", label: "Personel Analizi", iconName: "UserCheck", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin"] },
-  { id: "duyurular", to: "/duyurular", label: "Duyurular & Reklamlar", iconName: "Megaphone", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin", "cozum_masasi"] },
-  { id: "anketler", to: "/anketler", label: "Anketler", iconName: "PieChart", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "admin"] },
+  { id: "gunluk-mesajlar", to: "/gunluk-mesajlar", label: "Günlük Mesajlar", iconName: "Send", defaultRoles: ["superuser", "baskan", "admin", "mudur", "sef", "mudurluk", "zabita_memuru", "zabita"] },
+  { id: "arac-bakim", to: "/arac-bakim", label: "Araç Bakım", iconName: "Truck", defaultRoles: ["superuser", "baskan_yardimcisi", "mudur", "sef", "admin", "mudurluk"] },
+  { id: "personel-analizi", to: "/personel-analizi", label: "Personel Analizi", iconName: "UserCheck", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin"] },
+  { id: "duyurular", to: "/duyurular", label: "Duyurular & Reklamlar", iconName: "Megaphone", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin", "cozum_masasi"] },
+  { id: "anketler", to: "/anketler", label: "Anketler", iconName: "PieChart", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "admin"] },
   { id: "vatandaslar", to: "/vatandaslar", label: "Vatandaşlar & Segmentasyon", iconName: "Users", defaultRoles: ["superuser", "baskan", "baskan_yardimcisi", "admin", "cozum_masasi"] },
   { id: "ayarlar", to: "/ayarlar", label: "Ayarlar & RBAC Matrisi", iconName: "Settings", defaultRoles: ["superuser", "baskan", "admin"] },
 ];
@@ -49,7 +50,7 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
 const LEGACY_LOCAL_STORAGE_KEY = "belediye_role_menu_permissions_v1";
 
 export const ALL_ROLES: AppRole[] = [
-  "superuser", "baskan", "baskan_yardimcisi", "mudur", "personel", "zabita_memuru",
+  "superuser", "baskan", "baskan_yardimcisi", "mudur", "sef", "personel", "zabita_memuru",
   "vatandas", "cozum_masasi", "mudurluk", "admin", "zabita",
 ];
 

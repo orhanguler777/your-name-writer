@@ -100,6 +100,8 @@ export function useAuth() {
     ? "mudur"
     : roles.includes("mudurluk")
     ? "mudurluk"
+    : roles.includes("sef")
+    ? "sef"
     : roles.includes("personel")
     ? "personel"
     : roles.includes("zabita_memuru") || roles.includes("zabita")
