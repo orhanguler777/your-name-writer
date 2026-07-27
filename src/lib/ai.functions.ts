@@ -191,7 +191,7 @@ const DashboardInsightInput = z.object({
     foreignResolved: z.number().optional(),
     foreignSatisfaction: z.number().optional(),
   }),
-  role: z.enum(["baskan", "mudurluk", "admin", "cozum_masasi"]),
+  role: z.string(),
 });
 
 function formatRankedList(items: { name: string; count: number; pct: number }[] | undefined) {
@@ -207,7 +207,7 @@ function buildFallbackInsight(
   const catList = formatRankedList(s.topCategories);
   const deptList = formatRankedList(s.topDepartments);
 
-  if (role === "baskan" || role === "admin") {
+  if (role === "baskan" || role === "admin" || role === "superuser") {
     return [
       `Genel Durum: Sistemde toplam ${s.total} şikayet kayıtlıdır. ${s.open} şikayet halen açık, ${s.resolved} şikayet çözülmüştür (çözüm oranı %${Number(s.resolvedPct).toFixed(1)}). Ortalama çözüm süresi ${s.avgResolutionHours.toFixed(1)} saattir.${s.trendLabel ? ` Son 7 günde ${s.trendLabel}.` : ""}`,
       `Mahalle Analizi: En yoğun mahalle ${s.topNeighborhood} olup ilk beş mahalle sıralaması şöyledir: ${nbrList}. Bu dağılım, saha ekiplerinin öncelikli yönlendirilmesi için dikkate alınmalıdır.`,
@@ -230,7 +230,7 @@ export const generateDashboardInsight = createServerFn({ method: "POST" })
     const key = process.env.OPENAI_API_KEY;
     const s = data.stats;
     const fallback = buildFallbackInsight(data.role, s);
-    const isExecutive = data.role === "baskan" || data.role === "admin";
+    const isExecutive = data.role === "baskan" || data.role === "admin" || data.role === "superuser";
 
     if (!key) return { insight: fallback };
 
