@@ -788,6 +788,7 @@ function msgComplaintStatus(
 const pendingComplaints = new Map();
 const pendingSurveys = new Map(); // key: phone, value: complaintId
 const pendingNameRequests = new Map(); // key: phone, value: pending message state
+const messageQueues = new Map(); // key: remoteJid, value: Promise
 let departmentsCache = [];
 let neighborhoodsCache = [];
 let eventsCache = [];
@@ -2228,6 +2229,21 @@ async function startBot() {
     const isNotify = type === "notify";
 
     for (const msg of messages) {
+      const jid = msg.key.remoteJid;
+      if (jid && messageQueues.has(jid)) {
+        try {
+          await messageQueues.get(jid);
+        } catch (e) {}
+      }
+
+      let resolvePromise = () => {};
+      const currentPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+      if (jid) {
+        messageQueues.set(jid, currentPromise);
+      }
+
       try {
         if (!msg.message) continue;
 
@@ -2823,7 +2839,7 @@ async function startBot() {
         );
 
         // Bekleyen şikayet kontrolü / iptal işlemi
-        const pending = pendingComplaints.get(phone);
+        let pending = pendingComplaints.get(phone);
         if (
           pending &&
           (lowerTextTrim === "iptal" ||
@@ -3038,16 +3054,89 @@ async function startBot() {
               _guardMsgType === "imageMessage" ||
               _guardMsgType === "documentMessage" ||
               _guardMsgType === "videoMessage";
-            // Mesaj bir mahalle adı içeriyorsa (geçerli konum yanıtı) engelleme; normal akış işlesin.
             const _providesLocation = !!(text && text.trim() && matchNeighborhood(text));
-            // Konum da değil, mahalle adı da içermeyen düz metin → muhtemelen YENİ bir şikayet.
-            // (Fotoğraf/belge önceki şikayete delil olarak eklenebildiği için onları engellemiyoruz.)
+            const isSkipMedia = lowerTextTrim === "yok" || lowerTextTrim === "geç" || lowerTextTrim === "gec" || lowerTextTrim === "hayır" || lowerTextTrim === "skip";
+
+
+
+            // AWAITING_LOCATION_AFTER_MEDIA_ASK adımındayken fotoğraf/video gelirse, AI Vision'a girmeden direkt kaydet
+            if (pending.state === "AWAITING_LOCATION_AFTER_MEDIA_ASK" && _isMediaMsg) {
+              console.log("   📷 Kullanıcı medya gönderdi (AI Vision analizi atlanıyor).");
+              let downloadBuffer = null;
+              let downloadMime = null;
+              try {
+                downloadBuffer = await downloadMediaMessage(msg, "buffer", {}, { logger });
+                if (_guardMsgType === "imageMessage") {
+                  downloadMime = msg.message.imageMessage.mimetype || "image/jpeg";
+                } else if (_guardMsgType === "videoMessage") {
+                  downloadMime = msg.message.videoMessage.mimetype || "video/mp4";
+                } else if (_guardMsgType === "documentMessage") {
+                  downloadMime = msg.message.documentMessage.mimetype || "application/octet-stream";
+                }
+              } catch (e) {
+                console.error("   ⚠️ Medya indirme hatası:", e.message);
+              }
+
+              if (downloadBuffer) {
+                pending.imageBuffer = downloadBuffer;
+                pending.imageContentType = downloadMime;
+              }
+
+              // Mahalle zaten biliniyorsa doğrudan kayıt adımına geç
+              if (pending.neighborhoodId) {
+                console.log("   ✅ Medya alındı, mahalle zaten biliniyor → kayıt adımına geçiliyor.");
+                pending.state = "READY_TO_SAVE";
+                // state'i READY_TO_SAVE yaparak aşağıda şikayet oluşturma adımına düşmesini sağlıyoruz
+              } else {
+                pending.state = "AWAITING_LOCATION";
+                let askBase = msgAskNeighborhood(pending.language || "tr", name);
+                askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, "").trim();
+                let askReply = askBase + msgLocationHint(pending.language || "tr");
+                if (cameFromVoice || pending.voice) askReply = voiceify(askReply, pending.language || "tr");
+                const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
+                if (sent?.key?.id) addBotMessageId(sent.key.id);
+                await speakIfVoice(sock, msg, askReply, pending.language || "tr", cameFromVoice);
+                continue;
+              }
+            }
+
             if (text && text.trim().length > 0 && !_providesLocation && !_isMediaMsg) {
+              if (pending.state === "AWAITING_LOCATION_AFTER_MEDIA_ASK" && isSkipMedia) {
+                console.log("   ⏭️ Kullanıcı medya eklemeyi geçti.");
+                // Mahalle zaten biliniyorsa doğrudan kayıt adımına geç
+                if (pending.neighborhoodId) {
+                  console.log("   ✅ Mahalle zaten biliniyor → kayıt adımına geçiliyor.");
+                  pending.state = "READY_TO_SAVE";
+                  // continue etme, aşağıdaki şikayet oluşturma akışına düşsün
+                } else {
+                  pending.state = "AWAITING_LOCATION";
+                  let askBase = msgAskNeighborhood(pending.language || "tr", name);
+                  askBase = askBase.replace(/[^.]*102 mahalle[^.]*\./gi, "").trim();
+                  let askReply = askBase + msgLocationHint(pending.language || "tr");
+                  if (cameFromVoice || pending.voice) askReply = voiceify(askReply, pending.language || "tr");
+                  const sent = await sock.sendMessage(msg.key.remoteJid, { text: askReply });
+                  if (sent?.key?.id) addBotMessageId(sent.key.id);
+                  await speakIfVoice(sock, msg, askReply, pending.language || "tr", cameFromVoice);
+                  continue;
+                }
+              }
+
               console.log(
                 "   🚧 Bekleyen şikayet varken konum yerine yeni metin geldi → yönlendirme yapılıyor.",
               );
               pending.timestamp = Date.now(); // bekleme süresini tazele
-              let guardMsg = msgPendingLocationGuard(pending.language || "tr", pending.text);
+              
+              let guardMsg;
+              if (pending.state === "AWAITING_LOCATION_AFTER_MEDIA_ASK") {
+                guardMsg = {
+                  tr: "⚠️ Şikayetinizi kaydetmek için lütfen medya (fotoğraf/video) gönderin veya geçmek için *Yok* yazın.",
+                  en: "⚠️ To save your complaint, please send media (photo/video) or type *Yok* to skip.",
+                  de: "⚠️ Um Ihre Beschwerde zu speichern, senden Sie bitte Medien (Foto/Video) oder schreiben Sie *Yok*, um fortzufahren.",
+                  ru: "⚠️ Чтобы сохранить жалобу, отправьте медиа (фото/видео) или напишите *Yok*, чтобы пропустить."
+                }[normLang(pending.language)] || "⚠️ Şikayetinizi kaydetmek için lütfen medya (fotoğraf/video) gönderin veya geçmek için *Yok* yazın.";
+              } else {
+                guardMsg = msgPendingLocationGuard(pending.language || "tr", pending.text);
+              }
               if (cameFromVoice || pending.voice)
                 guardMsg = voiceify(guardMsg, pending.language || "tr");
               const sent = await sock.sendMessage(msg.key.remoteJid, { text: guardMsg });
@@ -3059,6 +3148,7 @@ async function startBot() {
             }
           }
         }
+
 
         // ── 0) Fotoğraf varsa AI Vision ile analiz et ──────────────
         const _curMsgType = Object.keys(actualMessage || msg.message)[0];
@@ -3097,6 +3187,10 @@ async function startBot() {
           // Fotoğraf daha önce gelmişti, şimdi mahalle/konum yazıldı → saklı görsel analizini kullan
           analysis = pending.visionAnalysis;
           console.log("   📊 Analiz kaynağı: önceki fotoğraf (saklı vision)");
+        } else if (pending && pending.analysis) {
+          // İlk mesajda yapılan metin analizi zaten kaydedilmişti → tekrar AI'a gitme
+          analysis = pending.analysis;
+          console.log("   ⚡ Analiz kaynağı: önceki metin analizi (saklı, AI tekrar çağrılmadı)");
         } else if (textToAnalyze && textToAnalyze.trim().length > 3) {
           console.log("   🤖 Yapay zeka analizi yapılıyor...");
           analysis = await analyzeWithAI(textToAnalyze);
@@ -3226,7 +3320,15 @@ async function startBot() {
             const askLang = analysis.language || "tr";
             // Eğer henüz bekleyen bir şikayet yoksa, bu orijinal şikayet metnini (ve varsa fotoğrafı) hafızaya alalım
             if (!pending) {
+              const _initialMsgType = Object.keys(actualMessage || msg.message)[0];
+              const _isMediaMsg =
+                _initialMsgType === "imageMessage" ||
+                _initialMsgType === "documentMessage" ||
+                _initialMsgType === "videoMessage";
+              const isMediaPresent = !!(visionAnalysis || curImageBuffer || _isMediaMsg);
+              
               pendingComplaints.set(phone, {
+                state: isMediaPresent ? "AWAITING_LOCATION" : "AWAITING_MEDIA",
                 text:
                   text && text.trim()
                     ? text.trim()
@@ -3235,6 +3337,7 @@ async function startBot() {
                       : curImageBuffer
                         ? "(Fotoğraflı şikayet)"
                         : "(Medya İçeren Şikayet)",
+                analysis: analysis || null,
                 visionAnalysis: visionAnalysis || null,
                 imageBuffer: curImageBuffer || null,
                 imageContentType: curImageMime || null,
@@ -3242,6 +3345,7 @@ async function startBot() {
                 voice: cameFromVoice,
                 timestamp: Date.now(),
               });
+              pending = pendingComplaints.get(phone);
             } else {
               // Süreyi yenile ve bu mesajda fotoğraf/analiz geldiyse pending'e ekle
               pending.timestamp = Date.now();
@@ -3250,12 +3354,32 @@ async function startBot() {
               if (curImageBuffer) {
                 pending.imageBuffer = curImageBuffer;
                 pending.imageContentType = curImageMime;
+                if (pending.state === "AWAITING_LOCATION_AFTER_MEDIA_ASK") {
+                  pending.state = "AWAITING_LOCATION";
+                }
               }
               if (visionAnalysis) {
                 pending.visionAnalysis = visionAnalysis;
                 if (!pending.text || /^\(/.test(pending.text))
                   pending.text = visionAnalysis.complaint_text;
               }
+            }
+
+            if (pending.state === "AWAITING_MEDIA") {
+              pending.state = "AWAITING_LOCATION_AFTER_MEDIA_ASK";
+              let askMediaMsg = {
+                tr: "Şikayetinizi anladım. Buna dair elinizde bir fotoğraf veya video varsa şimdi gönderebilirsiniz. 📸\n\nEğer medya eklemek istemiyorsanız sadece *Yok* veya *Geç* yazabilirsiniz.",
+                en: "I understand your complaint. If you have a photo or video related to this, you can send it now. 📸\n\nIf you don't want to add media, simply type *Yok* or *Skip*.",
+                de: "Ich habe Ihre Beschwerde verstanden. Wenn Sie ein Foto oder Video dazu haben, können Sie es jetzt senden. 📸\n\nWenn Sie keine Medien hinzufügen möchten, schreiben Sie einfach *Yok* oder *Weiter*.",
+                ru: "Я понял вашу жалобу. Если у вас есть фото или видео по этому поводу, вы можете отправить их сейчас. 📸\n\nЕсли вы не хотите добавлять медиа, просто напишите *Yok* или *Пропустить*."
+              }[normLang(askLang)];
+              
+              if (cameFromVoice || pending.voice) askMediaMsg = voiceify(askMediaMsg, askLang);
+              
+              const sent = await sock.sendMessage(msg.key.remoteJid, { text: askMediaMsg });
+              if (sent?.key?.id) addBotMessageId(sent.key.id);
+              await speakIfVoice(sock, msg, askMediaMsg, askLang, cameFromVoice);
+              continue; 
             }
 
             let askBase = analysis.auto_response || msgAskNeighborhood(askLang, name);
@@ -3270,6 +3394,51 @@ async function startBot() {
             }
             await speakIfVoice(sock, msg, askReply, askLang, cameFromVoice);
             continue; // döngüde sonraki mesaja geç
+          }
+
+          // ── Mahalle bulundu ama henüz medya sorulmadıysa → medya sor ──
+          const _freshMsgType = Object.keys(actualMessage || msg.message)[0];
+          const _hasFreshMedia = !!(
+            curImageBuffer ||
+            visionAnalysis ||
+            _freshMsgType === "imageMessage" ||
+            _freshMsgType === "videoMessage" ||
+            _freshMsgType === "documentMessage"
+          );
+          const _comingFromPending = !!(pending && ((pending.state || "").startsWith("AWAITING") || pending.state === "READY_TO_SAVE"));
+
+          if (!_comingFromPending && !_hasFreshMedia) {
+            // İlk mesajda mahalle bulundu ama medya yok → medya sor
+            const askLang = analysis.language || "tr";
+            pendingComplaints.set(phone, {
+              state: "AWAITING_LOCATION_AFTER_MEDIA_ASK",
+              text: text && text.trim() ? text.trim() : "(Şikayet)",
+              analysis: analysis || null,
+              visionAnalysis: visionAnalysis || null,
+              imageBuffer: null,
+              imageContentType: null,
+              neighborhoodId: neighborhoodId,
+              neighborhoodName: matchedNbr ? matchedNbr.name : null,
+              address: manualLocationText || null,
+              language: askLang,
+              voice: cameFromVoice,
+              timestamp: Date.now(),
+            });
+
+            let askMediaMsg = {
+              tr: "Şikayetinizi anladım. Buna dair elinizde bir fotoğraf veya video varsa şimdi gönderebilirsiniz. 📸\n\nEğer medya eklemek istemiyorsanız sadece *Yok* veya *Geç* yazabilirsiniz.",
+              en: "I understand your complaint. If you have a photo or video related to this, you can send it now. 📸\n\nIf you don't want to add media, simply type *Yok* or *Skip*.",
+              de: "Ich habe Ihre Beschwerde verstanden. Wenn Sie ein Foto oder Video dazu haben, können Sie es jetzt senden. 📸\n\nWenn Sie keine Medien hinzufügen möchten, schreiben Sie einfach *Yok* oder *Weiter*.",
+              ru: "Я понял вашу жалобу. Если у вас есть фото или видео по этому поводу, вы можете отправить их сейчас. 📸\n\nЕсли вы не хотите добавлять медиа, просто напишите *Yok* или *Пропустить*."
+            }[normLang(askLang)];
+
+            if (cameFromVoice) askMediaMsg = voiceify(askMediaMsg, askLang);
+
+            console.log("   📸 Mahalle bulundu ama medya sorulacak (ilk mesaj).");
+            const sent = await sock.sendMessage(msg.key.remoteJid, { text: askMediaMsg });
+            if (sent?.key?.id) addBotMessageId(sent.key.id);
+            await speakIfVoice(sock, msg, askMediaMsg, askLang, cameFromVoice);
+            continue;
           }
 
           console.log("   🗂️ Şikayet tespit edildi, kayıt oluşturuluyor.");
@@ -3380,11 +3549,17 @@ async function startBot() {
               attachMime || "image/jpeg",
             );
             if (fileUrl) {
+              let finalFileType = "document";
+              if (attachMime) {
+                if (attachMime.startsWith("image/")) finalFileType = "image";
+                else if (attachMime.startsWith("video/")) finalFileType = "video";
+                else if (attachMime.startsWith("audio/")) finalFileType = "audio";
+              }
               await supabase.from("complaint_attachments").insert([
                 {
                   complaint_id: complaint.id,
                   file_url: fileUrl,
-                  file_type: attachMime && attachMime.startsWith("image") ? "image" : attachType,
+                  file_type: finalFileType,
                 },
               ]);
               console.log("   ✅ Medya eklendi.");
@@ -3492,6 +3667,11 @@ async function startBot() {
         }
       } catch (err) {
         console.error("❌ Mesaj işleme hatası:", err);
+      } finally {
+        resolvePromise();
+        if (jid && messageQueues.get(jid) === currentPromise) {
+          messageQueues.delete(jid);
+        }
       }
     }
   });

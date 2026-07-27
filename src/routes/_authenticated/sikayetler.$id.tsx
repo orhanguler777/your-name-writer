@@ -287,35 +287,60 @@ function Detail() {
                 Ekler ({attachments.length})
               </h3>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {attachments.map((a: any) =>
-                  a.file_type === "image" ? (
-                    <a
-                      key={a.id}
-                      href={a.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block overflow-hidden rounded-lg border bg-muted"
-                    >
-                      <img
-                        src={a.file_url}
-                        alt="Şikayet fotoğrafı"
-                        loading="lazy"
-                        className="h-40 w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    </a>
-                  ) : (
-                    <a
-                      key={a.id}
-                      href={a.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <Paperclip className="h-6 w-6" />
-                      Belgeyi aç
-                    </a>
-                  ),
-                )}
+                {attachments.map((a: any) => {
+                  if (a.file_type === "image") {
+                    return (
+                      <a
+                        key={a.id}
+                        href={a.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group block overflow-hidden rounded-lg border bg-muted"
+                      >
+                        <img
+                          src={a.file_url}
+                          alt="Şikayet fotoğrafı"
+                          loading="lazy"
+                          className="h-40 w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </a>
+                    );
+                  } else if (a.file_type === "video") {
+                    return (
+                      <div key={a.id} className="relative rounded-lg border bg-muted overflow-hidden h-40">
+                        <video
+                          src={a.file_url}
+                          controls
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    );
+                  } else if (a.file_type === "audio") {
+                    return (
+                      <div key={a.id} className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted p-2">
+                        <audio
+                          src={a.file_url}
+                          controls
+                          className="w-full max-w-full"
+                        />
+                        <span className="text-xs text-muted-foreground">Ses Kaydı</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <a
+                        key={a.id}
+                        href={a.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        <Paperclip className="h-6 w-6" />
+                        Belgeyi aç
+                      </a>
+                    );
+                  }
+                })}
               </div>
             </Card>
           )}
