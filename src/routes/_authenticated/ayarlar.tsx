@@ -32,7 +32,8 @@ function Page() {
   const updateSettings = useServerFn(updateBotSettings);
   const [selfChatOnly, setSelfChatOnly] = useState(true);
 
-  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "admin";
+  const isBaskanOrAdmin =
+    primaryRole === "baskan" || primaryRole === "admin" || primaryRole === "superuser";
   const [koksalChatOnly, setKoksalChatOnly] = useState(false);
   const [slaLimitHours, setSlaLimitHours] = useState(120);
   const [crisisLimitHours, setCrisisLimitHours] = useState(1);
@@ -94,8 +95,9 @@ function Page() {
         toast.error("Ayarlar kaydedilemedi: " + res.error);
         setSelfChatOnly(!checked);
       }
-    } catch (e: any) {
-      toast.error("Bir hata oluştu: " + e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Bilinmeyen hata";
+      toast.error("Bir hata oluştu: " + msg);
       setSelfChatOnly(!checked);
     }
   };
@@ -111,8 +113,9 @@ function Page() {
         toast.error("Ayarlar kaydedilemedi: " + res.error);
         setKoksalChatOnly(!checked);
       }
-    } catch (e: any) {
-      toast.error("Bir hata oluştu: " + e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Bilinmeyen hata";
+      toast.error("Bir hata oluştu: " + msg);
       setKoksalChatOnly(!checked);
     }
   };
@@ -134,8 +137,9 @@ function Page() {
       } else {
         toast.error("Ayarlar kaydedilemedi: " + res.error);
       }
-    } catch (e: any) {
-      toast.error("Bir hata oluştu: " + e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Bilinmeyen hata";
+      toast.error("Bir hata oluştu: " + msg);
     } finally {
       setIsSavingSettings(false);
     }
