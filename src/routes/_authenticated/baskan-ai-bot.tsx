@@ -180,8 +180,7 @@ function Page() {
     if (voice.listening) return voice.interim || "Dinliyorum başkanım...";
     if (voice.processing || loading) return "Düşünüyorum...";
     if (voice.speaking) return "Konuşuyorum...";
-    if (voice.session) return "Başlamak için logoya veya mikrofona dokunun";
-    return "Sesli sohbet için logoya dokunun";
+    return "Başlamak için Alaaddin'e veya mikrofona dokunun";
   };
 
   return (
