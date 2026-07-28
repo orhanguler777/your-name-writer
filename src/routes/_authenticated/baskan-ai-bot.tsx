@@ -73,9 +73,9 @@ function Page() {
   }, []);
 
   const getLogoSize = () => {
-    if (windowWidth < 768) return 250;   // Mobil
-    if (windowWidth < 1024) return 380;  // Tablet (iPad)
-    return 460;                         // Masaüstü / Büyük Ekran
+    if (windowWidth < 768) return 280;   // Mobil
+    if (windowWidth < 1024) return 420;  // Tablet (iPad)
+    return 520;                         // Masaüstü / Büyük Ekran
   };
 
   const send = useCallback(
@@ -211,18 +211,18 @@ function Page() {
             </div>
             
             {/* Durum Metni */}
-            <p className="mt-10 text-sm font-medium text-slate-500 dark:text-slate-400 text-center max-w-md min-h-[1.5rem]">
+            <p className="mt-8 md:mt-10 text-lg md:text-2xl font-semibold text-slate-500 dark:text-slate-400 text-center max-w-xl min-h-[2rem] tracking-wide">
               {getStatusText()}
             </p>
 
             {/* Son Konuşulanlar (Mini Transkript) */}
             {messages.length > 1 && (
-              <div className="mt-8 flex flex-col gap-2 max-w-md text-center bg-slate-50 dark:bg-slate-900/50 px-5 py-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm z-10">
+              <div className="mt-6 md:mt-8 flex flex-col gap-3 max-w-xl w-full text-center bg-slate-50 dark:bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm z-10 shadow-sm">
                 {/* Son Kullanıcı Sorusu */}
                 {(() => {
                   const lastUser = [...messages].reverse().find((m) => m.role === "user");
                   return lastUser ? (
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500 italic line-clamp-2">
+                    <div className="text-xs md:text-sm text-slate-400 dark:text-slate-500 italic line-clamp-2">
                       “{lastUser.content}”
                     </div>
                   ) : null;
@@ -231,7 +231,7 @@ function Page() {
                 {(() => {
                   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant" && m.content !== GREETING);
                   return lastAssistant ? (
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-3 leading-relaxed mt-1">
+                    <div className="text-sm md:text-lg font-semibold text-slate-700 dark:text-slate-300 line-clamp-4 leading-relaxed mt-1.5">
                       {lastAssistant.content}
                     </div>
                   ) : null;
@@ -241,8 +241,8 @@ function Page() {
           </div>
 
           {/* Alt Kontrol Barı (ChatGPT Sesli Modeli Stili) */}
-          <div className="w-full max-w-xl mx-auto z-10 flex-shrink-0 pb-2">
-            <div className="flex gap-3 items-center">
+          <div className="w-full max-w-2xl mx-auto z-10 flex-shrink-0 pb-4 px-2">
+            <div className="flex gap-3 md:gap-4 items-center">
               
               {/* Giriş Kutusu */}
               <form
@@ -251,23 +251,23 @@ function Page() {
                   voice.stopSession();
                   void send();
                 }}
-                className="flex-1 flex gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-full items-center pl-4 pr-1.5 shadow-sm border border-slate-200/50 dark:border-slate-800"
+                className="flex-1 flex gap-2 bg-slate-100 dark:bg-slate-900 p-2 md:p-2.5 rounded-full items-center pl-5 pr-2 shadow-sm border border-slate-200/50 dark:border-slate-800"
               >
-                <span className="text-slate-400 text-base font-medium mr-1 select-none">+</span>
+                <span className="text-slate-400 text-lg font-medium mr-1 select-none">+</span>
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="ALA'ya sor..."
                   disabled={loading}
-                  className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm text-slate-800 dark:text-slate-100 flex-1 h-9 p-0 placeholder:text-slate-400"
+                  className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base md:text-lg text-slate-800 dark:text-slate-100 flex-1 h-10 md:h-11 p-0 placeholder:text-slate-400"
                 />
                 <Button 
                   type="submit" 
                   size="icon"
                   disabled={loading || !input.trim()}
-                  className="h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
+                  className="h-10 w-10 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  <Send className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
               </form>
 
@@ -278,14 +278,14 @@ function Page() {
                   if (!voice.session) voice.startSession();
                 }}
                 disabled={!voice.supported}
-                className={`h-11 w-11 rounded-full flex items-center justify-center border transition-all ${
+                className={`h-12 w-12 md:h-14 md:w-14 rounded-full flex items-center justify-center border transition-all ${
                   voice.session 
                     ? "bg-emerald-500 border-emerald-500 text-white animate-pulse" 
                     : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"
                 }`}
                 title="Sesli Konuşmayı Başlat"
               >
-                <Mic className="h-5 w-5" />
+                <Mic className="h-6 w-6 md:h-7 md:w-7" />
               </button>
 
               {/* Kapatma Butonu (Siyah X) */}
@@ -295,10 +295,10 @@ function Page() {
                   voice.stopSession();
                   setIsVoiceMode(false);
                 }}
-                className="h-11 w-11 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+                className="h-12 w-12 md:h-14 md:w-14 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
                 title="Geçmişe Dön"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
 
             </div>
