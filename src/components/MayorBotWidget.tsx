@@ -259,7 +259,7 @@ export function MayorBotWidget() {
                 processing={voice.processing}
                 speaking={voice.speaking}
                 disabled={!voice.supported}
-                size={84}
+                size={360}
                 onToggle={voice.toggleSession}
               />
             </div>

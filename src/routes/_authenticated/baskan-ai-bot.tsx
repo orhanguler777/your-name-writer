@@ -292,7 +292,7 @@ function Page() {
             processing={voice.processing}
             speaking={voice.speaking}
             disabled={!voice.supported}
-            size={116}
+            size={300}
             onToggle={voice.toggleSession}
           />
         </div>
