@@ -170,7 +170,7 @@ function Page() {
   };
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative">
+    <div className="h-screen flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative">
       
       {/* Üst Minimalist Nav Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-900 flex-shrink-0 z-20">

@@ -208,7 +208,7 @@ function AuthedLayout() {
             </div>
           </header>
         )}
-        <main className={`flex-1 overflow-x-hidden relative ${isBotRoute ? "p-0 h-screen" : "p-4 md:p-6"}`}>
+        <main className={`flex-1 overflow-x-hidden relative ${isBotRoute ? "p-0 h-screen bg-white dark:bg-slate-950" : "p-4 md:p-6"}`}>
           <Outlet />
         </main>
       </div>
