@@ -449,28 +449,27 @@ function DuyurularPage() {
               <Label className="text-slate-300">
                 Görsel, Video veya Belge Yükle (PDF, JPEG, MP4 vb.)
               </Label>
-              <div className="mt-1 flex justify-center rounded-lg border border-dashed border-slate-700 px-6 py-6 bg-slate-800/40 hover:bg-slate-800/60 transition-colors">
+              {/* Tüm alan tıklanabilir: ikon, yazı ve boşluklar dosya seçiciyi açar. */}
+              <label
+                htmlFor="file-upload"
+                className="group mt-1 flex cursor-pointer justify-center rounded-lg border border-dashed border-slate-700 px-6 py-6 bg-slate-800/40 hover:bg-slate-800/60 hover:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500 transition-colors"
+              >
                 <div className="text-center">
-                  <Upload className="mx-auto h-8 w-8 text-slate-400" />
-                  <div className="mt-2 flex text-sm text-slate-300">
-                    <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer rounded-md font-semibold text-indigo-400 hover:text-indigo-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500"
-                    >
-                      <span>Bir dosya seçin</span>
-                      <input
-                        id="file-upload"
-                        type="file"
-                        accept="image/*,video/*,application/pdf"
-                        onChange={handleFileChange}
-                        className="sr-only"
-                        ref={fileInputRef}
-                      />
-                    </label>
+                  <Upload className="mx-auto h-8 w-8 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+                  <div className="mt-2 text-sm font-semibold text-indigo-400 group-hover:text-indigo-300">
+                    Bir dosya seçin
                   </div>
                   <p className="text-xs text-slate-400 mt-1">Görsel, Video, PDF (maksimum 10MB)</p>
                 </div>
-              </div>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="image/*,video/*,application/pdf"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                  ref={fileInputRef}
+                />
+              </label>
               {file && (
                 <div className="mt-3 flex items-center justify-between p-2 rounded-md bg-slate-800 text-sm">
                   <div className="flex items-center gap-2 text-slate-200">
