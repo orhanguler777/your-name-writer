@@ -165,8 +165,8 @@ function Page() {
     if (voice.listening) return voice.interim || "Dinliyorum başkanım...";
     if (voice.processing || loading) return "Düşünüyorum...";
     if (voice.speaking) return "Konuşuyorum...";
-    if (voice.session) return "Oturum açık, konuşmaya başlayabilirsiniz";
-    return "Sesli sohbeti başlatmak için logoya dokunun";
+    if (voice.session) return "Başlamak için logoya veya mikrofona dokunun";
+    return "Sesli sohbet için logoya dokunun";
   };
 
   return (
@@ -275,7 +275,7 @@ function Page() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!voice.session) voice.startSession();
+                  voice.startSession();
                 }}
                 disabled={!voice.supported}
                 className={`h-12 w-12 md:h-14 md:w-14 rounded-full flex items-center justify-center border transition-all ${
