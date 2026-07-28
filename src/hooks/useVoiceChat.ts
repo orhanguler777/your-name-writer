@@ -150,9 +150,16 @@ export function useVoiceChat(opts: {
             if (!isStale()) setError("Ses çalınamadı.");
             done(false);
           };
-          // Otomatik oynatma engellenmiş olabilir: bu bir hata değil, çağıran
-          // taraf ilk kullanıcı dokunuşunda yeniden dener.
-          audio.play().catch(() => done(false));
+          // Otomatik oynatma engellenmiş olabilir. Karşılama okumasında bu
+          // normaldir (çağıran taraf ilk dokunuşta yeniden dener), ama sesli
+          // oturum sürerken ses hiç çıkmadan sessiz kalmamalı: tarayıcı
+          // yedeği kaldırıldığı için telafi edecek başka bir yol yok.
+          audio.play().catch(() => {
+            if (!isStale() && sessionRef.current) {
+              setError("Tarayıcı sesi engelledi. Sayfaya bir kez dokunup tekrar deneyin.");
+            }
+            done(false);
+          });
         });
       } catch (e: any) {
         setSpeaking(false);
@@ -329,7 +336,11 @@ export function useVoiceChat(opts: {
           silenceTimerRef.current = null;
           // Sessizlik süresi doldu — biriken transcript'i gönder.
           manualStop = true;
-          try { rec.stop(); } catch { /* yoksay */ }
+          try {
+            rec.stop();
+          } catch {
+            /* yoksay */
+          }
         }, SILENCE_TIMEOUT_MS);
       };
       rec.onerror = (ev: any) => {

@@ -39,9 +39,23 @@ export const askMayorBot = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getMayorSnapshot } = await import("@/lib/mayor-bot.snapshot.server");
 
-    const snapshot = await getMayorSnapshot(Date.now());
-    const { context, facts } = snapshot;
     const question = data.messages[data.messages.length - 1]?.content ?? "";
+
+    // Anlık görüntü veritabanından geliyor ve buradaki bir hata (ör. geçersiz
+    // service_role anahtarı) tüm fonksiyonu düşürüyordu: yerel özet yedeği de
+    // aynı verilere bağlı olduğu için hiç cevap üretilemiyor, kullanıcı sesli
+    // sohbette sebebi anlaşılmayan bir sessizlikle kalıyordu.
+    let snapshot: Awaited<ReturnType<typeof getMayorSnapshot>>;
+    try {
+      snapshot = await getMayorSnapshot(Date.now());
+    } catch (e) {
+      console.error("Mayor snapshot failed", e);
+      return {
+        answer:
+          "Başkanım, belediye verilerine şu anda erişemiyorum. Sistem yöneticisinin veritabanı bağlantısını kontrol etmesi gerekiyor.",
+      };
+    }
+    const { context, facts } = snapshot;
 
     const key = process.env.OPENAI_API_KEY;
     if (!key) {
