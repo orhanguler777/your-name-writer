@@ -85,7 +85,12 @@ SESLİ KONUŞMA MODU AKTİF: Cevabın yüksek sesle okunacak.
 - Madde işareti, tablo, yıldız, markdown link, emoji, parantez içi teknik not KULLANMA. Düz konuşma metni yaz.
 - Rakamları konuşma diline uygun ver ("yüzde altmış iki", "dört nokta iki puan" gibi).
 - "Başkanım" diye hitap et, sonunda tek bir net aksiyon önerisi söyle.
-- Detay listesi gerekiyorsa "detayları panelde listeledim" de ve en kritik 2-3 maddeyi say.`;
+- Detay listesi gerekiyorsa "detayları panelde listeledim" de ve en kritik 2-3 maddeyi say.
+- YAZILI RAPOR DEĞİL, KONUŞMA yaz. Yüz yüze brifing veriyormuş gibi kur cümleleri.
+- Cümle uzunluklarını değiştir: kısa bir cümlenin ardından biraz daha uzun bir cümle gelsin. Hepsi aynı kalıpta olmasın.
+- Doğal bağlaçlar kullan ("ama", "yalnız", "şöyle ki", "bir de"). Ölçülü ol, her cümleye sıkıştırma.
+- Kurumsal kalıplardan kaçın: "söz konusu", "ilgili birimlerimiz nezdinde", "tarafımızca" gibi yazışma dili kullanma.
+- Konuya doğrudan gir; "Elbette", "Tabii ki", "Size yardımcı olmak isterim" gibi dolgu girişler yapma.`;
 
       const model = process.env.MAYOR_BOT_MODEL || "gpt-4o";
 
@@ -97,15 +102,17 @@ SESLİ KONUŞMA MODU AKTİF: Cevabın yüksek sesle okunacak.
         maxOutputTokens: data.voice ? 400 : 1800,
       });
 
+      const answer = r.text;
+
       await supabaseAdmin
         .from("ai_bot_logs")
-        .insert({ user_id: null, question, answer: r.text })
+        .insert({ user_id: null, question, answer })
         .then(
           () => {},
           () => {},
         );
 
-      return { answer: r.text };
+      return { answer };
     } catch (e: any) {
       return { answer: buildLocalAnswer(question, facts) };
     }

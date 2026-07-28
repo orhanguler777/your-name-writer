@@ -3,6 +3,7 @@ import { generateSpeech, transcribe } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import { stripForSpeech } from "@/lib/speech-text";
+import { findVoiceOption } from "@/lib/voice-options";
 
 /* ------------------------------------------------------------------ */
 /* Konuşmayı metne çevirme (STT)                                       */
@@ -44,24 +45,76 @@ const SpeakInput = z.object({
   voice: z.string().optional(),
 });
 
+/**
+ * Sesin karakterini belirleyen yönlendirme. gpt-4o-mini-tts bu talimatı
+ * prosodiye (tempo, vurgu, duraklama, sıcaklık) uygular; kısa bir talimat
+ * düz/robotik, ayrıntılı bir talimat belirgin biçimde daha insani sonuç verir.
+ */
+const VOICE_INSTRUCTIONS = `Sen bir belediye başkanının kıdemli danışmanısın ve ona yüz yüze brifing veriyorsun. Yazılı metin okumuyorsun — karşındaki kişiyle konuşuyorsun.
+
+Kimlik ve ton: Orta yaşlı, deneyimli, kendinden emin. Sıcak ama ciddi. Asla neşeli bir sunucu ya da çağrı merkezi görevlisi gibi değil.
+
+Konuşma biçimi:
+- Anadili Türkçe olan biri gibi konuş. Yabancı aksanı, hece hece okuma, yapay tonlama olmasın.
+- Tempo orta-yavaş, sakin. Aceleci ya da tek düze değil.
+- Cümle içinde anlamlı yerlere kısa duraklar koy; cümle sonlarında biraz daha uzun nefes al.
+- Önemli rakamları ve sonuçları hafifçe vurgula, üzerinden hızla geçme.
+- Tonlamayı cümle boyunca doğal biçimde değiştir; her cümleyi aynı melodiyle bitirme.
+- Kötü bir tabloyu aktarırken tonun hafifçe ağırlaşsın, iyi bir gelişmede biraz açılsın. Abartma, ölçülü kal.
+- Sonundaki aksiyon önerisini net ve kararlı bir tonla söyle.
+
+Telaffuz: Türkçe'ye özgü sesleri (ı, ğ, ş, ç, ö, ü) tam ve doğru çıkar. Rakamları Türkçe okumayı ihmal etme.`;
+
+/**
+ * Varsayılan ses. "ash" ekspresif seslerden: ağırbaşlı ve sıcak, ton
+ * talimatlarına eski seslerden (alloy/onyx) çok daha iyi uyuyor ve Türkçe'de
+ * belirgin bir yabancı aksanı bırakmıyor.
+ */
+const FALLBACK_VOICE = "ash";
+
+/**
+ * İstemciden gelen ses kimliğini doğrular. Tanınmayan bir değer TTS çağrısını
+ * hataya düşürür, o yüzden bilinmeyen kimlikleri sessizce varsayılana çeviriyoruz.
+ */
+function resolveVoice(requested?: string): string {
+  const option =
+    (requested ? findVoiceOption(requested) : undefined) ??
+    (process.env.MAYOR_TTS_VOICE ? findVoiceOption(process.env.MAYOR_TTS_VOICE) : undefined);
+  return option?.id ?? FALLBACK_VOICE;
+}
+
 export const synthesizeSpeech = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => SpeakInput.parse(i))
   .handler(async ({ data }) => {
     if (!process.env.OPENAI_API_KEY) {
-      return { audioBase64: null as string | null, mediaType: null as string | null };
+      return {
+        audioBase64: null as string | null,
+        mediaType: null as string | null,
+        error: "OPENAI_API_KEY tanımlı değil." as string | null,
+      };
     }
     try {
       const r = await generateSpeech({
         model: openai.speech(process.env.MAYOR_TTS_MODEL || "gpt-4o-mini-tts"),
         text: stripForSpeech(data.text),
-        voice: data.voice || process.env.MAYOR_TTS_VOICE || "alloy",
+        voice: resolveVoice(data.voice),
         outputFormat: "mp3",
-        instructions:
-          "Türkçe konuş. Bir belediye başkanına brifing veren, sakin, kendinden emin ve saygılı bir danışman tonu kullan. Orta hızda, net telaffuz et.",
+        instructions: VOICE_INSTRUCTIONS,
       });
-      return { audioBase64: r.audio.base64, mediaType: r.audio.mediaType || "audio/mpeg" };
-    } catch {
-      // Tarayıcı tarafındaki speechSynthesis yedeğine düşmesi için null döndür.
-      return { audioBase64: null as string | null, mediaType: null as string | null };
+      return {
+        audioBase64: r.audio.base64,
+        mediaType: r.audio.mediaType || "audio/mpeg",
+        error: null as string | null,
+      };
+    } catch (e: any) {
+      // Hatayı yutmayıp logluyoruz: yedeğe düşüldüğünde kullanıcı "seçtiğim ses
+      // konuşmuyor" diyor ve sebebi görünmez oluyordu.
+      console.error("TTS failed", e);
+      // İstemci yanlış bir sesle konuşmak yerine sessiz kalıp hatayı gösterir.
+      return {
+        audioBase64: null as string | null,
+        mediaType: null as string | null,
+        error: (e?.message as string) ?? "Ses üretilemedi.",
+      };
     }
   });

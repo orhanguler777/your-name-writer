@@ -9,6 +9,7 @@ import { Bot, Loader2, Send, User, Volume2, VolumeX, Square } from "lucide-react
 import { askMayorBot } from "@/lib/mayor-bot.functions";
 import { useVoiceChat } from "@/hooks/useVoiceChat";
 import { VoiceTalkButton } from "@/components/VoiceTalkButton";
+import { getVoiceLabel } from "@/lib/voice-options";
 
 export const Route = createFileRoute("/_authenticated/baskan-ai-bot")({
   ssr: false,
@@ -239,7 +240,8 @@ function Page() {
                 ) : (
                   <VolumeX className="mr-1 h-3 w-3" />
                 )}
-                Sesli cevap {voice.autoSpeak ? "açık" : "kapalı"}
+                Sesli cevap {voice.autoSpeak ? "açık" : "kapalı"} ·{" "}
+                {getVoiceLabel(voice.activeVoice)}
               </Button>
               <Button
                 type="button"

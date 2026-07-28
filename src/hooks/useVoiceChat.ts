@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { synthesizeSpeech, transcribeSpeech } from "@/lib/voice.functions";
 import { stripForSpeech } from "@/lib/speech-text";
+import { getSelectedVoice } from "@/lib/voice-options";
 
 type Recognition = any;
 
@@ -22,8 +23,8 @@ function getRecognitionCtor(): any | null {
  * Dinleme: öncelik tarayıcının Web Speech API'si (canlı yazıya döker, gecikmesiz).
  * Desteklenmiyorsa MediaRecorder ile kaydedip sunucudaki OpenAI transkripsiyonuna gönderir.
  *
- * Konuşma: öncelik OpenAI TTS (doğal Türkçe). Anahtar yok veya hata varsa
- * tarayıcının speechSynthesis'i (tr-TR) yedek olarak devreye girer.
+ * Konuşma: OpenAI TTS, kullanıcının Ayarlar'dan seçtiği sesle. Ses üretilemezse
+ * yanlış bir sesle konuşmamak için sessiz kalır ve sebebini `error` ile bildirir.
  */
 export function useVoiceChat(opts: {
   /**
@@ -43,6 +44,8 @@ export function useVoiceChat(opts: {
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  /** Aktif olarak konuşulan ses — arayüzde göstermek için. */
+  const [activeVoice, setActiveVoice] = useState(getSelectedVoice);
 
   const recRef = useRef<Recognition | null>(null);
   const finalRef = useRef("");
@@ -78,7 +81,7 @@ export function useVoiceChat(opts: {
 
   const stopSpeaking = useCallback(() => {
     // Jenerasyonu ilerlet: sürmekte olan okumanın geri çağrıları geçersiz olur,
-    // böylece kesilen bir okuma yedek sese düşüp aynı metni ikinci kez okumaz.
+    // böylece kesilen bir okumanın 'error' olayı hata mesajı göstermez.
     speakGen.current += 1;
     const audio = audioRef.current;
     if (audio) {
@@ -88,9 +91,6 @@ export function useVoiceChat(opts: {
       audio.pause();
       audioRef.current = null;
     }
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
     // Bekleyen okuma promise'ini kapat, yoksa await eden taraf sonsuza kadar bekler.
     const pending = speakDoneRef.current;
     speakDoneRef.current = null;
@@ -99,50 +99,14 @@ export function useVoiceChat(opts: {
   }, []);
 
   /**
-   * Tarayıcı yedeği. Okuma bitince çözülür.
-   * Dönen değer: ses gerçekten çalabildi mi (tarayıcı otomatik oynatmayı engellemediyse).
-   */
-  const browserSpeak = useCallback((text: string, isStale: () => boolean) => {
-    return new Promise<boolean>((resolve) => {
-      if (typeof window === "undefined" || !window.speechSynthesis) return resolve(false);
-      if (isStale()) return resolve(false);
-      const synth = window.speechSynthesis;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "tr-TR";
-      u.rate = 1.02;
-      const trVoice = synth.getVoices().find((v) => v.lang?.startsWith("tr"));
-      if (trVoice) u.voice = trVoice;
-      let started = false;
-      let settled = false;
-      const done = (v: boolean) => {
-        if (settled) return;
-        settled = true;
-        if (speakDoneRef.current === done) speakDoneRef.current = null;
-        setSpeaking(false);
-        resolve(v);
-      };
-      speakDoneRef.current = done;
-      u.onstart = () => {
-        started = true;
-      };
-      u.onend = () => done(true);
-      u.onerror = () => done(started);
-      setSpeaking(true);
-      synth.speak(u);
-      // Hiç başlamadıysa otomatik oynatma engellenmiş demektir; vazgeç.
-      setTimeout(() => {
-        if (!started && !synth.speaking && !synth.pending) {
-          synth.cancel();
-          done(false);
-        }
-      }, 1200);
-    });
-  }, []);
-
-  /**
-   * Metni sesli okur; okuma bitince çözülür.
+   * Metni, kullanıcının Ayarlar'dan seçtiği sesle okur; okuma bitince çözülür.
    * Dönen değer: ses çalabildi mi. false ise tarayıcı otomatik oynatmayı
    * engellemiştir — çağıran taraf ilk kullanıcı dokunuşunda tekrar deneyebilir.
+   *
+   * Bilinçli olarak tarayıcının speechSynthesis'ine düşmüyoruz: sistem sesi
+   * (macOS'ta tr-TR için "Yelda") seçilen sesle ilgisiz olduğundan, kullanıcı
+   * erkek ses seçtiğinde bile kadın bir ses duyuyor ve seçim bozuk sanıyordu.
+   * Ses üretilemezse yanlış bir sesle konuşmak yerine sebebini bildiriyoruz.
    *
    * Aynı anda tek bir okuma çalar: yeni bir çağrı ya da stopSpeaking()
    * öncekini geçersiz kılar, iki sesin üst üste binmesi mümkün değildir.
@@ -156,44 +120,48 @@ export function useVoiceChat(opts: {
       const isStale = () => gen !== speakGen.current;
       setSpeaking(true);
       try {
-        const r = await speak({ data: { text: clean } });
+        // Ses her seferinde okunur: kullanıcı Ayarlar'dan değiştirdiğinde
+        // sayfayı yenilemeye gerek kalmadan bir sonraki cevapta geçerli olur.
+        const voice = getSelectedVoice();
+        setActiveVoice(voice);
+        const r = await speak({ data: { text: clean, voice } });
         if (isStale()) return false;
-        if (r.audioBase64) {
-          const audio = new Audio(`data:${r.mediaType ?? "audio/mpeg"};base64,${r.audioBase64}`);
-          audioRef.current = audio;
-          return await new Promise<boolean>((resolve) => {
-            let settled = false;
-            const done = (v: boolean) => {
-              if (settled) return;
-              settled = true;
-              if (speakDoneRef.current === done) speakDoneRef.current = null;
-              audio.onended = null;
-              audio.onerror = null;
-              resolve(v);
-            };
-            speakDoneRef.current = done;
-            // OpenAI sesi çalamazsa yalnızca hâlâ güncelsek tarayıcı sesine düş.
-            const fallback = () => {
-              setSpeaking(false);
-              if (isStale()) return done(false);
-              void browserSpeak(clean, isStale).then(done);
-            };
-            audio.onended = () => {
-              setSpeaking(false);
-              done(true);
-            };
-            audio.onerror = fallback;
-            audio.play().catch(fallback);
-          });
+        if (!r.audioBase64) {
+          setSpeaking(false);
+          setError(r.error ?? "Seçtiğiniz ses üretilemedi, sesli cevap verilemiyor.");
+          return false;
         }
-      } catch {
-        /* yedeğe düş */
+        const audio = new Audio(`data:${r.mediaType ?? "audio/mpeg"};base64,${r.audioBase64}`);
+        audioRef.current = audio;
+        return await new Promise<boolean>((resolve) => {
+          let settled = false;
+          const done = (v: boolean) => {
+            if (settled) return;
+            settled = true;
+            if (speakDoneRef.current === done) speakDoneRef.current = null;
+            audio.onended = null;
+            audio.onerror = null;
+            setSpeaking(false);
+            resolve(v);
+          };
+          speakDoneRef.current = done;
+          audio.onended = () => done(true);
+          audio.onerror = () => {
+            if (!isStale()) setError("Ses çalınamadı.");
+            done(false);
+          };
+          // Otomatik oynatma engellenmiş olabilir: bu bir hata değil, çağıran
+          // taraf ilk kullanıcı dokunuşunda yeniden dener.
+          audio.play().catch(() => done(false));
+        });
+      } catch (e: any) {
+        setSpeaking(false);
+        if (isStale()) return false;
+        setError(e?.message ?? "Sesli cevap üretilemedi.");
+        return false;
       }
-      setSpeaking(false);
-      if (isStale()) return false;
-      return await browserSpeak(clean, isStale);
     },
-    [speak, stopSpeaking, browserSpeak],
+    [speak, stopSpeaking],
   );
 
   /* ------------------------- DİNLEME (STT) ------------------------- */
@@ -433,7 +401,6 @@ export function useVoiceChat(opts: {
       }
       if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
       if (audioRef.current) audioRef.current.pause();
-      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     },
     [],
   );
@@ -448,6 +415,7 @@ export function useVoiceChat(opts: {
     error,
     autoSpeak,
     setAutoSpeak,
+    activeVoice,
     startSession,
     stopSession,
     toggleSession,

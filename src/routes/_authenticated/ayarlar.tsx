@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { getBotSettings, updateBotSettings } from "@/lib/ai.functions";
 import { RolePermissionsMatrixManager } from "@/components/RolePermissionsMatrixManager";
 import { UserRoleAssignerManager } from "@/components/UserRoleAssignerManager";
+import { VoiceSettingsCard } from "@/components/VoiceSettingsCard";
 
 export const Route = createFileRoute("/_authenticated/ayarlar")({
   ssr: false,
@@ -149,40 +150,44 @@ function Page() {
     <div>
       <PageHeader title="Ayarlar" description="Profil bilgilerinizi güncelleyin." />
       <div className="grid gap-4 lg:grid-cols-2 max-w-4xl">
-        <Card className="p-5 space-y-3">
-          <h3 className="font-display font-semibold mb-2">Profil</h3>
-          <div>
-            <Label>E-posta</Label>
-            <Input value={profile?.email ?? ""} disabled />
-          </div>
-          <div>
-            <Label>Ad Soyad</Label>
-            <Input value={full_name} onChange={(e) => setFullName(e.target.value)} />
-          </div>
-          <div>
-            <Label>Telefon</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div>
-            <Label>Müdürlük (opsiyonel)</Label>
-            <select
-              value={dept}
-              onChange={(e) => setDept(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">— Seçilmedi —</option>
-              {departments?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Müdürlük rolündeyseniz, atandığınız müdürlüğü seçin.
-            </p>
-          </div>
-          <Button onClick={save}>Kaydet</Button>
-        </Card>
+        <div className="space-y-4">
+          <Card className="p-5 space-y-3">
+            <h3 className="font-display font-semibold mb-2">Profil</h3>
+            <div>
+              <Label>E-posta</Label>
+              <Input value={profile?.email ?? ""} disabled />
+            </div>
+            <div>
+              <Label>Ad Soyad</Label>
+              <Input value={full_name} onChange={(e) => setFullName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Telefon</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <Label>Müdürlük (opsiyonel)</Label>
+              <select
+                value={dept}
+                onChange={(e) => setDept(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Seçilmedi —</option>
+                {departments?.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Müdürlük rolündeyseniz, atandığınız müdürlüğü seçin.
+              </p>
+            </div>
+            <Button onClick={save}>Kaydet</Button>
+          </Card>
+
+          <VoiceSettingsCard />
+        </div>
 
         <div className="space-y-4">
           <Card className="p-5">
