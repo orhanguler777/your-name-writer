@@ -182,12 +182,10 @@ function Page() {
   };
 
   // Can create message: SuperUser, Baskan, Baskan Yardımcısı, Admin or Department Managers (Müdür)
+  // Not: "admin" rolü useAuth içinde "superuser"a normalize edilir, ayrıca aranmaz.
   const isManager = primaryRole === "mudur" || primaryRole === "mudurluk";
   const isExecutive =
-    primaryRole === "baskan" ||
-    primaryRole === "baskan_yardimcisi" ||
-    primaryRole === "superuser" ||
-    primaryRole === "admin";
+    primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser";
   const canCreate = isExecutive || isManager;
 
   return (

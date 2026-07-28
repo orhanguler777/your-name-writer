@@ -49,7 +49,6 @@ export function useAuth() {
       const PROFILE_COLS = "id, full_name, email, phone, department_id";
       const [{ data: r }, profileRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-        // departments.modules henüz eklenmemiş olabilir; hata olursa modülsüz tekrar denenir
         supabase
           .from("profiles")
           .select(`${PROFILE_COLS}, departments(name, modules)`)
@@ -57,15 +56,10 @@ export function useAuth() {
           .maybeSingle(),
       ]);
 
-      let p = profileRes.data;
-      if (profileRes.error) {
-        const fallback = await supabase
-          .from("profiles")
-          .select(`${PROFILE_COLS}, departments(name)`)
-          .eq("id", sess.user.id)
-          .maybeSingle();
-        p = fallback.data;
-      }
+      // departments.modules kolonu 20260725160100_department_modules ile eklendi
+      // ve canlıda mevcut; eskiden buradaki "modülsüz tekrar dene" yedeği
+      // kolon yoksa diye vardı, artık gereksiz ve dönen tipi bozuyordu.
+      const p = profileRes.data;
 
       if (!mounted) return;
       setRoles(((r ?? []) as { role: AppRole }[]).map((x) => x.role));

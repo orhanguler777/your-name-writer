@@ -61,56 +61,90 @@ Sadece geçerli JSON döndür (başka metin yok):
     }
   });
 
+/**
+ * Ayarların varsayılanları. Tabloda henüz bir anahtar yoksa bunlar geçerli olur.
+ */
+const SETTINGS_DEFAULTS = {
+  selfChatOnly: true,
+  koksalChatOnly: false,
+  slaLimitHours: 120,
+  crisisLimitHours: 1,
+  crisisLimitCount: 4,
+  zabitaInspectionThresholdDays: 30,
+  dedupEnabled: true,
+  dedupWindowHours: 72,
+  voiceReplyEnabled: true,
+  voiceReplyVoice: "nova",
+};
+
+export type BotSettings = typeof SETTINGS_DEFAULTS;
+
+/**
+ * Yazılabilir alanlar. Buraya eklenmeyen bir anahtar Zod tarafından sessizce
+ * atılır; eskiden zabitaInspectionThresholdDays listede olmadığı için
+ * kullanıcıya "kaydedildi" denip değer hiç yazılmıyordu.
+ */
+const SettingsInput = z
+  .object({
+    selfChatOnly: z.boolean().optional(),
+    koksalChatOnly: z.boolean().optional(),
+    slaLimitHours: z.number().int().positive().optional(),
+    crisisLimitHours: z.number().int().positive().optional(),
+    crisisLimitCount: z.number().int().positive().optional(),
+    zabitaInspectionThresholdDays: z.number().int().positive().optional(),
+    dedupEnabled: z.boolean().optional(),
+    dedupWindowHours: z.number().int().positive().optional(),
+    voiceReplyEnabled: z.boolean().optional(),
+    voiceReplyVoice: z.string().min(1).max(40).optional(),
+  })
+  .strict();
+
+/**
+ * Ayarlar Supabase'de tek satırlı app_settings tablosunda tutulur.
+ * Daha önce whatsapp-bot/bot-settings.json dosyasına yazılıyordu; web
+ * uygulaması Cloudflare üzerinde çalıştığı ve orada yazılabilir dosya sistemi
+ * bulunmadığı için panelden yapılan değişiklikler canlıda kalıcı olmuyordu.
+ */
 export const getBotSettings = createServerFn({ method: "GET" }).handler(async () => {
-  const fs = await import("fs");
-  const path = await import("path");
-  const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
-  const defaults = {
-    selfChatOnly: true,
-    koksalChatOnly: false,
-    slaLimitHours: 120,
-    crisisLimitHours: 1,
-    crisisLimitCount: 4,
-    zabitaInspectionThresholdDays: 30,
-  };
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   try {
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, "utf-8");
-      return { ...defaults, ...JSON.parse(data) };
-    }
+    const { data, error } = await supabaseAdmin
+      .from("app_settings")
+      .select("settings")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    return { ...SETTINGS_DEFAULTS, ...((data?.settings as Partial<BotSettings>) ?? {}) };
   } catch (e) {
-    console.error("Failed to read bot settings", e);
+    console.error("Failed to read app settings", e);
+    return SETTINGS_DEFAULTS;
   }
-  return defaults;
 });
 
 export const updateBotSettings = createServerFn({ method: "POST" })
-  .inputValidator((input: any) =>
-    z
-      .object({
-        selfChatOnly: z.boolean().optional(),
-        koksalChatOnly: z.boolean().optional(),
-        slaLimitHours: z.number().optional(),
-        crisisLimitHours: z.number().optional(),
-        crisisLimitCount: z.number().optional(),
-      })
-      .parse(input),
-  )
+  .inputValidator((input: unknown) => SettingsInput.parse(input))
   .handler(async ({ data }) => {
-    const fs = await import("fs");
-    const path = await import("path");
-    const settingsPath = path.resolve("./whatsapp-bot/bot-settings.json");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     try {
-      let existing: any = {};
-      if (fs.existsSync(settingsPath)) {
-        existing = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      }
-      const updated = { ...existing, ...data };
-      fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2));
-      return { success: true };
+      // Mevcut değerlerin üzerine yaz: gelen nesne yalnızca değişen alanları
+      // taşıyor, tek alan güncellemesi diğerlerini silmemeli.
+      const { data: row, error: readError } = await supabaseAdmin
+        .from("app_settings")
+        .select("settings")
+        .eq("id", 1)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      const merged = { ...((row?.settings as Partial<BotSettings>) ?? {}), ...data };
+      const { error: writeError } = await supabaseAdmin
+        .from("app_settings")
+        .upsert({ id: 1, settings: merged, updated_at: new Date().toISOString() });
+      if (writeError) throw writeError;
+
+      return { success: true, error: null as string | null };
     } catch (e: any) {
-      console.error("Failed to write bot settings", e);
-      return { success: false, error: e.message };
+      console.error("Failed to write app settings", e);
+      return { success: false, error: (e?.message as string) ?? "Ayarlar kaydedilemedi." };
     }
   });
 
@@ -230,7 +264,8 @@ export const generateDashboardInsight = createServerFn({ method: "POST" })
     const key = process.env.OPENAI_API_KEY;
     const s = data.stats;
     const fallback = buildFallbackInsight(data.role, s);
-    const isExecutive = data.role === "baskan" || data.role === "admin" || data.role === "superuser";
+    const isExecutive =
+      data.role === "baskan" || data.role === "admin" || data.role === "superuser";
 
     if (!key) return { insight: fallback };
 

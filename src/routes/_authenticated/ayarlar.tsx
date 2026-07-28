@@ -33,8 +33,9 @@ function Page() {
   const updateSettings = useServerFn(updateBotSettings);
   const [selfChatOnly, setSelfChatOnly] = useState(true);
 
-  const isBaskanOrAdmin =
-    primaryRole === "baskan" || primaryRole === "admin" || primaryRole === "superuser";
+  // "admin" rolü useAuth içinde "superuser"a normalize edilir; primaryRole
+  // asla "admin" dönmez, o yüzden burada ayrıca aranmıyor.
+  const isBaskanOrAdmin = primaryRole === "baskan" || primaryRole === "superuser";
   const [koksalChatOnly, setKoksalChatOnly] = useState(false);
   const [slaLimitHours, setSlaLimitHours] = useState(120);
   const [crisisLimitHours, setCrisisLimitHours] = useState(1);
@@ -323,7 +324,7 @@ function Page() {
       </div>
 
       {/* SuperUser / Admin Dynamic Role Permission & User Assignment Section */}
-      {(primaryRole === "superuser" || primaryRole === "admin") && (
+      {primaryRole === "superuser" && (
         <div className="mt-8 max-w-6xl space-y-8">
           <UserRoleAssignerManager />
           <RolePermissionsMatrixManager />

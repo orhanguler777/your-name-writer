@@ -202,25 +202,63 @@ function toWhatsappJid(phone) {
   return `${clean}@s.whatsapp.net`;
 }
 
-// Bot ayarlarını json dosyasından yükler
-function getBotSettings() {
-  const defaults = {
-    selfChatOnly: true,
-    koksalChatOnly: false,
-    slaLimitHours: 120,
-    crisisLimitHours: 1,
-    crisisLimitCount: 4,
-  };
+const SETTINGS_DEFAULTS = {
+  selfChatOnly: true,
+  koksalChatOnly: false,
+  slaLimitHours: 120,
+  crisisLimitHours: 1,
+  crisisLimitCount: 4,
+  zabitaInspectionThresholdDays: 30,
+  dedupEnabled: true,
+  dedupWindowHours: 72,
+  voiceReplyEnabled: true,
+  voiceReplyVoice: "nova",
+};
+
+/**
+ * Ayarların tek doğruluk kaynağı Supabase'deki app_settings tablosu — panel de
+ * oraya yazıyor. Bot uzun süre çalışan bir süreç olduğu ve getBotSettings()
+ * senkron biçimde onlarca yerde çağrıldığı için değerler bellekte tutulup
+ * arka planda periyodik yenilenir.
+ */
+let settingsCache = { ...SETTINGS_DEFAULTS };
+
+/** Supabase okunamazsa (ağ/erişim hatası) eski json dosyası yedek olarak kullanılır. */
+function readSettingsFromDisk() {
   try {
     const settingsPath = path.join(__dirname, "bot-settings.json");
     if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, "utf-8");
-      return { ...defaults, ...JSON.parse(data) };
+      return JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
     }
   } catch (e) {
-    // ignore
+    // yoksay
   }
-  return defaults;
+  return null;
+}
+
+async function refreshBotSettings() {
+  try {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("settings")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    settingsCache = { ...SETTINGS_DEFAULTS, ...(data?.settings || {}) };
+  } catch (e) {
+    const disk = readSettingsFromDisk();
+    if (disk) settingsCache = { ...SETTINGS_DEFAULTS, ...disk };
+    console.error("Bot ayarları Supabase'den okunamadı, yedeğe düşüldü:", e?.message || e);
+  }
+}
+
+// Açılışta bir kez, sonra panelden yapılan değişiklikler yakalanabilsin diye periyodik.
+refreshBotSettings();
+setInterval(refreshBotSettings, 30_000);
+
+// Bot ayarlarını bellekteki güncel kopyadan verir.
+function getBotSettings() {
+  return settingsCache;
 }
 
 // Geliştirici/Test modu ayarı kontrolü

@@ -76,11 +76,9 @@ function Panel() {
   const deptId = profile?.department_id;
   // Birim yönetimi: müdür ve şef kendi biriminin verisini/analitiğini görür
   const isMudurluk = primaryRole === "mudurluk" || primaryRole === "mudur" || primaryRole === "sef";
+  // "admin" rolü useAuth içinde "superuser"a normalize edilir, ayrıca aranmaz.
   const isBaskanOrAdmin =
-    primaryRole === "baskan" ||
-    primaryRole === "baskan_yardimcisi" ||
-    primaryRole === "superuser" ||
-    primaryRole === "admin";
+    primaryRole === "baskan" || primaryRole === "baskan_yardimcisi" || primaryRole === "superuser";
   const isZabitaMemuru = isFieldStaff; // birim görevlisi: personel veya zabıta memuru
   const isZabitaMudur =
     primaryRole === "mudur" ||
