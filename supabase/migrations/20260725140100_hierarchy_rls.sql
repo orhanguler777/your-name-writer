@@ -94,6 +94,12 @@ DROP POLICY IF EXISTS "Allow read access to admin and zabita" ON public.workplac
 DROP POLICY IF EXISTS "Allow insert access to admin and zabita" ON public.workplace_inspections;
 DROP POLICY IF EXISTS "Allow update access to admin and zabita" ON public.workplace_inspections;
 
+-- Aşağıdaki adlar canlıda elle oluşturulmuş olabilir; CREATE tek başına
+-- "already exists" ile patlayıp migration'ı geri alıyordu.
+DROP POLICY IF EXISTS "workplace_inspections_select" ON public.workplace_inspections;
+DROP POLICY IF EXISTS "workplace_inspections_insert" ON public.workplace_inspections;
+DROP POLICY IF EXISTS "workplace_inspections_update" ON public.workplace_inspections;
+
 CREATE POLICY "workplace_inspections_select" ON public.workplace_inspections FOR SELECT TO authenticated
 USING (
   public.has_role(auth.uid(), 'admin')
