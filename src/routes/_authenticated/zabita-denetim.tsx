@@ -48,8 +48,10 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/zabita-denetim")({
   ssr: false,
-  // Karekod okutulduğunda "Yeniden Denetle" ile işyeri adı ön dolu gelir
-  validateSearch: (search: Record<string, unknown>) => ({
+  // Karekod okutulduğunda "Yeniden Denetle" ile işyeri adı ön dolu gelir.
+  // Dönüş tipi açıkça opsiyonel: aksi hâlde anahtar zorunlu sayılıp bu rotaya
+  // giden her <Link> search={{ isyeri: undefined }} yazmaya mecbur kalıyordu.
+  validateSearch: (search: Record<string, unknown>): { isyeri?: string } => ({
     isyeri: typeof search.isyeri === "string" ? search.isyeri : undefined,
   }),
   component: () => (

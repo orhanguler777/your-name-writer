@@ -179,7 +179,10 @@ function DuyurularPage() {
   });
 
   // Broadcast Modal State
-  const [broadcastAnn, setBroadcastAnn] = useState<Record<string, unknown> | null>(null);
+  // Yayın diyaloğunda yalnızca bu iki alan kullanılıyor. Record<string, unknown>
+  // olarak tutulduğunda title JSX'e konamıyor (unknown) ve id için her yerde
+  // cast gerekiyordu.
+  const [broadcastAnn, setBroadcastAnn] = useState<{ id: string; title: string } | null>(null);
   const [broadcastTargetMode, setBroadcastTargetMode] = useState<
     "all" | "segment" | "neighborhood" | "custom"
   >("all");
@@ -977,6 +980,9 @@ function DuyurularPage() {
                   (hoodPhonesLoading || hoodTargetPhones.length === 0))
               }
               onClick={() => {
+                // Diyalog yalnızca broadcastAnn doluyken açık, ama tip düzeyinde
+                // garanti değil; erken çıkışla null erişimi kapatıyoruz.
+                if (!broadcastAnn) return;
                 let targetPhonesToSubmit: string[] | undefined = undefined;
 
                 if (broadcastTargetMode === "segment") {
@@ -990,7 +996,7 @@ function DuyurularPage() {
                 }
 
                 broadcastMutation.mutate({
-                  id: broadcastAnn.id as string,
+                  id: broadcastAnn.id,
                   phones: targetPhonesToSubmit,
                 });
               }}
