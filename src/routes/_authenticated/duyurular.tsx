@@ -12,6 +12,11 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchCitizensData } from "@/lib/ai.functions";
 import {
+  fetchNeighborhoodSegments,
+  fetchPhonesByNeighborhoods,
+  type NeighborhoodSegment,
+} from "@/lib/citizens.functions";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -47,6 +52,7 @@ import {
   Globe,
   Filter,
   Search,
+  MapPin,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/duyurular")({
@@ -174,20 +180,46 @@ function DuyurularPage() {
 
   // Broadcast Modal State
   const [broadcastAnn, setBroadcastAnn] = useState<Record<string, unknown> | null>(null);
-  const [broadcastTargetMode, setBroadcastTargetMode] = useState<"all" | "segment" | "custom">(
-    "all",
-  );
+  const [broadcastTargetMode, setBroadcastTargetMode] = useState<
+    "all" | "segment" | "neighborhood" | "custom"
+  >("all");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedHoodIds, setSelectedHoodIds] = useState<string[]>([]);
+  const [hoodSearch, setHoodSearch] = useState("");
 
   const getCitizens = useServerFn(fetchCitizensData);
+  const getHoodSegments = useServerFn(fetchNeighborhoodSegments);
+  const getPhonesByHoods = useServerFn(fetchPhonesByNeighborhoods);
 
   const { data: citizens = [] } = useQuery({
     queryKey: ["citizens-broadcast-data"],
     queryFn: () => getCitizens({ data: {} }),
     enabled: !!broadcastAnn,
   });
+
+  // Mahalle segmentleri: yalnızca vatandaşı olan mahalleler hedeflenebilir.
+  const { data: hoodSegments = [] } = useQuery<NeighborhoodSegment[]>({
+    queryKey: ["neighborhood-segments"],
+    queryFn: () => getHoodSegments({}),
+    enabled: !!broadcastAnn,
+  });
+
+  // Seçilen mahallelerin tekilleştirilmiş telefon listesi (aynı vatandaş birden
+  // çok mahallede olabilir, sayıyı şişirmemek için sunucudan tekil alıyoruz).
+  const { data: hoodPhones, isFetching: hoodPhonesLoading } = useQuery({
+    queryKey: ["neighborhood-phones", selectedHoodIds],
+    queryFn: () => getPhonesByHoods({ data: { neighborhoodIds: selectedHoodIds } }),
+    enabled: broadcastTargetMode === "neighborhood" && selectedHoodIds.length > 0,
+  });
+  const hoodTargetPhones = hoodPhones?.phones ?? [];
+
+  const filteredHoods = hoodSegments.filter((h) =>
+    hoodSearch.trim()
+      ? h.name.toLocaleLowerCase("tr").includes(hoodSearch.toLocaleLowerCase("tr"))
+      : true,
+  );
 
   // Filtered citizens for modal selection
   const filteredCitizens = citizens.filter((c: Record<string, unknown>) => {
@@ -660,7 +692,7 @@ function DuyurularPage() {
 
           <div className="space-y-4 py-3">
             {/* Mode selection cards */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setBroadcastTargetMode("all")}
@@ -689,6 +721,21 @@ function DuyurularPage() {
                   <Globe className="h-3.5 w-3.5" /> Dil / Segment
                 </div>
                 <div className="text-[11px] opacity-75">Belli dildeki vatandaşlara</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastTargetMode("neighborhood")}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  broadcastTargetMode === "neighborhood"
+                    ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                    : "border-slate-800 bg-slate-800/40 text-slate-400 hover:bg-slate-800/80"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs mb-1">
+                  <MapPin className="h-3.5 w-3.5" /> Mahalle
+                </div>
+                <div className="text-[11px] opacity-75">Seçilen mahallelere</div>
               </button>
 
               <button
@@ -728,6 +775,84 @@ function DuyurularPage() {
                   Bu kritere uyan toplam{" "}
                   <strong className="text-emerald-400">{filteredCitizens.length}</strong> vatandaş
                   hedeflenecek.
+                </p>
+              </div>
+            )}
+
+            {/* Neighborhood Selection */}
+            {broadcastTargetMode === "neighborhood" && (
+              <div className="space-y-2 p-3 bg-slate-800/50 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs text-slate-300">Hedef Mahalleleri Seçin:</Label>
+                  {selectedHoodIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHoodIds([])}
+                      className="text-[11px] text-slate-400 hover:text-white underline"
+                    >
+                      Seçimi temizle
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                  <Input
+                    placeholder="Mahalle ara... (örn. Kadıpaşa)"
+                    value={hoodSearch}
+                    onChange={(e) => setHoodSearch(e.target.value)}
+                    className="pl-8 bg-slate-900 border-slate-700 text-xs text-white"
+                  />
+                </div>
+
+                <div className="max-h-52 overflow-y-auto rounded-md border border-slate-800 divide-y divide-slate-800/70">
+                  {filteredHoods.length === 0 && (
+                    <div className="p-3 text-[11px] text-slate-500">Mahalle bulunamadı.</div>
+                  )}
+                  {filteredHoods.map((h) => {
+                    const checked = selectedHoodIds.includes(h.id);
+                    const empty = h.citizenCount === 0;
+                    return (
+                      <label
+                        key={h.id}
+                        className={`flex items-center gap-2 px-2.5 py-2 text-xs ${
+                          empty
+                            ? "opacity-45 cursor-not-allowed"
+                            : "cursor-pointer hover:bg-slate-800/60"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          disabled={empty}
+                          onCheckedChange={(v) =>
+                            setSelectedHoodIds((prev) =>
+                              v ? [...prev, h.id] : prev.filter((id) => id !== h.id),
+                            )
+                          }
+                        />
+                        <span className="flex-1 text-slate-200">{h.name}</span>
+                        <span
+                          className={`text-[10px] ${empty ? "text-slate-600" : "text-emerald-400"}`}
+                        >
+                          {empty ? "kayıtlı vatandaş yok" : `${h.citizenCount} vatandaş`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[11px] text-slate-400">
+                  {selectedHoodIds.length === 0 ? (
+                    "Henüz mahalle seçilmedi."
+                  ) : hoodPhonesLoading ? (
+                    "Alıcılar hesaplanıyor..."
+                  ) : (
+                    <>
+                      {selectedHoodIds.length} mahalle seçildi, toplam{" "}
+                      <strong className="text-emerald-400">{hoodTargetPhones.length}</strong>{" "}
+                      vatandaş hedeflenecek. Birden çok mahalleye kayıtlı vatandaşlar tek sayılır.
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -848,7 +973,9 @@ function DuyurularPage() {
               type="button"
               disabled={
                 broadcastMutation.isPending ||
-                (broadcastTargetMode === "custom" && selectedPhones.length === 0)
+                (broadcastTargetMode === "custom" && selectedPhones.length === 0) ||
+                (broadcastTargetMode === "neighborhood" &&
+                  (hoodPhonesLoading || hoodTargetPhones.length === 0))
               }
               onClick={() => {
                 let targetPhonesToSubmit: string[] | undefined = undefined;
@@ -857,6 +984,8 @@ function DuyurularPage() {
                   targetPhonesToSubmit = filteredCitizens.map(
                     (c: Record<string, unknown>) => c.phone as string,
                   );
+                } else if (broadcastTargetMode === "neighborhood") {
+                  targetPhonesToSubmit = hoodTargetPhones;
                 } else if (broadcastTargetMode === "custom") {
                   targetPhonesToSubmit = selectedPhones;
                 }
@@ -877,7 +1006,9 @@ function DuyurularPage() {
                 ? "Tüm Vatandaşlara Gönder"
                 : broadcastTargetMode === "segment"
                   ? `${filteredCitizens.length} Vatandaşa Gönder`
-                  : `${selectedPhones.length} Kişiye Gönder`}
+                  : broadcastTargetMode === "neighborhood"
+                    ? `${hoodTargetPhones.length} Vatandaşa Gönder`
+                    : `${selectedPhones.length} Kişiye Gönder`}
             </Button>
           </DialogFooter>
         </DialogContent>
