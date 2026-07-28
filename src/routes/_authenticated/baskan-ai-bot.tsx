@@ -1,15 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { PageHeader } from "@/components/panel-primitives";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Loader2, Send, User, Volume2, VolumeX, Square } from "lucide-react";
+import { Bot, Loader2, Send, User, Volume2, Mic, X } from "lucide-react";
 import { askMayorBot } from "@/lib/mayor-bot.functions";
 import { useVoiceChat } from "@/hooks/useVoiceChat";
 import { VoiceTalkButton } from "@/components/VoiceTalkButton";
-import { getVoiceLabel } from "@/lib/voice-options";
 
 export const Route = createFileRoute("/_authenticated/baskan-ai-bot")({
   ssr: false,
@@ -18,13 +15,6 @@ export const Route = createFileRoute("/_authenticated/baskan-ai-bot")({
 });
 
 const GREETING = "Merhaba başkanım, size nasıl yardımcı olabilirim?";
-
-/**
- * Karşılama sesi bu süre içinde tekrar çalınmaz. Bileşen kısa aralıkla yeniden
- * mount olursa (HMR, ileri/geri gezinme) başkan aynı cümleyi iki kez duymasın.
- */
-const GREET_COOLDOWN_MS = 30_000;
-let lastGreetedAt = 0;
 
 const SUGGESTIONS = [
   "Bugünün genel durumu nedir, öne çıkan riskler neler?",
@@ -69,7 +59,8 @@ function Page() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isVoiceMode, setIsVoiceMode] = useState(true);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
@@ -114,8 +105,6 @@ function Page() {
   useEffect(() => {
     if (greeted.current) return;
     greeted.current = true;
-    if (Date.now() - lastGreetedAt < GREET_COOLDOWN_MS) return;
-    lastGreetedAt = Date.now();
 
     let retryHandler: (() => void) | null = null;
     const cleanupRetry = () => {
@@ -126,16 +115,24 @@ function Page() {
     };
 
     void (async () => {
-      if (!voiceRef.current.autoSpeak) return;
-      const played = await voiceRef.current.speakText(GREETING);
+      const v = voiceRef.current;
+      if (!v.autoSpeak) return;
+
+      // Oturumu otomatik başlat (Mikrofonu ve dinleme döngüsünü aktif eder)
+      if (!v.session) {
+        v.startSession();
+      }
+
+      const played = await v.speakText(GREETING);
       if (played) return;
+      
       retryHandler = () => {
         cleanupRetry();
         // Dokunuş turuncu düğmeye geldiyse oturum başlıyor demektir; karşılama
         // sözünü araya sokmamak için tıklamanın işlenmesini bekleyip vazgeç.
         setTimeout(() => {
-          const v = voiceRef.current;
-          if (v.autoSpeak && !v.session && !v.listening) void v.speakText(GREETING);
+          const cv = voiceRef.current;
+          if (cv.autoSpeak && !cv.session && !cv.listening) void cv.speakText(GREETING);
         }, 250);
       };
       window.addEventListener("pointerdown", retryHandler, { once: true });
@@ -145,37 +142,184 @@ function Page() {
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages, loading, voice.interim]);
 
+  const getStatusText = () => {
+    if (voice.listening) return voice.interim || "Dinliyorum başkanım...";
+    if (voice.processing || loading) return "Düşünüyorum...";
+    if (voice.speaking) return "Konuşuyorum...";
+    if (voice.session) return "Oturum açık, konuşmaya başlayabilirsiniz";
+    return "Sesli sohbeti başlatmak için logoya dokunun";
+  };
+
   return (
-    // Alt boşluk: sabit duran sesli sohbet düğmesi içeriğin üstünü örtmesin.
-    <div className="pb-36">
-      <PageHeader
-        title="Başkan AI Bot"
-        description="Yazarak veya sesli konuşarak belediye verileriniz hakkında sorular sorun."
-      />
-      <div className="grid gap-4 lg:grid-cols-4">
-        <Card className="p-4 lg:col-span-3 flex flex-col h-[70vh]">
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+    <div className="h-[calc(100vh-5rem)] flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative">
+      
+      {/* Üst Minimalist Nav Bar */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-900 flex-shrink-0 z-20">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-800 dark:text-slate-200">ALA Bot</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        </div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          {isVoiceMode ? "Sesli Odak Modu" : "Yazılı Geçmiş Modu"}
+        </div>
+      </div>
+
+      {isVoiceMode ? (
+        /* ================================================================== */
+        /* MOD 1: TAM SAYFA SESLİ ODAK MODU                                     */
+        /* ================================================================== */
+        <div className="flex-1 flex flex-col items-center justify-between p-6 relative">
+          
+          <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full">
+            {/* Ortada Dev Animasyonlu Logo */}
+            <div className="transition-all duration-300">
+              <VoiceTalkButton
+                active={voice.session}
+                listening={voice.listening}
+                processing={voice.processing || loading}
+                speaking={voice.speaking}
+                disabled={!voice.supported}
+                size={280}
+                onToggle={voice.toggleSession}
+              />
+            </div>
+            
+            {/* Durum Metni */}
+            <p className="mt-10 text-sm font-medium text-slate-500 dark:text-slate-400 text-center max-w-md min-h-[1.5rem]">
+              {getStatusText()}
+            </p>
+
+            {/* Son Konuşulanlar (Mini Transkript) */}
+            {messages.length > 1 && (
+              <div className="mt-8 flex flex-col gap-2 max-w-md text-center bg-slate-50 dark:bg-slate-900/50 px-5 py-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm z-10">
+                {/* Son Kullanıcı Sorusu */}
+                {(() => {
+                  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                  return lastUser ? (
+                    <div className="text-[11px] text-slate-400 dark:text-slate-500 italic line-clamp-2">
+                      “{lastUser.content}”
+                    </div>
+                  ) : null;
+                })()}
+                {/* Son Asistan Yanıtı */}
+                {(() => {
+                  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant" && m.content !== GREETING);
+                  return lastAssistant ? (
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-3 leading-relaxed mt-1">
+                      {lastAssistant.content}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Alt Kontrol Barı (ChatGPT Sesli Modeli Stili) */}
+          <div className="w-full max-w-xl mx-auto z-10 flex-shrink-0 pb-2">
+            <div className="flex gap-3 items-center">
+              
+              {/* Giriş Kutusu */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  voice.stopSession();
+                  void send();
+                }}
+                className="flex-1 flex gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-full items-center pl-4 pr-1.5 shadow-sm border border-slate-200/50 dark:border-slate-800"
+              >
+                <span className="text-slate-400 text-base font-medium mr-1 select-none">+</span>
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="ALA'ya sor..."
+                  disabled={loading}
+                  className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm text-slate-800 dark:text-slate-100 flex-1 h-9 p-0 placeholder:text-slate-400"
+                />
+                <Button 
+                  type="submit" 
+                  size="icon"
+                  disabled={loading || !input.trim()}
+                  className="h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </form>
+
+              {/* Mikrofon Butonu */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!voice.session) voice.startSession();
+                }}
+                disabled={!voice.supported}
+                className={`h-11 w-11 rounded-full flex items-center justify-center border transition-all ${
+                  voice.session 
+                    ? "bg-emerald-500 border-emerald-500 text-white animate-pulse" 
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"
+                }`}
+                title="Sesli Konuşmayı Başlat"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+
+              {/* Kapatma Butonu (Siyah X) */}
+              <button
+                type="button"
+                onClick={() => {
+                  voice.stopSession();
+                  setIsVoiceMode(false);
+                }}
+                className="h-11 w-11 rounded-full bg-black hover:bg-slate-900 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+                title="Geçmişe Dön"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ================================================================== */
+        /* MOD 2: TAM SAYFA YAZILI GEÇMİŞ MODU                                   */
+        /* ================================================================== */
+        <div className="flex-1 flex flex-col justify-between p-6 relative overflow-hidden">
+          
+          {/* Mesajlar Listesi (Çerçevesiz, düz ve temiz iMessage/ChatGPT stili) */}
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto space-y-6 pr-2 mb-4 scroll-smooth max-w-2xl mx-auto w-full"
+          >
             {messages.map((m, i) => (
               <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
                 <div
-                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}
+                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+                    m.role === "user" 
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200" 
+                      : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
+                  }`}
                 >
                   {m.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-slate-800 text-slate-100"}`}
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
+                    m.role === "user" 
+                      ? "bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tr-none" 
+                      : "bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-none shadow-sm"
+                  }`}
                 >
                   <MarkdownText text={m.content} />
                   {m.role === "assistant" && i > 0 && (
                     <button
                       onClick={() => voice.speakText(m.content)}
-                      className="mt-2 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+                      className="mt-2.5 flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                       title="Bu cevabı sesli dinle"
                     >
-                      <Volume2 className="h-3 w-3" /> Dinle
+                      <Volume2 className="h-3.5 w-3.5" /> Dinle
                     </button>
                   )}
                 </div>
@@ -183,120 +327,92 @@ function Page() {
             ))}
 
             {voice.listening && (
-              <div className="flex items-center gap-2 text-sm text-emerald-400">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-500 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+              <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium pl-11">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                 </span>
-                {voice.interim || "Dinliyorum başkanım..."}
+                {voice.interim || "Dinleniyor..."}
               </div>
             )}
             {voice.processing && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Sesiniz yazıya çevriliyor...
+              <div className="flex items-center gap-2 text-xs text-slate-400 pl-11">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Ses çözümleniyor...
               </div>
             )}
             {loading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Cevap üretiliyor...
+              <div className="flex items-center gap-2 text-xs text-slate-400 pl-11">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> ALA yanıt hazırlıyor...
               </div>
             )}
-            {voice.error && <div className="text-sm text-red-400">{voice.error}</div>}
-            <div ref={scrollRef} />
+            {voice.error && <div className="text-xs text-red-500 pl-11">{voice.error}</div>}
           </div>
 
-          <div className="border-t pt-3 mt-3 space-y-3">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                // Yazıya geçildi: sesli oturumu kapat, ikisi çakışmasın.
-                voice.stopSession();
-                void send();
-              }}
-              className="flex gap-2"
-            >
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Sorunuzu yazın..."
-                disabled={loading}
-              />
-              <Button type="submit" disabled={loading || !input.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </form>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={voice.autoSpeak ? "default" : "outline"}
-                onClick={() => voice.setAutoSpeak(!voice.autoSpeak)}
-                title="Cevapları sesli oku"
-                className="text-xs"
-              >
-                {voice.autoSpeak ? (
-                  <Volume2 className="mr-1 h-3 w-3" />
-                ) : (
-                  <VolumeX className="mr-1 h-3 w-3" />
-                )}
-                Sesli cevap {voice.autoSpeak ? "açık" : "kapalı"} ·{" "}
-                {getVoiceLabel(voice.activeVoice)}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={voice.speaking ? "destructive" : "outline"}
-                onClick={() => {
-                  // Sesli oturumu da kapat, yoksa döngü hemen yeni bir tura
-                  // geçip tekrar konuşmaya başlar. stopSession sesi de keser.
-                  voice.stopSession();
+          {/* Alt Giriş Barı ve ALA Logosu */}
+          <div className="w-full max-w-2xl mx-auto flex-shrink-0 border-t border-slate-100 dark:border-slate-900 pt-4 pb-2 bg-white dark:bg-slate-950">
+            <div className="flex gap-3 items-center">
+              
+              {/* Giriş Kutusu */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void send();
                 }}
-                title="Konuşmayı kes"
-                className="text-xs"
+                className="flex-1 flex gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-full items-center pl-4 pr-1.5 shadow-sm border border-slate-200/50 dark:border-slate-800"
               >
-                <Square className="mr-1 h-3 w-3" /> Sesi kes
-              </Button>
-              {!voice.supported && (
-                <span className="col-span-2 text-xs text-muted-foreground">
-                  Sesli giriş için Chrome, Edge veya Safari kullanın.
-                </span>
-              )}
+                <span className="text-slate-400 text-base font-medium mr-1 select-none">+</span>
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Sorunuzu yazın..."
+                  disabled={loading}
+                  className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm text-slate-800 dark:text-slate-100 flex-1 h-9 p-0 placeholder:text-slate-400"
+                />
+                <Button 
+                  type="submit" 
+                  size="icon"
+                  disabled={loading || !input.trim()}
+                  className="h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </form>
+
+              {/* Mikrofon Butonu (Yazılı modda sesli girişi tetikler) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVoiceMode(true);
+                  if (!voice.session) voice.startSession();
+                }}
+                disabled={!voice.supported}
+                className="h-11 w-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                title="Sesli Girişi Başlat"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+
+              {/* Bizim Logo Butonumuz (Mavi dalga ikonu yerine logomuza tıklayınca Sesli Odak Moduna geçiş) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVoiceMode(true);
+                  if (!voice.session) voice.toggleSession();
+                }}
+                className="h-11 w-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 flex items-center justify-center p-1.5 shadow-md transition-transform hover:scale-105 active:scale-95"
+                title="ALA Sesli Odak Modunu Aç"
+              >
+                <img 
+                  src="/alalogo.png" 
+                  alt="ALA Sesli" 
+                  className="h-full w-full object-contain"
+                />
+              </button>
+
             </div>
           </div>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="mb-3 font-semibold text-sm">Örnek Sorular</h3>
-          <div className="space-y-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => void send(s)}
-                disabled={loading}
-                className="w-full rounded-md border p-2 text-left text-xs hover:bg-muted transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* Sesli sohbet düğmesi ekranın altına sabit: sayfa kaydırılsa da hep erişilebilir. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center">
-        <div className="pointer-events-auto">
-          <VoiceTalkButton
-            active={voice.session}
-            listening={voice.listening}
-            processing={voice.processing}
-            speaking={voice.speaking}
-            disabled={!voice.supported}
-            size={300}
-            onToggle={voice.toggleSession}
-          />
         </div>
-      </div>
+      )}
     </div>
   );
 }

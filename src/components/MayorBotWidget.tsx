@@ -43,6 +43,26 @@ function MarkdownText({ text }: { text: string }) {
 }
 
 export function MayorBotWidget() {
+  const [isBotPage, setIsBotPage] = useState(false);
+
+  useEffect(() => {
+    const checkPath = () => {
+      if (typeof window !== "undefined") {
+        setIsBotPage(window.location.pathname.includes("/baskan-ai-bot"));
+      }
+    };
+    checkPath();
+
+    // Sayfa geçişlerini (popstate ve tıklamaları) dinle
+    window.addEventListener("popstate", checkPath);
+    window.addEventListener("click", checkPath);
+
+    return () => {
+      window.removeEventListener("popstate", checkPath);
+      window.removeEventListener("click", checkPath);
+    };
+  }, []);
+
   const ask = useServerFn(askMayorBot);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
@@ -102,23 +122,36 @@ export function MayorBotWidget() {
     if (!isOpen) voiceRef.current.stopSession();
   }, [isOpen]);
 
+  if (isBotPage) {
+    return null;
+  }
+
   return (
     <>
       {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <Button
+        <button
           onClick={() => setIsOpen(!isOpen)}
-          size="icon"
-          className="h-16 w-16 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground relative"
+          className="h-16 w-24 flex items-center justify-center bg-transparent border-none outline-none p-0 cursor-pointer transition-transform hover:scale-105 active:scale-95 drop-shadow-md relative"
         >
-          {isOpen ? <X className="h-7 w-7" /> : <Bot className="h-7 w-7" />}
+          {isOpen ? (
+            <div className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-primary-foreground shadow-lg">
+              <X className="h-6 w-6" />
+            </div>
+          ) : (
+            <img 
+              src="/alalogo.png" 
+              alt="Ala Bot" 
+              className="h-full w-full object-contain" 
+            />
+          )}
           {!isOpen && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5">
+            <span className="absolute top-1 right-2 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-5 w-5 bg-accent"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-accent"></span>
             </span>
           )}
-        </Button>
+        </button>
       </div>
 
       {/* Chat Window */}
@@ -256,7 +289,7 @@ export function MayorBotWidget() {
               <VoiceTalkButton
                 active={voice.session}
                 listening={voice.listening}
-                processing={voice.processing}
+                processing={voice.processing || loading}
                 speaking={voice.speaking}
                 disabled={!voice.supported}
                 size={360}

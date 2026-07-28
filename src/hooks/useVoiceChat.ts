@@ -282,9 +282,21 @@ export function useVoiceChat(opts: {
     }
   }, [transcribe, finish]);
 
+  /** Sessizlik sonrası kaç ms beklenecek (kullanıcı nefes alıp devam edebilsin). */
+  const SILENCE_TIMEOUT_MS = 2500;
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
   const startListening = useCallback(() => {
     setError(null);
     stopSpeaking();
+    clearSilenceTimer();
     const Ctor = getRecognitionCtor();
     if (!Ctor) {
       void startMediaRecorder();
@@ -293,10 +305,13 @@ export function useVoiceChat(opts: {
     try {
       const rec: Recognition = new Ctor();
       rec.lang = "tr-TR";
-      rec.continuous = false;
+      rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
       finalRef.current = "";
+
+      /** Kullanıcının manuel olarak durdurduğunu izlemek için bayrak. */
+      let manualStop = false;
 
       rec.onresult = (ev: any) => {
         let live = "";
@@ -306,8 +321,19 @@ export function useVoiceChat(opts: {
           else live += r[0].transcript;
         }
         setInterim(finalRef.current + live);
+
+        // Her yeni konuşma algılandığında sessizlik zamanlayıcısını sıfırla.
+        // Kullanıcı nefes alıp devam ederse zamanlayıcı yeniden başlar.
+        clearSilenceTimer();
+        silenceTimerRef.current = setTimeout(() => {
+          silenceTimerRef.current = null;
+          // Sessizlik süresi doldu — biriken transcript'i gönder.
+          manualStop = true;
+          try { rec.stop(); } catch { /* yoksay */ }
+        }, SILENCE_TIMEOUT_MS);
       };
       rec.onerror = (ev: any) => {
+        clearSilenceTimer();
         if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
           sessionRef.current = false;
           setSession(false);
@@ -318,6 +344,7 @@ export function useVoiceChat(opts: {
         setListening(false);
       };
       rec.onend = () => {
+        clearSilenceTimer();
         recRef.current = null;
         finish(finalRef.current);
       };
@@ -329,11 +356,12 @@ export function useVoiceChat(opts: {
     } catch {
       void startMediaRecorder();
     }
-  }, [stopSpeaking, startMediaRecorder, finish]);
+  }, [stopSpeaking, startMediaRecorder, finish, clearSilenceTimer]);
 
   startListeningRef.current = startListening;
 
   const stopListening = useCallback(() => {
+    clearSilenceTimer();
     if (recRef.current) {
       try {
         recRef.current.stop();
@@ -347,11 +375,12 @@ export function useVoiceChat(opts: {
       mediaRef.current = null;
     }
     setListening(false);
-  }, []);
+  }, [clearSilenceTimer]);
 
   /* ------------------------- OTURUM KONTROLÜ ------------------------- */
 
   const stopSession = useCallback(() => {
+    clearSilenceTimer();
     // Sıra numarasını ilerlet: uçuşta olan turların devamı bu oturuma ait
     // sayılmaz, kapattıktan sonra kendiliğinden yeniden dinlemeye geçemezler.
     sessionGen.current += 1;
@@ -373,7 +402,7 @@ export function useVoiceChat(opts: {
       mediaRef.current = null;
     }
     setListening(false);
-  }, [stopSpeaking]);
+  }, [stopSpeaking, clearSilenceTimer]);
 
   const startSession = useCallback(() => {
     // Önce eskiyi tamamen kapat: yarım kalmış tur varsa yeni oturuma sızmasın.
