@@ -112,7 +112,6 @@ export function VoiceTalkButton({
           // köşelerinde beyaz kutu ile düğme rengi arasında dikiş görünür.
           logoMissing ? "bg-[#ff6b00]" : "bg-white",
           active ? "ring-4 ring-[#ff6b00]/40" : "",
-          listening ? "brightness-90" : "",
           disabled
             ? "cursor-not-allowed opacity-50"
             : "cursor-pointer hover:brightness-105 active:scale-95 active:shadow-md",
