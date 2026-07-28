@@ -96,11 +96,13 @@ function resolveVoice(requested?: string): string {
     (requested ? findVoiceOption(requested) : undefined) ??
     (process.env.MAYOR_TTS_VOICE ? findVoiceOption(process.env.MAYOR_TTS_VOICE) : undefined);
   const resolvedId = option?.id ?? FALLBACK_VOICE;
-  
+
   // OpenAI API'sinin standart olarak desteklediği seslere güvenli eşleme
   const mappedVoice = TTS_VOICE_MAP[resolvedId] ?? "alloy";
-  
-  console.log(`[TTS Debug] resolveVoice: requested="${requested}", env="${process.env.MAYOR_TTS_VOICE}", resolvedId="${resolvedId}", mappedTo="${mappedVoice}"`);
+
+  console.log(
+    `[TTS Debug] resolveVoice: requested="${requested}", env="${process.env.MAYOR_TTS_VOICE}", resolvedId="${resolvedId}", mappedTo="${mappedVoice}"`,
+  );
   return mappedVoice;
 }
 
@@ -133,10 +135,14 @@ export const synthesizeSpeech = createServerFn({ method: "POST" })
       // konuşmuyor" diyor ve sebebi görünmez oluyordu.
       console.error("TTS failed", e);
       // İstemci yanlış bir sesle konuşmak yerine sessiz kalıp hatayı gösterir.
+      const detail = String(e?.message ?? "");
+      const isQuota = e?.statusCode === 429 || /quota|rate limit|insufficient/i.test(detail);
       return {
         audioBase64: null as string | null,
         mediaType: null as string | null,
-        error: (e?.message as string) ?? "Ses üretilemedi.",
+        error: isQuota
+          ? "Yapay zeka servisinin kullanım kotası dolduğu için sesli cevap verilemiyor."
+          : ((e?.message as string) ?? "Ses üretilemedi."),
       };
     }
   });

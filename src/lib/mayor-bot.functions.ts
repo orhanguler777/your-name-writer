@@ -128,6 +128,20 @@ SESLİ KONUŞMA MODU AKTİF: Cevabın yüksek sesle okunacak.
 
       return { answer };
     } catch (e: any) {
+      // Hata hiç loglanmıyordu: OpenAI kotası tükendiğinde (429
+      // insufficient_quota) kullanıcı sessizce veritabanı özetini alıyor,
+      // "neden AI cevabı gelmiyor" sorusunun izi hiçbir yerde görünmüyordu.
+      console.error("Mayor bot LLM call failed", e);
+
+      const detail = String(e?.message ?? "");
+      const isQuota = e?.statusCode === 429 || /quota|rate limit|insufficient/i.test(detail);
+      if (isQuota) {
+        return {
+          answer:
+            "Başkanım, yapay zeka servisinin kullanım kotası dolduğu için şu an detaylı analiz yapamıyorum. Sistem yöneticisinin OpenAI bakiyesini kontrol etmesi gerekiyor. Bu arada eldeki verilerin özeti:\n\n" +
+            buildLocalAnswer(question, facts),
+        };
+      }
       return { answer: buildLocalAnswer(question, facts) };
     }
   });
