@@ -75,41 +75,23 @@ const FALLBACK_VOICE = "ash";
 /**
  * İstemciden gelen ses kimliğini doğrular. Tanınmayan bir değer TTS çağrısını
  * hataya düşürür, o yüzden bilinmeyen kimlikleri sessizce varsayılana çeviriyoruz.
+ *
+ * Seçilen ses kimliği doğrudan API'ye gider. Bir ara eşleme tablosu eklenip
+ * ash/ballad/verse/sage/coral eski seslere (alloy/onyx/echo/shimmer/nova)
+ * çevriliyordu; bu, Ayarlar'dan seçilen sesi işlevsiz bırakıyordu — "Ahmet"i
+ * seçen kullanıcı alloy duyuyordu. Bu sesler gpt-4o-mini-tts ile destekleniyor
+ * ve her biri farklı ses üretiyor (ölçüldü), eşlemeye gerek yok.
  */
-const TTS_VOICE_MAP: Record<string, string> = {
-  // Erkek sesler -> Standart OpenAI Erkek Sesleri
-  ash: "alloy",
-  ballad: "onyx",
-  verse: "echo",
-  onyx: "onyx",
-  echo: "echo",
-  alloy: "alloy",
-  // Kadın sesler -> Standart OpenAI Kadın Sesleri
-  sage: "shimmer",
-  coral: "nova",
-  nova: "nova",
-  shimmer: "shimmer",
-};
-
 function resolveVoice(requested?: string): string {
   const option =
     (requested ? findVoiceOption(requested) : undefined) ??
     (process.env.MAYOR_TTS_VOICE ? findVoiceOption(process.env.MAYOR_TTS_VOICE) : undefined);
-  const resolvedId = option?.id ?? FALLBACK_VOICE;
-
-  // OpenAI API'sinin standart olarak desteklediği seslere güvenli eşleme
-  const mappedVoice = TTS_VOICE_MAP[resolvedId] ?? "alloy";
-
-  console.log(
-    `[TTS Debug] resolveVoice: requested="${requested}", env="${process.env.MAYOR_TTS_VOICE}", resolvedId="${resolvedId}", mappedTo="${mappedVoice}"`,
-  );
-  return mappedVoice;
+  return option?.id ?? FALLBACK_VOICE;
 }
 
 export const synthesizeSpeech = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => SpeakInput.parse(i))
   .handler(async ({ data }) => {
-    console.log("[TTS Debug] synthesizeSpeech received data:", data);
     if (!process.env.OPENAI_API_KEY) {
       return {
         audioBase64: null as string | null,
