@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Loader2, Send, User, Volume2, Mic, X } from "lucide-react";
+import { Bot, Loader2, Send, User, Volume2, Mic, X, Menu } from "lucide-react";
 import { askMayorBot } from "@/lib/mayor-bot.functions";
 import { useVoiceChat } from "@/hooks/useVoiceChat";
 import { VoiceTalkButton } from "@/components/VoiceTalkButton";
@@ -60,9 +60,23 @@ function Page() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const getLogoSize = () => {
+    if (windowWidth < 768) return 250;   // Mobil
+    if (windowWidth < 1024) return 380;  // Tablet (iPad)
+    return 460;                         // Masaüstü / Büyük Ekran
+  };
 
   const send = useCallback(
     async (text?: string, opts?: { voice?: boolean }) => {
@@ -160,7 +174,14 @@ function Page() {
       
       {/* Üst Minimalist Nav Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-900 flex-shrink-0 z-20">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("toggle-sidebar"))}
+            className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors flex items-center justify-center"
+            title="Menüyü Aç"
+          >
+            <Menu className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+          </button>
           <span className="font-semibold text-slate-800 dark:text-slate-200">ALA Bot</span>
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
         </div>
@@ -184,7 +205,7 @@ function Page() {
                 processing={voice.processing || loading}
                 speaking={voice.speaking}
                 disabled={!voice.supported}
-                size={280}
+                size={getLogoSize()}
                 onToggle={voice.toggleSession}
               />
             </div>

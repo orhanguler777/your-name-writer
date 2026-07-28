@@ -102,6 +102,14 @@ function AuthedLayout() {
     navigate({ to: "/auth", replace: true });
   };
 
+  const isBotRoute = pathname === "/baskan-ai-bot";
+
+  useEffect(() => {
+    const handleToggle = () => setMobileOpen((v) => !v);
+    window.addEventListener("toggle-sidebar", handleToggle);
+    return () => window.removeEventListener("toggle-sidebar", handleToggle);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -114,9 +122,9 @@ function AuthedLayout() {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-sidebar text-sidebar-foreground transition-transform md:relative md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-sidebar text-sidebar-foreground transition-transform ${
+          isBotRoute ? "" : "md:relative md:translate-x-0"
+        } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-bold">
@@ -153,52 +161,54 @@ function AuthedLayout() {
         </nav>
       </aside>
 
-      {mobileOpen && (
+      {(mobileOpen || isBotRoute) && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          className="fixed inset-0 z-30 bg-black/50"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Main */}
       <div className="flex flex-1 flex-col min-w-0">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card px-4 md:px-6">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden shrink-0"
-              onClick={() => setMobileOpen((v) => !v)}
-            >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            <div className="flex flex-col leading-tight min-w-0">
-              <span className="hidden sm:block text-xs uppercase tracking-wider text-muted-foreground">
-                Belediye AI Modülü
-              </span>
-              <span className="font-display font-semibold truncate text-sm sm:text-base">
-                Yapay Zeka Destekli Yönetim Paneli
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="hidden text-right sm:block">
-              <div className="text-sm font-medium">
-                {profile?.full_name || profile?.email || "Kullanıcı"}
-              </div>
-              <div className="text-[11px] text-muted-foreground font-medium">
-                {ROLE_LABELS[primaryRole] || primaryRole}
+        {!isBotRoute && (
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card px-4 md:px-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden shrink-0"
+                onClick={() => setMobileOpen((v) => !v)}
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="hidden sm:block text-xs uppercase tracking-wider text-muted-foreground">
+                  Belediye AI Modülü
+                </span>
+                <span className="font-display font-semibold truncate text-sm sm:text-base">
+                  Yapay Zeka Destekli Yönetim Paneli
+                </span>
               </div>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-              {(profile?.full_name || profile?.email || "U").charAt(0).toUpperCase()}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="hidden text-right sm:block">
+                <div className="text-sm font-medium">
+                  {profile?.full_name || profile?.email || "Kullanıcı"}
+                </div>
+                <div className="text-[11px] text-muted-foreground font-medium">
+                  {ROLE_LABELS[primaryRole] || primaryRole}
+                </div>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                {(profile?.full_name || profile?.email || "U").charAt(0).toUpperCase()}
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleLogout} title="Çıkış Yap">
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Çıkış Yap">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </header>
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6 relative">
+          </header>
+        )}
+        <main className={`flex-1 overflow-x-hidden relative ${isBotRoute ? "p-0 h-screen" : "p-4 md:p-6"}`}>
           <Outlet />
         </main>
       </div>
