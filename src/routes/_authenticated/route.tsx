@@ -161,7 +161,7 @@ function AuthedLayout() {
         </nav>
       </aside>
 
-      {(mobileOpen || isBotRoute) && (
+      {mobileOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/50"
           onClick={() => setMobileOpen(false)}
