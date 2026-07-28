@@ -147,11 +147,11 @@ function Page() {
       const v = voiceRef.current;
       if (!v.autoSpeak) return;
 
-      // Oturumu otomatik başlat (Mikrofonu ve dinleme döngüsünü aktif eder)
-      if (!v.session) {
-        v.startSession();
-      }
-
+      // Sesli oturum burada BAŞLATILMAZ: kullanıcı Alaaddin'e ya da mikrofona
+      // dokunana kadar mikrofon açılmaz. Açılışta otomatik başlatıldığında
+      // ekran doğrudan "Dinliyorum başkanım..." durumuna geçiyor ve kullanıcı
+      // hiçbir şeye dokunmadan kaydedilmeye başlandığını sanıyordu.
+      // Karşılama cümlesi yine okunur, dinleme başlamadan.
       const played = await v.speakText(GREETING);
       if (played) return;
 
