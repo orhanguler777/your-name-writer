@@ -1,15 +1,20 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Loader2, Send, User, MessageSquareText, X } from "lucide-react";
+import { Bot, Loader2, Send, User, X, Volume2, VolumeX, Square } from "lucide-react";
 import { askMayorBot } from "@/lib/mayor-bot.functions";
+import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { VoiceTalkButton } from "@/components/VoiceTalkButton";
+
+const GREETING = "Merhaba başkanım, size nasıl yardımcı olabilirim?";
 
 const SUGGESTIONS = [
-  "Fığla şikayetleri neler?",
-  "En çok şikayet alan mahalle?",
+  "Bugünün genel durumu?",
+  "Geciken şikayetler?",
+  "Riskli mahalleler?",
   "Hangi araçlar tamirde?",
 ];
 
@@ -41,48 +46,61 @@ export function MayorBotWidget() {
   const ask = useServerFn(askMayorBot);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
-    { role: "assistant", content: "Merhaba başkanım. Nasıl yardımcı olabilirim?" },
+    { role: "assistant", content: GREETING },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  const send = useCallback(
+    async (text?: string, opts?: { voice?: boolean }) => {
+      const q = (text ?? input).trim();
+      if (!q) return null;
+
+      const newHistory = [...messagesRef.current, { role: "user" as const, content: q }];
+      setMessages(newHistory);
+      setInput("");
+      setLoading(true);
+
+      try {
+        const r = await ask({
+          data: {
+            messages: newHistory.filter((m) => m.role === "user" || m.content !== GREETING),
+            voice: !!opts?.voice,
+          },
+        });
+        setMessages((m) => [...m, { role: "assistant", content: r.answer }]);
+        return r.answer;
+      } catch (e: any) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: "Üzgünüm, cevap üretilemedi: " + e.message },
+        ]);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [ask, input],
+  );
+
+  // Sesli sohbet döngüsünü hook yönetir: cevabı döndürmek yeterli.
+  const voice = useVoiceChat({ onFinalTranscript: (text) => send(text, { voice: true }) });
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
 
   useEffect(() => {
     if (scrollRef.current && isOpen) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, loading, isOpen]);
+  }, [messages, loading, isOpen, voice.interim]);
 
-  const send = async (text?: string) => {
-    const q = (text ?? input).trim();
-    if (!q) return;
-
-    const userMsg = { role: "user" as const, content: q };
-    const newHistory = [...messages, userMsg];
-
-    setMessages(newHistory);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const r = await ask({
-        data: {
-          messages: newHistory.filter(
-            (m) =>
-              m.role === "user" || m.content !== "Merhaba başkanım. Nasıl yardımcı olabilirim?",
-          ),
-        },
-      });
-      setMessages((m) => [...m, { role: "assistant", content: r.answer }]);
-    } catch (e: any) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Üzgünüm, cevap üretilemedi: " + e.message },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Pencere kapanırken sesli sohbeti tamamen kapat.
+  useEffect(() => {
+    if (!isOpen) voiceRef.current.stopSession();
+  }, [isOpen]);
 
   return (
     <>
@@ -126,9 +144,33 @@ export function MayorBotWidget() {
                   className={`rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-slate-800 text-slate-100 rounded-tl-none"}`}
                 >
                   <MarkdownText text={m.content} />
+                  {m.role === "assistant" && i > 0 && (
+                    <button
+                      onClick={() => voice.speakText(m.content)}
+                      className="mt-2 flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200"
+                      title="Sesli dinle"
+                    >
+                      <Volume2 className="h-3 w-3" /> Dinle
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
+            {voice.listening && (
+              <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-emerald-500 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
+                {voice.interim || "Dinliyorum başkanım..."}
+              </div>
+            )}
+            {voice.processing && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Sesiniz yazıya çevriliyor...
+              </div>
+            )}
+            {voice.error && <div className="text-xs text-red-500">{voice.error}</div>}
             {loading && (
               <div className="flex gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full mt-1 bg-accent text-accent-foreground">
@@ -160,7 +202,9 @@ export function MayorBotWidget() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                send();
+                // Yazıya geçildi: sesli oturumu kapat, ikisi çakışmasın.
+                voice.stopSession();
+                void send();
               }}
               className="flex gap-2"
             >
@@ -175,6 +219,50 @@ export function MayorBotWidget() {
                 <Send className="h-4 w-4" />
               </Button>
             </form>
+
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => voice.setAutoSpeak(!voice.autoSpeak)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                title="Sesli sorulara sesli cevap ver"
+              >
+                {voice.autoSpeak ? (
+                  <Volume2 className="h-3 w-3" />
+                ) : (
+                  <VolumeX className="h-3 w-3" />
+                )}
+                Sesli cevap {voice.autoSpeak ? "açık" : "kapalı"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Oturumu da kapat, yoksa döngü tekrar konuşmaya başlar.
+                  // stopSession sesi de keser.
+                  voice.stopSession();
+                }}
+                className={`flex items-center gap-1 text-[10px] ${
+                  voice.speaking
+                    ? "text-red-500 hover:text-red-600"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Konuşmayı kes"
+              >
+                <Square className="h-3 w-3" /> Sesi kes
+              </button>
+            </div>
+
+            <div className="flex justify-center pt-1">
+              <VoiceTalkButton
+                active={voice.session}
+                listening={voice.listening}
+                processing={voice.processing}
+                speaking={voice.speaking}
+                disabled={!voice.supported}
+                size={84}
+                onToggle={voice.toggleSession}
+              />
+            </div>
           </div>
         </Card>
       )}
