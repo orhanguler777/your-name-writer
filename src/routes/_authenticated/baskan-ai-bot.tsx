@@ -60,22 +60,37 @@ function Page() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(true);
-  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1024,
+  );
+  const [windowHeight, setWindowHeight] = useState(
+    typeof window !== "undefined" ? window.innerHeight : 768,
+  );
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+      setWindowHeight(window.innerHeight);
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  /**
+   * Logo hem genişliğe hem yüksekliğe sığmalı. Eskiden yalnızca genişliğe
+   * bakılıyordu; geniş ama kısa ekranlarda (tipik laptop) logo 520px olup
+   * navbar + durum metni + transkript + alt kontrol barı toplamı ekranı
+   * aşıyor, alt bar görünmez oluyordu.
+   */
   const getLogoSize = () => {
-    if (windowWidth < 768) return 280;   // Mobil
-    if (windowWidth < 1024) return 420;  // Tablet (iPad)
-    return 520;                         // Masaüstü / Büyük Ekran
+    const byWidth = windowWidth < 768 ? 280 : windowWidth < 1024 ? 420 : 520;
+    // Dikeyde diğer öğelere yer bırak; kalanın bir kısmını logoya ver.
+    const byHeight = Math.round(windowHeight * 0.4);
+    return Math.max(120, Math.min(byWidth, byHeight));
   };
 
   const send = useCallback(
@@ -139,7 +154,7 @@ function Page() {
 
       const played = await v.speakText(GREETING);
       if (played) return;
-      
+
       retryHandler = () => {
         cleanupRetry();
         // Dokunuş turuncu düğmeye geldiyse oturum başlıyor demektir; karşılama
@@ -170,8 +185,14 @@ function Page() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative">
-      
+    // Yükseklik 100dvh, h-screen (100vh) yedeğiyle: mobil tarayıcılarda adres
+    // çubuğu 100vh'yi yanılttığı için alt kontrol barı ekranın altından
+    // taşıyordu. dvh desteklenmeyen tarayıcıda inline değer geçersiz sayılır
+    // ve h-screen devreye girer.
+    <div
+      className="h-screen flex flex-col bg-white dark:bg-slate-950 overflow-hidden relative"
+      style={{ height: "100dvh" }}
+    >
       {/* Üst Minimalist Nav Bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-900 flex-shrink-0 z-20">
         <div className="flex items-center gap-3">
@@ -194,9 +215,14 @@ function Page() {
         /* ================================================================== */
         /* MOD 1: TAM SAYFA SESLİ ODAK MODU                                     */
         /* ================================================================== */
-        <div className="flex-1 flex flex-col items-center justify-between p-6 relative">
-          
-          <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-between p-4 md:p-6 relative">
+          {/*
+            min-h-0 şart: flex-1 bir öğe varsayılan olarak içeriğinden küçülemez
+            (min-height:auto). Bu yüzden logo + metin + transkript toplamı ekranı
+            aştığında alt kontrol barı dışarı itiliyor ve overflow-hidden onu
+            kesiyordu — kullanıcı ancak zoom out yapınca görebiliyordu.
+          */}
+          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-2 overflow-y-auto relative z-10">
             {/* Ortada Dev Animasyonlu Logo */}
             <div className="transition-all duration-300">
               <VoiceTalkButton
@@ -209,15 +235,15 @@ function Page() {
                 onToggle={voice.toggleSession}
               />
             </div>
-            
+
             {/* Durum Metni */}
-            <p className="mt-8 md:mt-10 text-lg md:text-2xl font-semibold text-slate-500 dark:text-slate-400 text-center max-w-xl min-h-[2rem] tracking-wide">
+            <p className="mt-4 md:mt-8 text-lg md:text-2xl font-semibold text-slate-500 dark:text-slate-400 text-center max-w-xl min-h-[2rem] tracking-wide">
               {getStatusText()}
             </p>
 
             {/* Son Konuşulanlar (Mini Transkript) */}
             {messages.length > 1 && (
-              <div className="mt-6 md:mt-8 flex flex-col gap-3 max-w-xl w-full text-center bg-slate-50 dark:bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm z-10 shadow-sm">
+              <div className="mt-3 md:mt-6 flex flex-col gap-2 md:gap-3 max-w-xl w-full text-center bg-slate-50 dark:bg-slate-900/50 px-4 py-3 md:px-6 md:py-4 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-sm z-10 shadow-sm">
                 {/* Son Kullanıcı Sorusu */}
                 {(() => {
                   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -229,7 +255,9 @@ function Page() {
                 })()}
                 {/* Son Asistan Yanıtı */}
                 {(() => {
-                  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant" && m.content !== GREETING);
+                  const lastAssistant = [...messages]
+                    .reverse()
+                    .find((m) => m.role === "assistant" && m.content !== GREETING);
                   return lastAssistant ? (
                     <div className="text-sm md:text-lg font-semibold text-slate-700 dark:text-slate-300 line-clamp-4 leading-relaxed mt-1.5">
                       {lastAssistant.content}
@@ -243,7 +271,6 @@ function Page() {
           {/* Alt Kontrol Barı (ChatGPT Sesli Modeli Stili) */}
           <div className="w-full max-w-2xl mx-auto z-10 flex-shrink-0 pb-4 px-2">
             <div className="flex gap-3 md:gap-4 items-center">
-              
               {/* Giriş Kutusu */}
               <form
                 onSubmit={(e) => {
@@ -261,8 +288,8 @@ function Page() {
                   disabled={loading}
                   className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base md:text-lg text-slate-800 dark:text-slate-100 flex-1 h-10 md:h-11 p-0 placeholder:text-slate-400"
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   size="icon"
                   disabled={loading || !input.trim()}
                   className="h-10 w-10 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
@@ -279,8 +306,8 @@ function Page() {
                 }}
                 disabled={!voice.supported}
                 className={`h-12 w-12 md:h-14 md:w-14 rounded-full flex items-center justify-center border transition-all ${
-                  voice.session 
-                    ? "bg-emerald-500 border-emerald-500 text-white animate-pulse" 
+                  voice.session
+                    ? "bg-emerald-500 border-emerald-500 text-white animate-pulse"
                     : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"
                 }`}
                 title="Sesli Konuşmayı Başlat"
@@ -300,7 +327,6 @@ function Page() {
               >
                 <X className="h-6 w-6" />
               </button>
-
             </div>
           </div>
         </div>
@@ -309,9 +335,8 @@ function Page() {
         /* MOD 2: TAM SAYFA YAZILI GEÇMİŞ MODU                                   */
         /* ================================================================== */
         <div className="flex-1 flex flex-col justify-between p-6 relative overflow-hidden">
-          
           {/* Mesajlar Listesi (Çerçevesiz, düz ve temiz iMessage/ChatGPT stili) */}
-          <div 
+          <div
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto space-y-6 pr-2 mb-4 scroll-smooth max-w-2xl mx-auto w-full"
           >
@@ -319,8 +344,8 @@ function Page() {
               <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
                 <div
                   className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
-                    m.role === "user" 
-                      ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200" 
+                    m.role === "user"
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                       : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
                   }`}
                 >
@@ -328,8 +353,8 @@ function Page() {
                 </div>
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
-                    m.role === "user" 
-                      ? "bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tr-none" 
+                    m.role === "user"
+                      ? "bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tr-none"
                       : "bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-none shadow-sm"
                   }`}
                 >
@@ -372,7 +397,6 @@ function Page() {
           {/* Alt Giriş Barı ve ALA Logosu */}
           <div className="w-full max-w-2xl mx-auto flex-shrink-0 border-t border-slate-100 dark:border-slate-900 pt-4 pb-2 bg-white dark:bg-slate-950">
             <div className="flex gap-3 items-center">
-              
               {/* Giriş Kutusu */}
               <form
                 onSubmit={(e) => {
@@ -389,8 +413,8 @@ function Page() {
                   disabled={loading}
                   className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm text-slate-800 dark:text-slate-100 flex-1 h-9 p-0 placeholder:text-slate-400"
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   size="icon"
                   disabled={loading || !input.trim()}
                   className="h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-slate-300 text-white dark:text-black flex-shrink-0"
@@ -423,13 +447,8 @@ function Page() {
                 className="h-11 w-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 flex items-center justify-center p-1.5 shadow-md transition-transform hover:scale-105 active:scale-95"
                 title="ALA Sesli Odak Modunu Aç"
               >
-                <img 
-                  src="/alalogo.png" 
-                  alt="ALA Sesli" 
-                  className="h-full w-full object-contain"
-                />
+                <img src="/alalogo.png" alt="ALA Sesli" className="h-full w-full object-contain" />
               </button>
-
             </div>
           </div>
         </div>
