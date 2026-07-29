@@ -107,7 +107,12 @@ function Detail() {
   const [newStatus, setNewStatus] = useState("");
   const [newPriority, setNewPriority] = useState("");
 
-  const isUstYonetimOrCozum = hasAnyRole("admin", "baskan", "cozum_masasi");
+  // "superuser" da dahil: hasAnyRole ham user_roles kaydına bakar, useAuth'un
+  // admin -> superuser normalizasyonunu görmez. Veritabanında admin rolü olan
+  // kimse yok (sistem yöneticisi superuser), bu yüzden liste eksik kaldığında
+  // sistem yöneticisi durum güncelleme / öncelik / vatandaşa soru aksiyonlarını
+  // hiç göremiyordu.
+  const isUstYonetimOrCozum = hasAnyRole("admin", "superuser", "baskan", "cozum_masasi");
   const isOwnDepartment =
     hasAnyRole("mudurluk", "mudur", "sef") &&
     c?.assigned_department_id &&
@@ -307,22 +312,20 @@ function Detail() {
                     );
                   } else if (a.file_type === "video") {
                     return (
-                      <div key={a.id} className="relative rounded-lg border bg-muted overflow-hidden h-40">
-                        <video
-                          src={a.file_url}
-                          controls
-                          className="h-full w-full object-cover"
-                        />
+                      <div
+                        key={a.id}
+                        className="relative rounded-lg border bg-muted overflow-hidden h-40"
+                      >
+                        <video src={a.file_url} controls className="h-full w-full object-cover" />
                       </div>
                     );
                   } else if (a.file_type === "audio") {
                     return (
-                      <div key={a.id} className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted p-2">
-                        <audio
-                          src={a.file_url}
-                          controls
-                          className="w-full max-w-full"
-                        />
+                      <div
+                        key={a.id}
+                        className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border bg-muted p-2"
+                      >
+                        <audio src={a.file_url} controls className="w-full max-w-full" />
                         <span className="text-xs text-muted-foreground">Ses Kaydı</span>
                       </div>
                     );

@@ -140,7 +140,8 @@ function List() {
         title="Şikayetler"
         description="Sistemdeki tüm şikayet ve talepleri görüntüleyin."
         actions={
-          hasAnyRole("vatandas", "cozum_masasi", "admin") && (
+          // "superuser" da dahil — bkz. sikayetler.$id.tsx'teki aynı not.
+          hasAnyRole("vatandas", "cozum_masasi", "admin", "superuser") && (
             <Button asChild>
               <Link to="/sikayet-olustur">
                 <Plus className="h-4 w-4 mr-1" /> Yeni Şikayet
